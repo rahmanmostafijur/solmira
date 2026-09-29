@@ -2,10 +2,14 @@ import type { Permission } from '@solmira/contracts';
 import {
   Activity,
   Building2,
+  FolderTree,
   LayoutDashboard,
+  Package,
   ShieldCheck,
   SlidersHorizontal,
+  Truck,
   Users,
+  Warehouse,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -29,6 +33,44 @@ export const NAVIGATION: readonly NavSection[] = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/organizations', label: 'Organizations', icon: Building2 },
+    ],
+  },
+  {
+    title: 'Catalog',
+    items: [
+      {
+        href: '/products',
+        label: 'Products',
+        icon: Package,
+        permission: 'products.read',
+        requiresOrganization: true,
+      },
+      {
+        href: '/categories',
+        label: 'Categories',
+        icon: FolderTree,
+        permission: 'categories.read',
+        requiresOrganization: true,
+      },
+      {
+        href: '/suppliers',
+        label: 'Suppliers',
+        icon: Truck,
+        permission: 'suppliers.read',
+        requiresOrganization: true,
+      },
+    ],
+  },
+  {
+    title: 'Operations',
+    items: [
+      {
+        href: '/warehouses',
+        label: 'Warehouses',
+        icon: Warehouse,
+        permission: 'warehouses.read',
+        requiresOrganization: true,
+      },
     ],
   },
   {

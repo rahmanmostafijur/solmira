@@ -39,7 +39,14 @@ export class MembersService {
     @Inject(REVOCATION_STORE) private readonly revocations: RevocationStore,
   ) {}
 
-  async list(auth: TenantAuthContext): Promise<Member[]> {
+  /** One member of the caller's organization; another organization's member id is "not found". */
+  async get(auth: TenantAuthContext, memberId: string): Promise<Member> {
+    const [member] = await this.list(auth, memberId);
+    if (!member) throw new NotFoundError('Member not found');
+    return member;
+  }
+
+  async list(auth: TenantAuthContext, onlyMemberId?: string): Promise<Member[]> {
     return this.database.scoped(this.scope(auth), async (tx) => {
       const rows = await tx
         .select({
@@ -54,7 +61,12 @@ export class MembersService {
         .from(organizationMembers)
         .innerJoin(users, eq(users.id, organizationMembers.userId))
         .innerJoin(roles, eq(roles.id, organizationMembers.roleId))
-        .where(eq(organizationMembers.organizationId, auth.organizationId))
+        .where(
+          and(
+            eq(organizationMembers.organizationId, auth.organizationId),
+            onlyMemberId ? eq(organizationMembers.id, onlyMemberId) : undefined,
+          ),
+        )
         .orderBy(asc(organizationMembers.createdAt));
       return rows.map((row) => ({
         ...row,

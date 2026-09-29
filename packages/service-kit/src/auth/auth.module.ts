@@ -6,9 +6,9 @@ import { AccessTokenVerifier, type AccessTokenVerifierOptions } from './access-t
 import { AuthGuard } from './auth.guard.js';
 import { REVOCATION_STORE, RedisRevocationStore } from './revocation-store.js';
 
-export interface AuthModuleOptions extends AccessTokenVerifierOptions {
+export type AuthModuleOptions = AccessTokenVerifierOptions & {
   readonly accessTokenTtlSeconds: number;
-}
+};
 
 /** Registers the global AuthGuard. Requires the platform's RedisModule (revocation denylist). */
 @Module({})

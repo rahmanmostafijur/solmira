@@ -1,7 +1,7 @@
 # Tenant isolation
 
-Status: **Built** for identity-service (phase 2); every later service reuses the same
-mechanism. Decisions: [ADR-0006](../adr/0006-multi-tenancy-shared-schema.md),
+Status: **Built** for identity-service (phase 2) and operations-service (phase 3); every later
+service reuses the same mechanism. Decisions: [ADR-0006](../adr/0006-multi-tenancy-shared-schema.md),
 [ADR-0012](../adr/0012-postgresql-row-level-security.md). Related: [authorization](authorization.md).
 
 ## Strategy
@@ -251,6 +251,34 @@ server-side.
 
 **Authorization: `authorization.integration.test.ts` (13 tests)** covers roles, ranks and immediate
 revocation inside one tenant; see [authorization](authorization.md).
+
+## operations-service (phase 3)
+
+The same three layers, with the schema layer now in full use:
+
+- **Context.** `Database.forTenant(auth, work)` is the only entry point to the operations database;
+  it wraps `inTenantScope`. There is no unscoped variant, because every operations table is
+  tenant-owned. The `row-level-security` readiness check guards the runtime role
+  (`operations_app`) exactly as in identity.
+- **Policies.** `categories`, `suppliers`, `warehouses`, `products`, `product_variants`,
+  `product_images` and `member_directory` each have RLS enabled and one policy
+  `FOR ALL USING (organization_id = app_current_organization_id()) WITH CHECK (same)`
+  (`drizzle/0001_tenant_security_and_search.sql`). `outbox_events` has no RLS; it is written only
+  inside tenant transactions and read by the relay (phase 7).
+- **Composite foreign keys.** Every reference is `(organization_id, <ref>_id) → (organization_id, id)`:
+  product → category, product → supplier, variant → product, image → product, category → parent,
+  warehouse → `member_directory` (manager). Because the constraint includes `organization_id`, a
+  row can only point at a row of its own organization. This holds for the owner role too, which
+  RLS does not constrain.
+- **Storage keys** carry the tenant too: image keys must start with
+  `organizations/{organization_id}/products/{product_id}/` (`product_images_key_prefix_check`).
+- **Cross-service ids.** A warehouse manager id is checked with identity using the caller's own
+  token, then recorded in `member_directory` for the composite key (ADR-0016).
+- **Tests.** `test/database.integration.test.ts` (26) proves RLS on all seven tables and the
+  composite keys at the database level; `test/catalog-isolation.integration.test.ts` (15) and the
+  cross-tenant cases in `test/images.integration.test.ts` prove it over HTTP: organization B cannot
+  list, read, update, delete, reference or extend organization A's records, and gets `404` for
+  A's ids.
 
 ## Known limitations
 

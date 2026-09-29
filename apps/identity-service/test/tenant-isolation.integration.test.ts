@@ -160,6 +160,25 @@ describe('tenant isolation through the API', () => {
       expect(real.body.error.message).toBe(random.body.error.message);
     });
 
+    it("cannot look up B's members by id, through B's path or her own", async () => {
+      await t
+        .http()
+        .get(`/api/v1/organizations/${orgB}/members/${beaMemberId}`)
+        .set(asAlice())
+        .expect(404);
+      await t
+        .http()
+        .get(`/api/v1/organizations/${orgA}/members/${beaMemberId}`)
+        .set(asAlice())
+        .expect(404);
+      const own = await t
+        .http()
+        .get(`/api/v1/organizations/${orgA}/members/${await memberIdOf(t, orgA, alice.userId)}`)
+        .set(asAlice())
+        .expect(200);
+      expect(own.body).toMatchObject({ userId: alice.userId, role: 'OWNER' });
+    });
+
     it('cannot switch into B without a membership', async () => {
       await t
         .http()

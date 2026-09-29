@@ -103,8 +103,8 @@ The browser talks only to the gateway origin, so there is no CORS surface in pro
 
 Strategy: **shared database, shared schema, `organization_id` on every tenant-owned row** (ADR-0006, ADR-0012).
 
-Status: **Built** for identity-service (layers 1 and 3 below); composite foreign keys arrive with
-the first cross-referencing tenant tables in phase 3. Full description:
+Status: **Built** for identity-service and operations-service. All three layers below are in
+place; operations uses composite foreign keys for every catalog reference (phase 3). Full description:
 [`docs/architecture/tenant-isolation.md`](docs/architecture/tenant-isolation.md).
 
 | Option                        | Isolation | Cost / ops                          | Verdict                                                  |
@@ -135,6 +135,22 @@ token into every transaction, where RLS enforces it.
 - [`docs/architecture/tenant-isolation.md`](docs/architecture/tenant-isolation.md): how tenant context reaches the database, RLS policies, tests
 - ADRs [0010](docs/adr/0010-authentication-strategy.md), [0011](docs/adr/0011-refresh-token-rotation.md), [0012](docs/adr/0012-postgresql-row-level-security.md); overview in [`SECURITY.md`](SECURITY.md)
 
+## 6a. Catalog, suppliers and warehouses (Phase 3)
+
+Status: **Built** in operations-service. Products with variants (SKU unique per organization among
+live variants), a three-level category tree, suppliers, warehouses with managers verified against
+identity, and product images in a private S3 bucket (MinIO locally) served through 5-minute
+signed URLs. Nothing is hard-deleted except empty categories; products, variants, suppliers and
+warehouses have status lifecycles. Lists offer search (PostgreSQL trigram indexes), filters,
+sorting and offset pagination. Every write records a catalog event in the outbox.
+
+operations-service verifies access tokens with identity's public JWKS and never holds the signing
+key. It calls identity only to verify a warehouse manager, forwarding the caller's own token.
+
+- [`docs/architecture/catalog.md`](docs/architecture/catalog.md): tables, constraints, indexes, API, rules, events, console, tests
+- [`docs/architecture/object-storage.md`](docs/architecture/object-storage.md): storage port, upload and read flows, security properties
+- ADRs [0013](docs/adr/0013-catalog-modeling.md), [0014](docs/adr/0014-object-storage-abstraction.md), [0015](docs/adr/0015-sku-uniqueness.md), [0016](docs/adr/0016-warehouses-and-managers.md), [0017](docs/adr/0017-product-image-storage.md)
+
 ## 7. Data model (planned; built phase by phase)
 
 Conventions: UUIDv7 primary keys generated in the application (time-ordered, index friendly,
@@ -148,12 +164,16 @@ and a `version` column where optimistic concurrency is used.
 (email verification and password reset, by `purpose`), `outbox_events`.
 Tokens are stored only as SHA-256 hashes.
 
-**operations DB**:
+**operations DB**: built so far (phase 3): `categories`, `suppliers`, `warehouses`, `products`,
+`product_variants`, `product_images`, `member_directory`, `outbox_events` (see
+[catalog.md](docs/architecture/catalog.md)). The full target model:
 
 ```mermaid
 erDiagram
+  categories ||--o{ products : groups
   suppliers ||--o{ products : supplies
   products ||--|{ product_variants : has
+  products ||--o{ product_images : shows
   warehouses ||--o{ inventory : stocks
   product_variants ||--o{ inventory : "stocked as"
   inventory ||--o{ inventory_movements : "changed by"
@@ -217,15 +237,16 @@ batches with `FOR UPDATE SKIP LOCKED` so relay replicas never double-claim. Cons
 idempotent: they insert `(consumer, event_id)` into `processed_events` in the same transaction as
 their side effect, so a redelivered event is a no-op.
 
-| Event                                                             | Producer     | Consumers                                          |
-| ----------------------------------------------------------------- | ------------ | -------------------------------------------------- |
-| `member.invited`, `member.role_changed`                           | identity     | notification, audit                                |
-| `order.created` / `.confirmed` / `.cancelled` / `.status_changed` | operations   | notification, analytics, audit                     |
-| `inventory.reserved` / `.released` / `.adjusted` / `.transferred` | operations   | operations (low-stock evaluator), analytics, audit |
-| `inventory.low_stock`                                             | operations   | notification, analytics                            |
-| `purchase_order.created` / `.received`                            | operations   | notification, analytics, audit                     |
-| `shipment.created` / `.status_changed`                            | operations   | notification, analytics, audit                     |
-| `notification.created`                                            | notification | notification WebSocket fan-out (Redis)             |
+| Event                                                                                  | Producer     | Consumers                                                             |
+| -------------------------------------------------------------------------------------- | ------------ | --------------------------------------------------------------------- |
+| `member.invited`, `member.role_changed`                                                | identity     | notification, audit                                                   |
+| `product.*`, `variant.*`, `category.*`, `supplier.*`, `warehouse.*`, `product_image.*` | operations   | audit, analytics (from phase 7; recorded in the outbox since phase 3) |
+| `order.created` / `.confirmed` / `.cancelled` / `.status_changed`                      | operations   | notification, analytics, audit                                        |
+| `inventory.reserved` / `.released` / `.adjusted` / `.transferred`                      | operations   | operations (low-stock evaluator), analytics, audit                    |
+| `inventory.low_stock`                                                                  | operations   | notification, analytics                                               |
+| `purchase_order.created` / `.received`                                                 | operations   | notification, analytics, audit                                        |
+| `shipment.created` / `.status_changed`                                                 | operations   | notification, analytics, audit                                        |
+| `notification.created`                                                                 | notification | notification WebSocket fan-out (Redis)                                |
 
 ## 9. Order confirmation and inventory reservation (summary)
 

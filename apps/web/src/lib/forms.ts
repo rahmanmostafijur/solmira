@@ -17,3 +17,17 @@ export function applyServerError<T extends FieldValues>(
   }
   setError('root' as Path<T>, { type: 'server', message: describeError(error) });
 }
+
+/**
+ * The part of an update request the user actually changed (react-hook-form's dirty fields), so
+ * saving one field never overwrites another someone else edited meanwhile. Null when unchanged.
+ */
+export function pickDirty<T extends object>(
+  request: T,
+  dirty: Partial<Record<keyof T, unknown>>,
+): Partial<T> | null {
+  const changed = Object.fromEntries(
+    Object.entries(request).filter(([key]) => Boolean(dirty[key as keyof T])),
+  ) as Partial<T>;
+  return Object.keys(changed).length > 0 ? changed : null;
+}

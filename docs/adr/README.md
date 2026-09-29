@@ -21,6 +21,11 @@ describe.
 | 0010 | [Authentication strategy: signed access tokens and refresh sessions](0010-authentication-strategy.md) | Accepted | 2026-09-29 |
 | 0011 | [Refresh token rotation with reuse detection](0011-refresh-token-rotation.md)                         | Accepted | 2026-09-29 |
 | 0012 | [PostgreSQL Row Level Security](0012-postgresql-row-level-security.md)                                | Accepted | 2026-09-29 |
+| 0013 | [Catalog modeling: products, variants, categories and suppliers](0013-catalog-modeling.md)            | Accepted | 2026-09-30 |
+| 0014 | [Object storage behind a port, S3 API everywhere](0014-object-storage-abstraction.md)                 | Accepted | 2026-09-30 |
+| 0015 | [SKU uniqueness per organization, among live variants](0015-sku-uniqueness.md)                        | Accepted | 2026-09-30 |
+| 0016 | [Warehouses, and managers from the same organization](0016-warehouses-and-managers.md)                | Accepted | 2026-09-30 |
+| 0017 | [Product images: validated uploads and tenant-scoped keys](0017-product-image-storage.md)             | Accepted | 2026-09-30 |
 
 ## Process
 

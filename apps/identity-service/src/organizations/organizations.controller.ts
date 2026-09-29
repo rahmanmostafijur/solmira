@@ -94,6 +94,19 @@ export class OrganizationsController {
     return this.members.list(auth);
   }
 
+  /**
+   * Single member lookup. Other services call this with the caller's own token (token relay),
+   * e.g. operations-service when assigning a warehouse manager, so tenancy is enforced here.
+   */
+  @Get(':organizationId/members/:memberId')
+  @RequirePermission('users.read')
+  getMember(
+    @CurrentAuth() auth: TenantAuthContext,
+    @Param('memberId', uuidParam) memberId: string,
+  ): Promise<Member> {
+    return this.members.get(auth, memberId);
+  }
+
   /** Role changes need roles.assign, status changes users.update; checked per field. */
   @Patch(':organizationId/members/:memberId')
   @RequireOrganization()

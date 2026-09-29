@@ -67,6 +67,41 @@ services:
       timeout: 5s
       retries: 20
 
+  # S3-compatible object storage for product media (console on :9001). The application uses only
+  # the S3 API, so AWS S3 replaces this in deployed environments by configuration alone.
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    user: root
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-solmira}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-solmira_dev_minio_password}
+      MC_CONFIG_DIR: /tmp/.mc
+      MC_HOST_local: http://${MINIO_ROOT_USER:-solmira}:${MINIO_ROOT_PASSWORD:-solmira_dev_minio_password}@127.0.0.1:9000
+    ports:
+      - '${MINIO_PORT:-9000}:9000'
+      - '${MINIO_CONSOLE_PORT:-9001}:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-off: creates the private media bucket. Nothing waits on it except services that store images.
+  minio-init:
+    image: cgr.dev/chainguard/minio:latest
+    entrypoint: ['/bin/sh', '-c']
+    command:
+      - mc mb --ignore-existing local/${S3_BUCKET:-solmira-media} && mc anonymous set none local/${S3_BUCKET:-solmira-media}
+    environment:
+      MC_CONFIG_DIR: /tmp/.mc
+      MC_HOST_local: http://${MINIO_ROOT_USER:-solmira}:${MINIO_ROOT_PASSWORD:-solmira_dev_minio_password}@minio:9000
+    depends_on:
+      minio: { condition: service_healthy }
+    restart: 'no'
+
   # Development mail catcher: every email the platform sends lands here (web UI on :8025).
   # Deployed environments send through Amazon SES over the same SMTP interface.
   mailpit:
@@ -106,3 +141,4 @@ volumes:
   postgres-data:
   redis-data:
   rabbitmq-data:
+  minio-data:

@@ -23,7 +23,8 @@ Built in 12 phases; see [the roadmap](docs/ROADMAP.md).
 
 - [x] **Phase 1: Foundation.** Monorepo, five services on a shared platform layer, gateway, local infrastructure, CI, Docker images.
 - [x] **Phase 2: Identity and tenant isolation.** Registration, login, refresh-token rotation with reuse detection, sessions, password reset, organizations, invitations, permission-based RBAC, PostgreSQL Row Level Security, and integration tests proving cross-tenant access fails.
-- [ ] Phases 3–12: catalog, inventory, purchasing, orders, events, realtime, analytics, audit, testing depth, production readiness
+- [x] **Phase 3: Catalog, suppliers, warehouses and product media.** Products and variants with per-organization SKUs, a category tree, suppliers, warehouses with managers verified against identity, private S3/MinIO image storage with signed URLs, search/filter/sort/pagination, composite tenant foreign keys and RLS on every table, and a console with data tables, forms and image management.
+- [ ] Phases 4–12: inventory, purchasing, orders, events, realtime, analytics, audit, testing depth, production readiness
 
 ## Architecture at a glance
 
@@ -51,11 +52,12 @@ Requires Node.js 24, pnpm 10 and Docker.
 
 ```bash
 pnpm install
-pnpm infra:up                    # Postgres, Redis, RabbitMQ, gateway
+pnpm infra:up                    # Postgres, Redis, RabbitMQ, MinIO, gateway
 cp apps/identity-service/.env.example apps/identity-service/.env   # repeat per service
-pnpm turbo run build --filter=@solmira/identity-service...
+pnpm turbo run build --filter=@solmira/identity-service... --filter=@solmira/operations-service...
 pnpm --filter @solmira/identity-service keys:generate   # dev signing keys
 pnpm --filter @solmira/identity-service db:migrate      # schema, RLS policies, roles
+pnpm --filter @solmira/operations-service db:migrate    # catalog schema, RLS, search indexes
 pnpm dev                         # all services + web, with watch mode
 ```
 

@@ -39,7 +39,7 @@ jobs:
       - run: pnpm turbo run lint typecheck test build --cache-dir=.turbo/cache
 
   integration:
-    name: Integration tests (Postgres, Redis, RabbitMQ)
+    name: Integration tests (Postgres, Redis, RabbitMQ, MinIO)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     services:
@@ -78,11 +78,25 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+      # Service containers cannot take a command, and MinIO needs `server /data`, so it runs here.
+      # The wait is bounded: the job fails instead of hanging if MinIO never becomes ready.
+      - name: Start MinIO
+        run: |
+          docker run -d --name minio -p 9000:9000 \
+            -e MINIO_ROOT_USER=solmira -e MINIO_ROOT_PASSWORD=ci_minio_password \
+            cgr.dev/chainguard/minio:latest server /data
+          timeout 60 bash -c 'until curl -sf http://localhost:9000/minio/health/ready; do sleep 2; done'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run build --filter=@solmira/identity-service...
+      - run: pnpm turbo run build --filter=@solmira/identity-service... --filter=@solmira/operations-service...
       - run: pnpm --filter @solmira/service-kit test:integration
       - name: Identity, authorization and tenant-isolation suites
         run: pnpm --filter @solmira/identity-service test:integration
+      - name: Catalog, storage and tenant-isolation suites
+        run: pnpm --filter @solmira/operations-service test:integration
+        env:
+          TEST_S3_ENDPOINT: http://localhost:9000
+          TEST_S3_ACCESS_KEY_ID: solmira
+          TEST_S3_SECRET_ACCESS_KEY: ci_minio_password
 
   audit:
     name: Dependency audit

@@ -39,9 +39,28 @@ describe(SERVICE_NAME, () => {
 
     expect(response.body.service).toBe(SERVICE_NAME);
     expect(response.body.checks.map((check: { name: string }) => check.name).sort()).toEqual([
+      'object-storage',
       'postgres',
       'rabbitmq',
       'redis',
+      'row-level-security',
+    ]);
+  });
+
+  it('marks object storage as non-critical, so a storage outage alone does not fail readiness', async () => {
+    const response = await request(app.getHttpServer()).get('/health/ready');
+    const storage = response.body.checks.find(
+      (check: { name: string }) => check.name === 'object-storage',
+    );
+    expect(storage).toMatchObject({ critical: false });
+    const critical = response.body.checks.filter(
+      (check: { critical?: boolean }) => check.critical !== false,
+    );
+    expect(critical.map((check: { name: string }) => check.name).sort()).toEqual([
+      'postgres',
+      'rabbitmq',
+      'redis',
+      'row-level-security',
     ]);
   });
 });

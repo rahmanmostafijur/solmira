@@ -30,7 +30,13 @@ Generate the access-token signing key pair and apply the identity database migra
 pnpm turbo run build --filter=@solmira/identity-service...
 pnpm --filter @solmira/identity-service keys:generate   # writes JWT_PRIVATE_KEY / JWT_PUBLIC_KEY into its .env
 pnpm --filter @solmira/identity-service db:migrate      # runs as identity_owner, syncs roles and permissions
+pnpm turbo run build --filter=@solmira/operations-service...
+pnpm --filter @solmira/operations-service db:migrate    # runs as operations_owner: catalog schema, RLS, search indexes
 ```
+
+Re-run identity's `db:migrate` whenever the permission catalog in `@solmira/contracts` changes
+(for example after pulling Phase 3): it syncs the roles, and users get the new permissions on
+their next token refresh.
 
 ```bash
 pnpm dev
@@ -52,6 +58,7 @@ pnpm dev
 | PostgreSQL                         | `localhost:5433` (superuser `solmira`)                                                   |
 | Redis                              | `localhost:6379`                                                                         |
 | Mailpit (every email sent locally) | http://localhost:8025 (SMTP on `localhost:2525`)                                         |
+| MinIO (S3 API / console)           | http://localhost:9000 / http://localhost:9001 (solmira / solmira_dev_minio_password)     |
 
 Services listen on 4001–4005 and the web app on 3000. Always go through the gateway on 8080, which
 is the only origin the browser uses (no CORS).
@@ -81,7 +88,12 @@ pnpm format          # Prettier
 
 pnpm --filter @solmira/service-kit test:integration   # needs pnpm infra:up
 pnpm --filter @solmira/identity-service test:integration   # auth, RBAC and tenant isolation
+pnpm --filter @solmira/operations-service test:integration # catalog, RLS, composite keys, images on MinIO
 ```
+
+The operations suites work the same way (`solmira_operations_test`, a `solmira-test-media`
+bucket in the local MinIO). They verify tokens through a real JWKS endpoint served by the test
+harness; the identity member lookup is the only fake, at the service boundary.
 
 The identity integration suites provision their own throwaway database (`solmira_identity_test`)
 with separate owner and runtime roles, so they run exactly as deployed: the application talks to
@@ -101,8 +113,9 @@ docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
 ```
 
 This builds the production images (multi-stage, non-root, `tini` as PID 1) and points the gateway
-at the containers instead of the host. A one-off `identity-migrate` container applies migrations as
-the owner role before `identity-service` starts; the runtime container never receives owner
+at the containers instead of the host. One-off `identity-migrate` and `operations-migrate` containers apply
+migrations as the owner roles before the services start, and `minio-init` creates the private media
+bucket; the runtime container never receives owner
 credentials. It reads the signing keys from `apps/identity-service/.env`, so run `keys:generate`
 first.
 
@@ -131,4 +144,6 @@ first.
 | identity readiness shows `row-level-security: error`           | `DATABASE_URL` uses the owner or a superuser role. The runtime must connect as `identity_app`.                                                                     |
 | Login answers `429 RATE_LIMITED`                               | Five failed attempts lock that email for 15 minutes; the gateway also limits `/auth/login` per IP.                                                                 |
 | Mailpit fails with "ports are not available: 1025"             | Windows reserves 1025–1124 on some machines; the default host port is therefore 2525.                                                                              |
+| Catalog pages missing or "You do not have access" for an owner | The roles in identity predate the catalog permissions. Run identity's `db:migrate`, then reload the console.                                                       |
+| Product images fail to load (broken image)                     | MinIO is not running, or `S3_PUBLIC_ENDPOINT` is not reachable from the browser. Check `http://localhost:9000/minio/health/ready`.                                 |
 | Signed out after switching tabs rapidly                        | Two tabs presented the same refresh token (treated as theft). The web app serialises refreshes with the Web Locks API; old browsers without it can still hit this. |

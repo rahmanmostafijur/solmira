@@ -69,17 +69,17 @@ async function parseResponse<T>(response: Response): Promise<T> {
   if (response.status === 204) return undefined as T;
   const body: unknown = await response.json().catch(() => undefined);
   if (response.ok) return body as T;
+  throw toApiError(response.status, body);
+}
 
+/** The error for a failed response body, whichever transport (fetch or XHR) produced it. */
+export function toApiError(status: number, body: unknown): ApiError {
   const envelope = apiErrorSchema.safeParse(body);
   if (envelope.success) {
     const { code, message, details, requestId } = envelope.data.error;
-    throw new ApiError(response.status, code, message, details ?? [], requestId);
+    return new ApiError(status, code, message, details ?? [], requestId);
   }
-  throw new ApiError(
-    response.status,
-    'UNEXPECTED_RESPONSE',
-    'The server returned an unexpected response',
-  );
+  return new ApiError(status, 'UNEXPECTED_RESPONSE', 'The server returned an unexpected response');
 }
 
 /** User-facing text for an error; server messages are already written for users. */

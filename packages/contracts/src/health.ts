@@ -7,6 +7,8 @@ export const dependencyCheckSchema = z.object({
   name: z.string(),
   status: healthStatusSchema,
   latencyMs: z.number().nonnegative(),
+  /** Present and false for dependencies whose failure degrades a feature but not readiness. */
+  critical: z.boolean().optional(),
 });
 export type DependencyCheck = z.infer<typeof dependencyCheckSchema>;
 

@@ -37,3 +37,34 @@ export interface IdentityEventPayloads {
 }
 
 export type IdentityEventType = keyof IdentityEventPayloads;
+
+/**
+ * Catalog master-data events (operations-service). Recorded in the outbox in the same
+ * transaction as the change; inventory, analytics and audit consume them from phase 7.
+ */
+export interface CatalogEventPayloads {
+  'category.created': { categoryId: string; name: string; parentId: string | null };
+  'category.updated': { categoryId: string; fields: string[] };
+  'category.deleted': { categoryId: string };
+  'product.created': { productId: string; name: string; status: string };
+  'product.updated': { productId: string; fields: string[] };
+  'product.status_changed': { productId: string; fromStatus: string; toStatus: string };
+  'variant.created': { productId: string; variantId: string; sku: string };
+  'variant.updated': { productId: string; variantId: string; fields: string[] };
+  'variant.status_changed': {
+    productId: string;
+    variantId: string;
+    fromStatus: string;
+    toStatus: string;
+  };
+  'product_image.added': { productId: string; imageId: string };
+  'product_image.removed': { productId: string; imageId: string };
+  'supplier.created': { supplierId: string; companyName: string };
+  'supplier.updated': { supplierId: string; fields: string[] };
+  'supplier.status_changed': { supplierId: string; fromStatus: string; toStatus: string };
+  'warehouse.created': { warehouseId: string; code: string };
+  'warehouse.updated': { warehouseId: string; fields: string[] };
+  'warehouse.status_changed': { warehouseId: string; fromStatus: string; toStatus: string };
+}
+
+export type CatalogEventType = keyof CatalogEventPayloads;

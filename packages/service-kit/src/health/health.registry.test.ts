@@ -46,6 +46,26 @@ describe('HealthRegistry', () => {
     expect(report.checks[0]?.latencyMs).toBeGreaterThanOrEqual(15);
   });
 
+  it('reports a failing non-critical dependency without failing readiness', async () => {
+    const registry = new HealthRegistry('operations');
+    registry.register('postgres', async () => undefined);
+    registry.register(
+      'object-storage',
+      async () => {
+        throw new Error('down');
+      },
+      { critical: false },
+    );
+
+    const report = await registry.readiness();
+
+    expect(report.status).toBe('ok');
+    expect(report.checks.find((check) => check.name === 'object-storage')).toMatchObject({
+      status: 'error',
+      critical: false,
+    });
+  });
+
   it('rejects duplicate check names', () => {
     const registry = new HealthRegistry('identity');
     registry.register('postgres', async () => undefined);

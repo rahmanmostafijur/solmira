@@ -5,6 +5,7 @@ const AREA_LABELS: Record<string, string> = {
   users: 'Members',
   roles: 'Roles',
   products: 'Products',
+  categories: 'Categories',
   suppliers: 'Suppliers',
   warehouses: 'Warehouses',
   inventory: 'Inventory',

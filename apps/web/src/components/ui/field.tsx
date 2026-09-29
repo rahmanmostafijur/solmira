@@ -1,5 +1,11 @@
 import clsx from 'clsx';
-import { useId, type InputHTMLAttributes, type Ref, type SelectHTMLAttributes } from 'react';
+import {
+  useId,
+  type InputHTMLAttributes,
+  type Ref,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
+} from 'react';
 
 const CONTROL =
   'block w-full rounded-md border bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted/70 disabled:bg-canvas disabled:text-ink-muted';
@@ -48,6 +54,39 @@ export function TextField({ label, error, hint, id, className, ref, ...props }: 
       <input
         ref={ref}
         id={fieldId}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined}
+        className={clsx(CONTROL, error ? 'border-danger' : 'border-line', className)}
+        {...props}
+      />
+    </FieldShell>
+  );
+}
+
+export interface TextAreaFieldProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  label: string;
+  error?: string;
+  hint?: string;
+  ref?: Ref<HTMLTextAreaElement>;
+}
+
+export function TextAreaField({
+  label,
+  error,
+  hint,
+  id,
+  className,
+  ref,
+  ...props
+}: TextAreaFieldProps) {
+  const generated = useId();
+  const fieldId = id ?? generated;
+  return (
+    <FieldShell id={fieldId} label={label} error={error} hint={hint}>
+      <textarea
+        ref={ref}
+        id={fieldId}
+        rows={3}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${fieldId}-error` : hint ? `${fieldId}-hint` : undefined}
         className={clsx(CONTROL, error ? 'border-danger' : 'border-line', className)}
