@@ -22,7 +22,7 @@ event processing.
 Built in 12 phases; see [the roadmap](docs/ROADMAP.md).
 
 - [x] **Phase 1: Foundation.** Monorepo, five services on a shared platform layer, gateway, local infrastructure, CI, Docker images.
-- [ ] Phase 2: Identity, organizations, RBAC and tenant isolation
+- [x] **Phase 2: Identity and tenant isolation.** Registration, login, refresh-token rotation with reuse detection, sessions, password reset, organizations, invitations, permission-based RBAC, PostgreSQL Row Level Security, and integration tests proving cross-tenant access fails.
 - [ ] Phases 3–12: catalog, inventory, purchasing, orders, events, realtime, analytics, audit, testing depth, production readiness
 
 ## Architecture at a glance
@@ -53,6 +53,9 @@ Requires Node.js 24, pnpm 10 and Docker.
 pnpm install
 pnpm infra:up                    # Postgres, Redis, RabbitMQ, gateway
 cp apps/identity-service/.env.example apps/identity-service/.env   # repeat per service
+pnpm turbo run build --filter=@solmira/identity-service...
+pnpm --filter @solmira/identity-service keys:generate   # dev signing keys
+pnpm --filter @solmira/identity-service db:migrate      # schema, RLS policies, roles
 pnpm dev                         # all services + web, with watch mode
 ```
 

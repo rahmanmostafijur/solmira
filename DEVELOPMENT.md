@@ -24,12 +24,21 @@ done
 cp apps/web/.env.example apps/web/.env
 ```
 
+Generate the access-token signing key pair and apply the identity database migrations:
+
+```bash
+pnpm turbo run build --filter=@solmira/identity-service...
+pnpm --filter @solmira/identity-service keys:generate   # writes JWT_PRIVATE_KEY / JWT_PUBLIC_KEY into its .env
+pnpm --filter @solmira/identity-service db:migrate      # runs as identity_owner, syncs roles and permissions
+```
+
 ```bash
 pnpm dev
 ```
 
 `pnpm dev` builds the shared packages, then runs every service in watch mode (`tsc --watch` plus
-`node --watch`) and `next dev` for the web app.
+`node --watch`) and `next dev` for the web app. Open the console at **http://localhost:8080**
+(not :3000): the browser must use the gateway origin so API calls and auth cookies work.
 
 ## Local endpoints
 
@@ -42,6 +51,7 @@ pnpm dev
 | RabbitMQ management                | http://localhost:15672 (solmira / solmira_dev_password)                                  |
 | PostgreSQL                         | `localhost:5433` (superuser `solmira`)                                                   |
 | Redis                              | `localhost:6379`                                                                         |
+| Mailpit (every email sent locally) | http://localhost:8025 (SMTP on `localhost:2525`)                                         |
 
 Services listen on 4001–4005 and the web app on 3000. Always go through the gateway on 8080, which
 is the only origin the browser uses (no CORS).
@@ -70,7 +80,17 @@ pnpm build           # production builds
 pnpm format          # Prettier
 
 pnpm --filter @solmira/service-kit test:integration   # needs pnpm infra:up
+pnpm --filter @solmira/identity-service test:integration   # auth, RBAC and tenant isolation
 ```
+
+The identity integration suites provision their own throwaway database (`solmira_identity_test`)
+with separate owner and runtime roles, so they run exactly as deployed: the application talks to
+PostgreSQL as a role that Row Level Security applies to. Email is captured in memory; everything
+else (PostgreSQL, Redis) is real.
+
+Schema changes: edit `apps/identity-service/src/database/schema.ts`, run
+`pnpm --filter @solmira/identity-service db:generate`, review the generated SQL, then `db:migrate`.
+Row Level Security policies live in hand-written migrations next to the generated ones.
 
 Run one package: `pnpm --filter @solmira/identity-service dev`.
 
@@ -81,7 +101,10 @@ docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
 ```
 
 This builds the production images (multi-stage, non-root, `tini` as PID 1) and points the gateway
-at the containers instead of the host.
+at the containers instead of the host. A one-off `identity-migrate` container applies migrations as
+the owner role before `identity-service` starts; the runtime container never receives owner
+credentials. It reads the signing keys from `apps/identity-service/.env`, so run `keys:generate`
+first.
 
 ## Conventions
 
@@ -97,10 +120,15 @@ at the containers instead of the host.
 
 ## Troubleshooting
 
-| Symptom                                                | Cause / fix                                                                                        |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| Gateway returns `SERVICE_UNAVAILABLE` JSON             | The target service is not running on the host. Start it with `pnpm dev`.                           |
-| `password authentication failed for user "solmira"`    | A native PostgreSQL owns port 5432; use 5433 (the default in `.env.example`).                      |
-| Service exits with `Invalid environment configuration` | Missing `.env`; copy it from `.env.example`.                                                       |
-| Readiness shows `rabbitmq: error` right after start    | The connection is established in the background; it recovers within seconds.                       |
-| Nest "can't resolve dependencies" in a new service     | Check that `@nestjs/platform-express` is a dependency, so pnpm resolves one shared `@nestjs/core`. |
+| Symptom                                                        | Cause / fix                                                                                                                                                        |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Gateway returns `SERVICE_UNAVAILABLE` JSON                     | The target service is not running on the host. Start it with `pnpm dev`.                                                                                           |
+| `password authentication failed for user "solmira"`            | A native PostgreSQL owns port 5432; use 5433 (the default in `.env.example`).                                                                                      |
+| Service exits with `Invalid environment configuration`         | Missing `.env`; copy it from `.env.example`.                                                                                                                       |
+| Readiness shows `rabbitmq: error` right after start            | The connection is established in the background; it recovers within seconds.                                                                                       |
+| Nest "can't resolve dependencies" in a new service             | Check that `@nestjs/platform-express` is a dependency, so pnpm resolves one shared `@nestjs/core`.                                                                 |
+| identity-service: `JWT_PRIVATE_KEY: Must be a PEM-encoded key` | Run `pnpm --filter @solmira/identity-service keys:generate`.                                                                                                       |
+| identity readiness shows `row-level-security: error`           | `DATABASE_URL` uses the owner or a superuser role. The runtime must connect as `identity_app`.                                                                     |
+| Login answers `429 RATE_LIMITED`                               | Five failed attempts lock that email for 15 minutes; the gateway also limits `/auth/login` per IP.                                                                 |
+| Mailpit fails with "ports are not available: 1025"             | Windows reserves 1025–1124 on some machines; the default host port is therefore 2525.                                                                              |
+| Signed out after switching tabs rapidly                        | Two tabs presented the same refresh token (treated as theft). The web app serialises refreshes with the Web Locks API; old browsers without it can still hit this. |

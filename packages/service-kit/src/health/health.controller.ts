@@ -2,13 +2,16 @@ import { Controller, Get, HttpStatus, Inject, Res, VERSION_NEUTRAL } from '@nest
 import { ApiTags } from '@nestjs/swagger';
 import type { ReadinessReport } from '@solmira/contracts';
 import type { Response } from 'express';
+import { Public } from '../auth/decorators.js';
 import { HealthRegistry } from './health.registry.js';
 
 /**
  * Liveness answers "should this process be restarted?" and never touches dependencies,
  * otherwise a database blip would make the orchestrator kill healthy containers.
  * Readiness answers "should this instance receive traffic?".
+ * Public: probes come from load balancers and orchestrators, which hold no user token.
  */
+@Public()
 @ApiTags('health')
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {

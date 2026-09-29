@@ -28,6 +28,40 @@ export class UnauthenticatedError extends AppError {
   }
 }
 
+export class TokenExpiredError extends AppError {
+  constructor() {
+    super('TOKEN_EXPIRED', 'Access token has expired', 401);
+  }
+}
+
+/** One message for unknown email and wrong password, so responses cannot enumerate accounts. */
+export class InvalidCredentialsError extends AppError {
+  constructor() {
+    super('INVALID_CREDENTIALS', 'Email or password is incorrect', 401);
+  }
+}
+
+export class AccountDisabledError extends AppError {
+  constructor() {
+    super('ACCOUNT_DISABLED', 'This account has been disabled', 403);
+  }
+}
+
+export class RateLimitedError extends AppError {
+  constructor(
+    readonly retryAfterSeconds: number,
+    message = 'Too many attempts, try again later',
+  ) {
+    super('RATE_LIMITED', message, 429);
+  }
+}
+
+export class ServiceUnavailableError extends AppError {
+  constructor(message = 'The service is temporarily unavailable') {
+    super('SERVICE_UNAVAILABLE', message, 503);
+  }
+}
+
 export class ForbiddenError extends AppError {
   constructor(message = 'You do not have permission to perform this action') {
     super('FORBIDDEN', message, 403);

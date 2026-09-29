@@ -72,21 +72,25 @@ share a transaction (see ADR-0004).
 
 ## 4. Request path
 
+Status: **Built** in identity-service (phase 2). Other services adopt the same `AuthModule` and
+tenant-scoped database helper from `service-kit` as their routes land.
+
 1. **Gateway (Nginx)** assigns or propagates `X-Request-Id` and `X-Correlation-Id`, applies edge rate
    limits and security headers, routes by path prefix, and writes JSON access logs. It holds no business logic.
 2. **Service** runs the request-context middleware (AsyncLocalStorage) so every log line and
-   emitted event carries both IDs. The authentication guard verifies the access token locally
-   (asymmetric JWT, public key from identity-service), and the permission guard checks the
-   required permission for the tenant resolved _from the token_. The organization ID is never
-   taken from the request body or query.
-3. **Data access** runs inside a tenant-scoped unit of work. Every query filters by
+   emitted event carries both IDs. One global `AuthGuard` verifies the access token locally
+   (Ed25519-signed JWT; public key from configuration, also published as JWKS by identity-service),
+   checks the Redis revocation denylist, and checks the required permission for the tenant resolved
+   _from the token_. The organization ID is never taken from the request body or query; a route
+   `:organizationId` must equal the token's organization, otherwise the answer is 404.
+3. **Data access** runs inside a tenant-scoped transaction (`inTenantScope`). Queries filter by
    `organization_id`, and PostgreSQL Row Level Security enforces the same rule as defense in depth.
 
 Routing table (gateway → service):
 
 | Prefix                                                                                                                   | Service              |
 | ------------------------------------------------------------------------------------------------------------------------ | -------------------- |
-| `/api/v1/auth`, `/organizations`, `/users`, `/roles`, `/permissions`, `/invitations`                                     | identity-service     |
+| `/api/v1/auth`, `/me`, `/organizations`, `/users`, `/roles`, `/permissions`, `/invitations`                              | identity-service     |
 | `/api/v1/products`, `/suppliers`, `/customers`, `/warehouses`, `/inventory`, `/purchase-orders`, `/orders`, `/shipments` | operations-service   |
 | `/api/v1/notifications`, `/ws`                                                                                           | notification-service |
 | `/api/v1/analytics`, `/graphql`                                                                                          | analytics-service    |
@@ -97,7 +101,11 @@ The browser talks only to the gateway origin, so there is no CORS surface in pro
 
 ## 5. Multi-tenancy
 
-Strategy: **shared database, shared schema, `organization_id` on every tenant-owned row** (ADR-0006).
+Strategy: **shared database, shared schema, `organization_id` on every tenant-owned row** (ADR-0006, ADR-0012).
+
+Status: **Built** for identity-service (layers 1 and 3 below); composite foreign keys arrive with
+the first cross-referencing tenant tables in phase 3. Full description:
+[`docs/architecture/tenant-isolation.md`](docs/architecture/tenant-isolation.md).
 
 | Option                        | Isolation | Cost / ops                          | Verdict                                                  |
 | ----------------------------- | --------- | ----------------------------------- | -------------------------------------------------------- |
@@ -109,20 +117,35 @@ Three layers of enforcement:
 
 1. **Application**: tenant ID comes only from the verified token; repositories require it as an argument.
 2. **Schema**: composite foreign keys `(organization_id, id)`, for example `order_items (organization_id, variant_id) → product_variants (organization_id, id)`, make it impossible to _reference_ another tenant's row even with a guessed UUID.
-3. **Database**: RLS policies `USING (organization_id = current_setting('app.organization_id')::uuid)`. The service connects as a non-owner role and sets the setting with `SET LOCAL` per transaction. This is safe with connection pooling because `SET LOCAL` dies with the transaction.
+3. **Database**: RLS policies `USING (organization_id = app_current_organization_id())`, where the function reads `current_setting('app.organization_id', true)` and yields `NULL` (no rows) when the setting is missing. The service connects as a non-owner role and sets the setting with `set_config(..., true)` (transaction-local, like `SET LOCAL`) at the start of every transaction. This is safe with connection pooling because the setting dies with the transaction. RLS is enabled, not forced; readiness fails if the runtime role could bypass it.
 
 Lookups by ID for an entity in another tenant return **404, not 403**, so the API does not confirm the entity exists.
 
-## 6. Data model (planned; built phase by phase)
+## 6. Identity (Phase 2)
+
+Status: **Built**. identity-service issues Ed25519-signed access tokens (15 min, held in browser
+memory only) and rotates opaque refresh tokens held in an `httpOnly`, `SameSite=Strict` cookie
+scoped to `/api/v1/auth`; reusing a consumed refresh token revokes the whole session. Access is
+checked by permission from a catalog in `@solmira/contracts`, synced to the database on deploy,
+and role changes take effect immediately through a Redis denylist. Tenant context flows from the
+token into every transaction, where RLS enforces it.
+
+- [`docs/architecture/authentication.md`](docs/architecture/authentication.md): tokens, sessions, rotation, revocation, passwords, recovery, CSRF
+- [`docs/architecture/authorization.md`](docs/architecture/authorization.md): permission catalog, roles and ranks, guard order, membership rules
+- [`docs/architecture/tenant-isolation.md`](docs/architecture/tenant-isolation.md): how tenant context reaches the database, RLS policies, tests
+- ADRs [0010](docs/adr/0010-authentication-strategy.md), [0011](docs/adr/0011-refresh-token-rotation.md), [0012](docs/adr/0012-postgresql-row-level-security.md); overview in [`SECURITY.md`](SECURITY.md)
+
+## 7. Data model (planned; built phase by phase)
 
 Conventions: UUIDv7 primary keys generated in the application (time-ordered, index friendly,
 portable to MySQL), money as `bigint` minor units plus an ISO-4217 `currency` code (never floats),
 `timestamptz` for all times (stored in UTC), `created_at` / `updated_at` on mutable tables,
 and a `version` column where optimistic concurrency is used.
 
-**identity DB**: `users`, `organizations`, `organization_members`, `roles` (system roles have
+**identity DB** (built): `users`, `organizations`, `organization_members`, `roles` (system roles have
 `organization_id IS NULL`), `permissions`, `role_permissions`, `invitations`, `sessions`
-(refresh-token families), `email_verification_tokens`, `password_reset_tokens`, `outbox_events`.
+(one per sign-in), `refresh_tokens` (the rotation chain of a session), `email_tokens`
+(email verification and password reset, by `purpose`), `outbox_events`.
 Tokens are stored only as SHA-256 hashes.
 
 **operations DB**:
@@ -165,7 +188,7 @@ plain JSON, case-insensitive email uses a unique index on `lower(email)`, and ge
 exist in both engines. PostgreSQL-specific features (RLS, partial indexes, `SKIP LOCKED`) are
 isolated and documented where used.
 
-## 7. Event model
+## 8. Event model
 
 All integration events share one envelope (defined in `packages/contracts`):
 
@@ -196,7 +219,7 @@ their side effect, so a redelivered event is a no-op.
 
 | Event                                                             | Producer     | Consumers                                          |
 | ----------------------------------------------------------------- | ------------ | -------------------------------------------------- |
-| `user.invited`, `member.role_changed`                             | identity     | notification, audit                                |
+| `member.invited`, `member.role_changed`                           | identity     | notification, audit                                |
 | `order.created` / `.confirmed` / `.cancelled` / `.status_changed` | operations   | notification, analytics, audit                     |
 | `inventory.reserved` / `.released` / `.adjusted` / `.transferred` | operations   | operations (low-stock evaluator), analytics, audit |
 | `inventory.low_stock`                                             | operations   | notification, analytics                            |
@@ -204,7 +227,7 @@ their side effect, so a redelivered event is a no-op.
 | `shipment.created` / `.status_changed`                            | operations   | notification, analytics, audit                     |
 | `notification.created`                                            | notification | notification WebSocket fan-out (Redis)             |
 
-## 8. Order confirmation and inventory reservation (summary)
+## 9. Order confirmation and inventory reservation (summary)
 
 Confirming an order runs **one PostgreSQL transaction** inside operations-service:
 
@@ -222,7 +245,7 @@ them on the row lock, and the second re-evaluates the `WHERE` guard after the fi
 matches zero rows and fails cleanly. No overselling, no application-level locks. Full analysis
 in `docs/architecture/inventory-reservation.md` (phase 4).
 
-## 9. Cross-cutting
+## 10. Cross-cutting
 
 - **Config**: every service validates `process.env` with zod at startup and fails fast with the
   names (never the values) of invalid variables.
@@ -235,7 +258,7 @@ in `docs/architecture/inventory-reservation.md` (phase 4).
 - **Observability** (phase 10): OpenTelemetry traces across HTTP and RabbitMQ (trace context in
   message headers), Prometheus-format metrics, CloudWatch in AWS.
 
-## 10. Deployment (phase 12 summary)
+## 11. Deployment (phase 12 summary)
 
 CloudFront → ALB → ECS Fargate services in private subnets, RDS PostgreSQL (Multi-AZ),
 ElastiCache Redis, Amazon MQ for RabbitMQ, DynamoDB, S3 for media, Secrets Manager for

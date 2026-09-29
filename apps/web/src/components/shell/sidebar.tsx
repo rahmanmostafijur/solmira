@@ -3,14 +3,17 @@
 import clsx from 'clsx';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NAVIGATION, isActive } from './navigation';
+import { usePermissions } from '@/components/auth/can';
+import { isActive, visibleSections } from './navigation';
 
 export function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { can, organization } = usePermissions();
+  const sections = visibleSections(can, organization !== null);
 
   return (
     <nav aria-label="Primary" className="px-3 py-4">
-      {NAVIGATION.map((section) => (
+      {sections.map((section) => (
         <div key={section.title} className="mb-6">
           <p className="px-2 pb-2 text-[11px] font-medium tracking-wider text-ink-muted uppercase">
             {section.title}

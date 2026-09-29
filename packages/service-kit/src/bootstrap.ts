@@ -2,6 +2,7 @@ import { VersioningType, type DynamicModule, type Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
@@ -34,6 +35,7 @@ export async function createServiceApp(
   app.useLogger(app.get(Logger));
   app.use(requestContextMiddleware);
   app.use(securityHeaders());
+  app.use(cookieParser());
   app.useBodyParser('json', { limit: JSON_BODY_LIMIT });
   // Services only receive traffic from the gateway / load balancer on private networks.
   app.set('trust proxy', 'loopback, linklocal, uniquelocal');

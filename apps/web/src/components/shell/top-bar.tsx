@@ -4,7 +4,9 @@ import { Menu, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { findNavItem } from './navigation';
+import { OrganizationSwitcher } from './organization-switcher';
 import { NavLinks, Wordmark } from './sidebar';
+import { UserMenu } from './user-menu';
 
 const ENVIRONMENT_LABEL = process.env.NODE_ENV === 'production' ? null : 'Development';
 
@@ -86,13 +88,18 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-surface/95 px-4 backdrop-blur sm:px-8">
       <MobileNavigation />
-      <Breadcrumbs />
+      <OrganizationSwitcher />
+      <span aria-hidden className="hidden h-5 w-px bg-line sm:block" />
+      <div className="hidden sm:block">
+        <Breadcrumbs />
+      </div>
       <div className="ml-auto flex items-center gap-3">
         {ENVIRONMENT_LABEL && (
-          <span className="rounded border border-warn/30 bg-warn-soft px-2 py-0.5 text-xs font-medium text-warn">
+          <span className="hidden rounded border border-warn/30 bg-warn-soft px-2 py-0.5 text-xs font-medium text-warn sm:inline">
             {ENVIRONMENT_LABEL}
           </span>
         )}
+        <UserMenu />
       </div>
     </header>
   );

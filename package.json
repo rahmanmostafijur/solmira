@@ -16,7 +16,7 @@
     "test": "turbo run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "infra:up": "docker compose up -d postgres redis rabbitmq",
+    "infra:up": "docker compose up -d postgres redis rabbitmq mailpit gateway",
     "infra:down": "docker compose down",
     "stack:up": "docker compose --profile apps up -d --build",
     "clean": "turbo run clean"

@@ -33,9 +33,9 @@ FROM ${NODE_IMAGE} AS runtime
 ENV NODE_ENV=production
 RUN apk add --no-cache tini
 WORKDIR /app
-COPY --from=builder --chown=node:node /out/package.json ./package.json
-COPY --from=builder --chown=node:node /out/node_modules ./node_modules
-COPY --from=builder --chown=node:node /out/dist ./dist
+# The deploy output contains only what each package's "files" whitelist allows (dist, and for
+# identity-service its SQL migrations) plus production node_modules.
+COPY --from=builder --chown=node:node /out ./
 USER node
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
   CMD wget -qO- "http://127.0.0.1:${PORT}/health/live" || exit 1

@@ -1,6 +1,7 @@
 import { Catch, Logger, type ArgumentsHost, type ExceptionFilter } from '@nestjs/common';
 import type { Response } from 'express';
 import { getRequestContext } from '../context/request-context.js';
+import { RateLimitedError } from './app-error.js';
 import { toErrorResponse } from './error-response.js';
 
 @Catch()
@@ -20,6 +21,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     }
     if (response.headersSent) {
       return;
+    }
+    if (exception instanceof RateLimitedError) {
+      response.setHeader('Retry-After', String(exception.retryAfterSeconds));
     }
     response.status(status).json(body);
   }

@@ -2,14 +2,15 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
+import { AuthProvider } from '@/components/auth/auth-provider';
+import { ToastProvider } from '@/components/ui/toast';
+import { ApiError } from '@/lib/api/client';
 
 const MAX_RETRIES = 2;
 
 /** 4xx responses will not succeed on retry (bad input, missing permission), so fail fast. */
 function isClientError(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null || !('status' in error)) return false;
-  const { status } = error as { status: unknown };
-  return typeof status === 'number' && status >= 400 && status < 500;
+  return error instanceof ApiError && error.status >= 400 && error.status < 500;
 }
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -27,5 +28,11 @@ export function Providers({ children }: { children: ReactNode }) {
       }),
   );
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ToastProvider>
+        <AuthProvider>{children}</AuthProvider>
+      </ToastProvider>
+    </QueryClientProvider>
+  );
 }

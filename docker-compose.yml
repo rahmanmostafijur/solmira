@@ -67,6 +67,15 @@ services:
       timeout: 5s
       retries: 20
 
+  # Development mail catcher: every email the platform sends lands here (web UI on :8025).
+  # Deployed environments send through Amazon SES over the same SMTP interface.
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports:
+      # 2525 on the host: Windows (Hyper-V/WSL) often reserves the 1025-1124 range.
+      - '${MAILPIT_SMTP_PORT:-2525}:1025'
+      - '${MAILPIT_UI_PORT:-8025}:8025'
+
   gateway:
     image: nginx:1.29-alpine
     ports:

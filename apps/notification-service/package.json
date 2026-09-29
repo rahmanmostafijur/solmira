@@ -4,6 +4,9 @@
   "private": true,
   "description": "In-app and email notifications, preferences and real-time WebSocket delivery",
   "type": "module",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json && concurrently -k -n tsc,svc -c blue,green \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --env-file-if-exists=.env --watch dist/main.js\"",
