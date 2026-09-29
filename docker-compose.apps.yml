@@ -1,0 +1,92 @@
+# Overlay that runs the application tier in containers, built from the production Dockerfiles.
+#   docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+    rabbitmq: { condition: service_healthy }
+
+x-common-env: &common-env
+  NODE_ENV: production
+  LOG_LEVEL: info
+  REDIS_URL: redis://redis:6379
+  RABBITMQ_URL: amqp://solmira:${RABBITMQ_PASSWORD:-solmira_dev_password}@rabbitmq:5672
+
+services:
+  identity-service:
+    <<: *service-defaults
+    build:
+      {
+        context: .,
+        dockerfile: infra/docker/service.Dockerfile,
+        args: { SERVICE: identity-service },
+      }
+    environment:
+      <<: *common-env
+      PORT: 4001
+      DATABASE_URL: postgres://identity_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_identity
+
+  operations-service:
+    <<: *service-defaults
+    build:
+      {
+        context: .,
+        dockerfile: infra/docker/service.Dockerfile,
+        args: { SERVICE: operations-service },
+      }
+    environment:
+      <<: *common-env
+      PORT: 4002
+      DATABASE_URL: postgres://operations_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_operations
+
+  notification-service:
+    <<: *service-defaults
+    build:
+      {
+        context: .,
+        dockerfile: infra/docker/service.Dockerfile,
+        args: { SERVICE: notification-service },
+      }
+    environment:
+      <<: *common-env
+      PORT: 4003
+      DATABASE_URL: postgres://notification_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_notification
+
+  analytics-service:
+    <<: *service-defaults
+    build:
+      {
+        context: .,
+        dockerfile: infra/docker/service.Dockerfile,
+        args: { SERVICE: analytics-service },
+      }
+    environment:
+      <<: *common-env
+      PORT: 4004
+      DATABASE_URL: postgres://analytics_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_analytics
+
+  audit-service:
+    <<: *service-defaults
+    build:
+      { context: ., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE: audit-service } }
+    environment:
+      <<: *common-env
+      PORT: 4005
+      DATABASE_URL: postgres://audit_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_audit
+
+  web:
+    restart: unless-stopped
+    build: { context: ., dockerfile: infra/docker/web.Dockerfile }
+    environment:
+      NODE_ENV: production
+      GATEWAY_INTERNAL_URL: http://gateway
+
+  gateway:
+    environment:
+      WEB_UPSTREAM: web:3000
+      IDENTITY_UPSTREAM: identity-service:4001
+      OPERATIONS_UPSTREAM: operations-service:4002
+      NOTIFICATION_UPSTREAM: notification-service:4003
+      ANALYTICS_UPSTREAM: analytics-service:4004
+      AUDIT_UPSTREAM: audit-service:4005

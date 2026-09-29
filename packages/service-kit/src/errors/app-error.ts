@@ -1,0 +1,47 @@
+import type { ErrorCode, FieldIssue } from '@solmira/contracts';
+
+/**
+ * Base class for errors that are safe to show to API clients. Anything that is not an
+ * AppError (or a Nest HttpException) is treated as an internal error and masked.
+ */
+export class AppError extends Error {
+  constructor(
+    readonly code: ErrorCode,
+    message: string,
+    readonly status: number,
+    readonly details?: readonly FieldIssue[],
+  ) {
+    super(message);
+    this.name = new.target.name;
+  }
+}
+
+export class ValidationError extends AppError {
+  constructor(details: readonly FieldIssue[], message = 'Request validation failed') {
+    super('VALIDATION_FAILED', message, 400, details);
+  }
+}
+
+export class UnauthenticatedError extends AppError {
+  constructor(message = 'Authentication required') {
+    super('UNAUTHENTICATED', message, 401);
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message = 'You do not have permission to perform this action') {
+    super('FORBIDDEN', message, 403);
+  }
+}
+
+export class NotFoundError extends AppError {
+  constructor(message = 'Resource not found') {
+    super('NOT_FOUND', message, 404);
+  }
+}
+
+export class ConflictError extends AppError {
+  constructor(message: string) {
+    super('CONFLICT', message, 409);
+  }
+}

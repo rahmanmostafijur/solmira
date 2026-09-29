@@ -1,0 +1,99 @@
+# Local development infrastructure. Application services run on the host (`pnpm dev`) and are
+# reached by the gateway through host.docker.internal. To run everything in containers instead:
+#   docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
+#
+# Credentials below are development defaults only. Real environments inject them from a secret store.
+name: solmira
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: solmira
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-solmira_dev_password}
+      POSTGRES_DB: postgres
+      SERVICE_DB_PASSWORD: ${SERVICE_DB_PASSWORD:-solmira_service_dev_password}
+    # Host port 5433 so the stack does not collide with a locally installed PostgreSQL on 5432.
+    ports:
+      - '${POSTGRES_PORT:-5433}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql
+      - ./infra/docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U solmira -d postgres']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:8-alpine
+    # noeviction: Redis holds rate-limit counters and socket adapter state, which must not be
+    # silently evicted. Cache keys always carry a TTL.
+    command:
+      [
+        'redis-server',
+        '--appendonly',
+        'yes',
+        '--maxmemory',
+        '256mb',
+        '--maxmemory-policy',
+        'noeviction',
+      ]
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    # A fixed hostname keeps the node name stable, so the data volume survives container recreation.
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: solmira
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-solmira_dev_password}
+    ports:
+      - '${RABBITMQ_PORT:-5672}:5672'
+      - '${RABBITMQ_MANAGEMENT_PORT:-15672}:15672'
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  gateway:
+    image: nginx:1.29-alpine
+    ports:
+      - '${GATEWAY_PORT:-8080}:80'
+    environment:
+      NGINX_ENVSUBST_OUTPUT_DIR: /etc/nginx/solmira.d
+      WEB_UPSTREAM: ${WEB_UPSTREAM:-host.docker.internal:3000}
+      IDENTITY_UPSTREAM: ${IDENTITY_UPSTREAM:-host.docker.internal:4001}
+      OPERATIONS_UPSTREAM: ${OPERATIONS_UPSTREAM:-host.docker.internal:4002}
+      NOTIFICATION_UPSTREAM: ${NOTIFICATION_UPSTREAM:-host.docker.internal:4003}
+      ANALYTICS_UPSTREAM: ${ANALYTICS_UPSTREAM:-host.docker.internal:4004}
+      AUDIT_UPSTREAM: ${AUDIT_UPSTREAM:-host.docker.internal:4005}
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    tmpfs:
+      - /etc/nginx/solmira.d
+    volumes:
+      - ./infra/docker/gateway/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/docker/gateway/templates:/etc/nginx/templates:ro
+      - ./infra/docker/gateway/snippets:/etc/nginx/snippets:ro
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1/gateway/health']
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
+  redis-data:
+  rabbitmq-data:

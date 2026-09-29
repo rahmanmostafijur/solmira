@@ -1,0 +1,37 @@
+{
+  "name": "solmira",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Solmira — multi-tenant order, inventory and fulfillment management platform",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel --filter=./apps/*",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "infra:up": "docker compose up -d postgres redis rabbitmq",
+    "infra:down": "docker compose down",
+    "stack:up": "docker compose --profile apps up -d --build",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@swc/core": "^1.16.12",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.0.0",
+    "prettier": "^3.9.9",
+    "turbo": "^2.11.5",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "unplugin-swc": "^2.0.0",
+    "vitest": "^5.0.2"
+  }
+}

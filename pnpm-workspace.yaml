@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Install scripts are opt-in. @scarf/scarf (usage telemetry pulled in by swagger-ui-dist) stays disabled.
+ignoredBuiltDependencies:
+  - '@scarf/scarf'
+
+onlyBuiltDependencies:
+  - '@swc/core'
+  - esbuild
+  - sharp
+  - unrs-resolver
