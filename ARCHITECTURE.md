@@ -166,6 +166,20 @@ prove both against real PostgreSQL. Low-stock crossings are recorded as outbox e
 - [`docs/architecture/inventory.md`](docs/architecture/inventory.md): tables, write path, API, rules, events, reconciliation, console, tests
 - ADRs [0018](docs/adr/0018-inventory-ledger-and-counters.md), [0019](docs/adr/0019-stock-movement-rules.md), [0020](docs/adr/0020-reservations-and-oversell-prevention.md)
 
+## 6c. Purchasing and receiving (Phase 5)
+
+Status: **Built** in operations-service as its own module. Purchase orders move through an
+explicit state machine (draft, submitted, approved, partially received, received, cancelled),
+one action endpoint and one permission per step, with the approver never the person who created
+or submitted the order. Numbers such as `PO-2026-000001` are per organization; totals are
+computed on the server in exact integer minor units and checked by the database. Receiving is a
+single transaction that locks the order, updates its lines and status, adds stock through the
+inventory ledger and records an append-only receipt; it cannot over-receive under concurrency and
+is retry-safe through a required `Idempotency-Key`.
+
+- [`docs/architecture/purchasing.md`](docs/architecture/purchasing.md): tables, lifecycle, API, receiving, money, events, integrity checks, console, tests
+- ADRs [0021](docs/adr/0021-purchase-order-model-and-lifecycle.md), [0022](docs/adr/0022-transactional-idempotent-receiving.md)
+
 ## 7. Data model (planned; built phase by phase)
 
 Conventions: UUIDv7 primary keys generated in the application (time-ordered, index friendly,
@@ -182,7 +196,9 @@ Tokens are stored only as SHA-256 hashes.
 **operations DB**: built so far: `categories`, `suppliers`, `warehouses`, `products`,
 `product_variants`, `product_images`, `member_directory`, `outbox_events` (phase 3, see
 [catalog.md](docs/architecture/catalog.md)); `inventory_levels`, `inventory_movements`,
-`inventory_reservations` (phase 4, see [inventory.md](docs/architecture/inventory.md)). The full
+`inventory_reservations` (phase 4, see [inventory.md](docs/architecture/inventory.md));
+`purchase_orders`, `purchase_order_items`, `purchase_order_counters`, `purchase_receipts`,
+`purchase_receipt_items` (phase 5, see [purchasing.md](docs/architecture/purchasing.md)). The full
 target model:
 
 ```mermaid
@@ -197,6 +213,7 @@ erDiagram
   inventory_levels ||--o{ inventory_reservations : "held by"
   suppliers ||--o{ purchase_orders : receives
   purchase_orders ||--|{ purchase_order_items : contains
+  purchase_orders ||--o{ purchase_receipts : "received by"
   customers ||--o{ orders : places
   orders ||--|{ order_items : contains
   order_items ||--o{ inventory_reservations : holds
@@ -213,7 +230,8 @@ Key invariants, enforced by the database and not only by code:
 - `inventory_movements` (built): append-only ledger (signed `on_hand_change` and
   `reserved_change`, balances after, `type`, `reason`, `reference_type`, `reference_id`), enforced
   by RLS and a trigger. Stock levels can be rebuilt from it.
-- `purchase_order_items`: `CHECK (received_quantity <= ordered_quantity)`.
+- `purchase_order_items` (built): `CHECK (0 <= received_quantity <= ordered_quantity)`, amounts
+  checked against quantity × unit cost, and a variant that must belong to the line's product.
 - `orders`: unique `(organization_id, order_number)`, unique `(organization_id, idempotency_key)`.
 - Line items snapshot SKU, name and unit price at order time, so later catalog edits never rewrite history.
 
@@ -264,7 +282,8 @@ their side effect, so a redelivered event is a no-op.
 | `order.created` / `.confirmed` / `.cancelled` / `.status_changed`                      | operations   | notification, analytics, audit                                        |
 | `inventory.reserved` / `.released` / `.adjusted` / `.transferred`                      | operations   | analytics, audit (recorded in the outbox since phase 4)               |
 | `inventory.low_stock`                                                                  | operations   | notification, analytics (detected in the write transaction, phase 4)  |
-| `purchase_order.created` / `.received`                                                 | operations   | notification, analytics, audit                                        |
+| `purchase_order.created` / `.submitted` / `.approved` / `.cancelled` / `.received`     | operations   | notification, analytics, audit (recorded in the outbox since phase 5) |
+| `inventory.received`                                                                   | operations   | analytics, audit                                                      |
 | `shipment.created` / `.status_changed`                                                 | operations   | notification, analytics, audit                                        |
 | `notification.created`                                                                 | notification | notification WebSocket fan-out (Redis)                                |
 

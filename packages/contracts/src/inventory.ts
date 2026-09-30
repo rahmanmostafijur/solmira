@@ -23,8 +23,8 @@ const isoDate = z.iso.datetime({ offset: true }).or(z.iso.date());
 // ---- movements ----------------------------------------------------------------------------------
 
 /**
- * Every change to a stock level is one ledger row of one of these types. Receipts from purchase
- * orders (phase 5) and shipments (phase 6) add their own types when they land.
+ * Every change to a stock level is one ledger row of one of these types. Shipments (phase 6) add
+ * their own type when they land.
  */
 export const INVENTORY_MOVEMENT_TYPES = [
   'ADJUSTMENT',
@@ -32,6 +32,7 @@ export const INVENTORY_MOVEMENT_TYPES = [
   'TRANSFER_IN',
   'RESERVATION',
   'RELEASE',
+  'PURCHASE_RECEIPT',
 ] as const;
 export type InventoryMovementType = (typeof INVENTORY_MOVEMENT_TYPES)[number];
 
@@ -232,7 +233,7 @@ export interface InventoryMovement {
   reservedAfter: number;
   warehouse: StockLocation;
   item: StockItem;
-  referenceType: 'TRANSFER' | 'RESERVATION' | null;
+  referenceType: 'TRANSFER' | 'RESERVATION' | 'PURCHASE_RECEIPT' | null;
   referenceId: string | null;
   note: string | null;
   actorId: string | null;

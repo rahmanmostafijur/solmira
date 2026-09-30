@@ -78,10 +78,11 @@ export const useProducts = (org: string, query: Partial<ProductListQuery>) =>
     placeholderData: keepPreviousData,
   });
 
-export const useProduct = (org: string, id: string) =>
+export const useProduct = (org: string, id: string, enabled = true) =>
   useQuery({
     queryKey: catalogKeys.product(org, id),
     queryFn: ({ signal }) => api<ProductDetail>(`/products/${id}`, { signal }),
+    enabled,
   });
 
 export const useCreateProduct = (org: string) =>

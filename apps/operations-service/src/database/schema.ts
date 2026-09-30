@@ -3,6 +3,7 @@ import { MAX_STOCK_QUANTITY } from '@solmira/contracts';
 import {
   bigint,
   check,
+  date,
   foreignKey,
   index,
   integer,
@@ -274,6 +275,12 @@ export const productVariants = pgTable(
   },
   (table) => [
     unique('product_variants_org_id_key').on(table.organizationId, table.id),
+    // Lets purchase lines prove, by foreign key, that their variant belongs to their product.
+    unique('product_variants_org_product_id_key').on(
+      table.organizationId,
+      table.productId,
+      table.id,
+    ),
     // Organization A variant -> organization B product is structurally impossible.
     foreignKey({
       name: 'product_variants_product_fk',
@@ -354,6 +361,7 @@ export const MOVEMENT_TYPE_VALUES = [
   'TRANSFER_IN',
   'RESERVATION',
   'RELEASE',
+  'PURCHASE_RECEIPT',
 ] as const;
 export const ADJUSTMENT_REASON_VALUES = [
   'RECEIVED',
@@ -437,7 +445,9 @@ export const inventoryMovements = pgTable(
     reservedChange: integer('reserved_change').notNull(),
     onHandAfter: integer('on_hand_after').notNull(),
     reservedAfter: integer('reserved_after').notNull(),
-    referenceType: text('reference_type', { enum: ['TRANSFER', 'RESERVATION'] }),
+    referenceType: text('reference_type', {
+      enum: ['TRANSFER', 'RESERVATION', 'PURCHASE_RECEIPT'],
+    }),
     referenceId: uuid('reference_id'),
     note: text('note'),
     actorId: uuid('actor_id'),
@@ -485,6 +495,7 @@ export const inventoryMovements = pgTable(
             when 'TRANSFER_IN' then ${table.onHandChange} > 0 and ${table.reservedChange} = 0
             when 'RESERVATION' then ${table.onHandChange} = 0 and ${table.reservedChange} > 0
             when 'RELEASE' then ${table.onHandChange} = 0 and ${table.reservedChange} < 0
+            when 'PURCHASE_RECEIPT' then ${table.onHandChange} > 0 and ${table.reservedChange} = 0
           end`,
     ),
     check(
@@ -538,6 +549,301 @@ export const inventoryReservations = pgTable(
   ],
 );
 
+// ---- purchasing ---------------------------------------------------------------------------------
+
+export const PURCHASE_ORDER_STATUS_VALUES = [
+  'DRAFT',
+  'SUBMITTED',
+  'APPROVED',
+  'PARTIALLY_RECEIVED',
+  'RECEIVED',
+  'CANCELLED',
+] as const;
+
+/**
+ * Per-organization, per-year counter behind PO-2026-000001. Incremented with an upsert inside the
+ * transaction that creates the order, so numbers are never reused within a tenant, and a rolled
+ * back creation gives its number back.
+ */
+export const purchaseOrderCounters = pgTable(
+  'purchase_order_counters',
+  {
+    organizationId: uuid('organization_id').notNull(),
+    year: integer('year').notNull(),
+    lastValue: integer('last_value').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.organizationId, table.year] }),
+    check('purchase_order_counters_value_check', sql`${table.lastValue} > 0`),
+  ],
+);
+
+export const purchaseOrders = pgTable(
+  'purchase_orders',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    number: text('number').notNull(),
+    supplierId: uuid('supplier_id').notNull(),
+    warehouseId: uuid('warehouse_id').notNull(),
+    status: text('status', { enum: PURCHASE_ORDER_STATUS_VALUES }).notNull().default('DRAFT'),
+    currency: text('currency').notNull(),
+    expectedDeliveryDate: date('expected_delivery_date', { mode: 'string' }),
+    notes: text('notes'),
+    subtotalMinor: money('subtotal_minor').notNull().default(0),
+    taxMinor: money('tax_minor').notNull().default(0),
+    shippingMinor: money('shipping_minor').notNull().default(0),
+    totalMinor: money('total_minor').notNull().default(0),
+    createdBy: uuid('created_by'),
+    submittedBy: uuid('submitted_by'),
+    submittedAt: timestamptz('submitted_at'),
+    approvedBy: uuid('approved_by'),
+    approvedAt: timestamptz('approved_at'),
+    receivedAt: timestamptz('received_at'),
+    cancelledBy: uuid('cancelled_by'),
+    cancelledAt: timestamptz('cancelled_at'),
+    cancellationReason: text('cancellation_reason'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    unique('purchase_orders_org_id_key').on(table.organizationId, table.id),
+    // Receipts reference (organization, order, warehouse): stock can only arrive where ordered.
+    unique('purchase_orders_org_id_warehouse_key').on(
+      table.organizationId,
+      table.id,
+      table.warehouseId,
+    ),
+    unique('purchase_orders_org_number_key').on(table.organizationId, table.number),
+    foreignKey({
+      name: 'purchase_orders_supplier_fk',
+      columns: [table.organizationId, table.supplierId],
+      foreignColumns: [suppliers.organizationId, suppliers.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'purchase_orders_warehouse_fk',
+      columns: [table.organizationId, table.warehouseId],
+      foreignColumns: [warehouses.organizationId, warehouses.id],
+    }).onDelete('restrict'),
+    index('purchase_orders_org_created_idx').on(table.organizationId, table.createdAt.desc()),
+    index('purchase_orders_org_status_created_idx').on(
+      table.organizationId,
+      table.status,
+      table.createdAt.desc(),
+    ),
+    index('purchase_orders_org_supplier_created_idx').on(
+      table.organizationId,
+      table.supplierId,
+      table.createdAt.desc(),
+    ),
+    index('purchase_orders_org_warehouse_created_idx').on(
+      table.organizationId,
+      table.warehouseId,
+      table.createdAt.desc(),
+    ),
+    check(
+      'purchase_orders_status_check',
+      sql`${table.status} in (${inList(PURCHASE_ORDER_STATUS_VALUES)})`,
+    ),
+    check('purchase_orders_currency_check', sql`${table.currency} ~ '^[A-Z]{3}$'`),
+    check('purchase_orders_number_check', sql`${table.number} ~ '^PO-[0-9]{4}-[0-9]{6,}$'`),
+    check(
+      'purchase_orders_money_check',
+      sql`${table.subtotalMinor} >= 0 and ${table.taxMinor} >= 0 and ${table.shippingMinor} >= 0
+          and ${table.totalMinor} = ${table.subtotalMinor} + ${table.taxMinor} + ${table.shippingMinor}`,
+    ),
+    // Lifecycle timestamps exist exactly when the order has passed that step (a cancelled order
+    // keeps whatever steps it had reached).
+    check(
+      'purchase_orders_submitted_check',
+      sql`case ${table.status}
+            when 'DRAFT' then ${table.submittedAt} is null
+            when 'CANCELLED' then true
+            else ${table.submittedAt} is not null and ${table.submittedBy} is not null
+          end`,
+    ),
+    check(
+      'purchase_orders_approved_check',
+      sql`case
+            when ${table.status} in ('DRAFT', 'SUBMITTED') then ${table.approvedAt} is null
+            when ${table.status} = 'CANCELLED' then ${table.approvedAt} is null or ${table.submittedAt} is not null
+            else ${table.approvedAt} is not null and ${table.approvedBy} is not null
+          end`,
+    ),
+    check(
+      'purchase_orders_received_check',
+      sql`(${table.status} = 'RECEIVED') = (${table.receivedAt} is not null)`,
+    ),
+    check(
+      'purchase_orders_cancelled_check',
+      sql`(${table.status} = 'CANCELLED') = (${table.cancelledAt} is not null)
+          and (${table.cancelledAt} is null or ${table.cancellationReason} is not null)`,
+    ),
+  ],
+);
+
+export const purchaseOrderItems = pgTable(
+  'purchase_order_items',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    purchaseOrderId: uuid('purchase_order_id').notNull(),
+    productId: uuid('product_id').notNull(),
+    variantId: uuid('variant_id').notNull(),
+    orderedQuantity: integer('ordered_quantity').notNull(),
+    receivedQuantity: integer('received_quantity').notNull().default(0),
+    unitCostMinor: money('unit_cost_minor').notNull(),
+    taxRateBps: integer('tax_rate_bps').notNull().default(0),
+    subtotalMinor: money('subtotal_minor').notNull(),
+    taxMinor: money('tax_minor').notNull(),
+    totalMinor: money('total_minor').notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    unique('purchase_order_items_org_id_key').on(table.organizationId, table.id),
+    // Receipt lines reference (organization, order, line): a line of another order cannot be used.
+    unique('purchase_order_items_org_order_id_key').on(
+      table.organizationId,
+      table.purchaseOrderId,
+      table.id,
+    ),
+    unique('purchase_order_items_org_order_variant_key').on(
+      table.organizationId,
+      table.purchaseOrderId,
+      table.variantId,
+    ),
+    foreignKey({
+      name: 'purchase_order_items_order_fk',
+      columns: [table.organizationId, table.purchaseOrderId],
+      foreignColumns: [purchaseOrders.organizationId, purchaseOrders.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'purchase_order_items_product_fk',
+      columns: [table.organizationId, table.productId],
+      foreignColumns: [products.organizationId, products.id],
+    }).onDelete('restrict'),
+    // The variant must belong to the organization and to this line's product.
+    foreignKey({
+      name: 'purchase_order_items_variant_fk',
+      columns: [table.organizationId, table.productId, table.variantId],
+      foreignColumns: [
+        productVariants.organizationId,
+        productVariants.productId,
+        productVariants.id,
+      ],
+    }).onDelete('restrict'),
+    index('purchase_order_items_org_variant_idx').on(table.organizationId, table.variantId),
+    check(
+      'purchase_order_items_quantity_check',
+      sql`${table.orderedQuantity} > 0 and ${table.receivedQuantity} >= 0
+          and ${table.receivedQuantity} <= ${table.orderedQuantity}`,
+    ),
+    check(
+      'purchase_order_items_amounts_check',
+      sql`${table.unitCostMinor} >= 0 and ${table.taxRateBps} between 0 and 10000
+          and ${table.subtotalMinor} = ${table.orderedQuantity}::bigint * ${table.unitCostMinor}
+          and ${table.taxMinor} >= 0
+          and ${table.totalMinor} = ${table.subtotalMinor} + ${table.taxMinor}`,
+    ),
+  ],
+);
+
+/** One receiving operation: who received what, when, where, against which order. Append-only. */
+export const purchaseReceipts = pgTable(
+  'purchase_receipts',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    purchaseOrderId: uuid('purchase_order_id').notNull(),
+    warehouseId: uuid('warehouse_id').notNull(),
+    receivedBy: uuid('received_by'),
+    receivedAt: timestamptz('received_at')
+      .notNull()
+      .default(sql`clock_timestamp()`),
+    note: text('note'),
+    idempotencyKey: text('idempotency_key').notNull(),
+    /** SHA-256 of the normalised request, to tell a retry from a different request reusing a key. */
+    requestHash: text('request_hash').notNull(),
+    correlationId: text('correlation_id').notNull(),
+  },
+  (table) => [
+    unique('purchase_receipts_org_id_key').on(table.organizationId, table.id),
+    unique('purchase_receipts_org_id_order_key').on(
+      table.organizationId,
+      table.id,
+      table.purchaseOrderId,
+    ),
+    unique('purchase_receipts_org_idempotency_key').on(table.organizationId, table.idempotencyKey),
+    foreignKey({
+      name: 'purchase_receipts_order_fk',
+      columns: [table.organizationId, table.purchaseOrderId, table.warehouseId],
+      foreignColumns: [
+        purchaseOrders.organizationId,
+        purchaseOrders.id,
+        purchaseOrders.warehouseId,
+      ],
+    }).onDelete('restrict'),
+    index('purchase_receipts_org_order_received_idx').on(
+      table.organizationId,
+      table.purchaseOrderId,
+      table.receivedAt.desc(),
+    ),
+  ],
+);
+
+export const purchaseReceiptItems = pgTable(
+  'purchase_receipt_items',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    receiptId: uuid('receipt_id').notNull(),
+    purchaseOrderId: uuid('purchase_order_id').notNull(),
+    purchaseOrderItemId: uuid('purchase_order_item_id').notNull(),
+    quantity: integer('quantity').notNull(),
+    /** The ledger row this receipt line produced. */
+    inventoryMovementId: uuid('inventory_movement_id').notNull(),
+  },
+  (table) => [
+    unique('purchase_receipt_items_org_id_key').on(table.organizationId, table.id),
+    unique('purchase_receipt_items_receipt_line_key').on(
+      table.organizationId,
+      table.receiptId,
+      table.purchaseOrderItemId,
+    ),
+    unique('purchase_receipt_items_movement_key').on(table.inventoryMovementId),
+    // The receipt and the order line must belong to the same order (and organization).
+    foreignKey({
+      name: 'purchase_receipt_items_receipt_fk',
+      columns: [table.organizationId, table.receiptId, table.purchaseOrderId],
+      foreignColumns: [
+        purchaseReceipts.organizationId,
+        purchaseReceipts.id,
+        purchaseReceipts.purchaseOrderId,
+      ],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'purchase_receipt_items_line_fk',
+      columns: [table.organizationId, table.purchaseOrderId, table.purchaseOrderItemId],
+      foreignColumns: [
+        purchaseOrderItems.organizationId,
+        purchaseOrderItems.purchaseOrderId,
+        purchaseOrderItems.id,
+      ],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'purchase_receipt_items_movement_fk',
+      columns: [table.organizationId, table.inventoryMovementId],
+      foreignColumns: [inventoryMovements.organizationId, inventoryMovements.id],
+    }).onDelete('restrict'),
+    index('purchase_receipt_items_org_line_idx').on(
+      table.organizationId,
+      table.purchaseOrderItemId,
+    ),
+    check('purchase_receipt_items_quantity_check', sql`${table.quantity} > 0`),
+  ],
+);
+
 // ---- integration --------------------------------------------------------------------------------
 
 export const outboxEvents = pgTable(
@@ -572,6 +878,11 @@ export const schema = {
   inventoryLevels,
   inventoryMovements,
   inventoryReservations,
+  purchaseOrderCounters,
+  purchaseOrders,
+  purchaseOrderItems,
+  purchaseReceipts,
+  purchaseReceiptItems,
   outboxEvents,
 };
 export type OperationsSchema = typeof schema;

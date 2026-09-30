@@ -267,12 +267,17 @@ The same three layers, with the schema layer now in full use:
   `drizzle/0003_inventory_security_and_ledger.sql`) adds the same policy on `inventory_levels` and
   `inventory_reservations`; `inventory_movements` gets only `SELECT` and `INSERT` policies, so the
   runtime role cannot rewrite the ledger, and a trigger refuses updates and deletes for every role.
+  Purchasing (phase 5, `drizzle/0005_purchasing_security.sql`) follows the same pattern: `FOR ALL`
+  policies on orders, lines and the number counter; `SELECT` + `INSERT` only, plus append-only
+  triggers, on receipts and receipt lines.
   `outbox_events` has no RLS; it is written only inside tenant transactions and read by the relay
   (phase 7).
 - **Composite foreign keys.** Every reference is `(organization_id, <ref>_id) → (organization_id, id)`:
   product → category, product → supplier, variant → product, image → product, category → parent,
   warehouse → `member_directory` (manager), level → warehouse, level → variant, movement → level,
-  reservation → level. Because the constraint includes `organization_id`, a
+  reservation → level, order → supplier and warehouse, line → order and
+  `(product, variant)`, receipt → `(order, warehouse)`, receipt line → `(receipt, order)` and
+  `(order, line)` and ledger row. Because the constraint includes `organization_id`, a
   row can only point at a row of its own organization. This holds for the owner role too, which
   RLS does not constrain.
 - **Storage keys** carry the tenant too: image keys must start with

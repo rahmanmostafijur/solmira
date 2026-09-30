@@ -7,6 +7,7 @@ import { usePermissions } from '@/components/auth/can';
 import { RequireOrganization } from '@/components/auth/require-organization';
 import { PARTNER_STATUS_LABELS, PRODUCT_STATUS_LABELS } from '@/components/catalog/labels';
 import { SupplierForm } from '@/components/catalog/supplier-form';
+import { SupplierPurchasingPanel } from '@/components/purchasing/supplier-purchasing-panel';
 import { Pagination } from '@/components/data-table/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -138,6 +139,14 @@ function SupplierView({
               <Badge tone={PARTNER_STATUS_LABELS[s.status].tone}>
                 {PARTNER_STATUS_LABELS[s.status].label}
               </Badge>
+              {can('purchase_orders.create') && s.status === 'ACTIVE' && (
+                <Link
+                  href={`/purchase-orders/new?supplierId=${s.id}`}
+                  className="text-sm font-medium text-accent hover:underline"
+                >
+                  New purchase order
+                </Link>
+              )}
               {can('suppliers.update') && (
                 <Button
                   variant="secondary"
@@ -169,6 +178,9 @@ function SupplierView({
         >
           <SupplierProducts organizationId={organizationId} supplierId={s.id} />
         </Panel>
+      )}
+      {can('purchase_orders.read') && (
+        <SupplierPurchasingPanel organizationId={organizationId} supplierId={s.id} />
       )}
     </div>
   );

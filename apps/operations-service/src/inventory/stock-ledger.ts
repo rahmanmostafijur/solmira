@@ -18,9 +18,11 @@ export interface StockChange {
   readonly onHandChange: number;
   readonly reservedChange: number;
   readonly reason?: AdjustmentReason | null;
-  readonly referenceType?: 'TRANSFER' | 'RESERVATION' | null;
+  readonly referenceType?: 'TRANSFER' | 'RESERVATION' | 'PURCHASE_RECEIPT' | null;
   readonly referenceId?: string | null;
   readonly note?: string | null;
+  /** Lets a caller that must reference the ledger row (a receipt line) choose its id. */
+  readonly movementId?: string;
 }
 
 const levelOf = (auth: TenantAuthContext, levelId: string) =>
@@ -74,7 +76,7 @@ export async function applyStockChange(
   if (!row) return null;
 
   await tx.insert(inventoryMovements).values({
-    id: uuidv7(),
+    id: change.movementId ?? uuidv7(),
     organizationId: auth.organizationId,
     inventoryLevelId: row.id,
     type: change.type,

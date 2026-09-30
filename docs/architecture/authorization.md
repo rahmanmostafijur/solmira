@@ -23,7 +23,7 @@ tenant comes from the token, never from request input.
 ## Permission catalog: one source of truth
 
 `PERMISSION_CATALOG` in `@solmira/contracts` lists every permission as `resource.action` with a
-description (32 today, covering organizations, users, roles, products, suppliers, warehouses,
+description (43 today, covering organizations, users, roles, products, suppliers, warehouses,
 inventory, purchase orders, orders, shipments, analytics and audit logs). The same object is used by:
 
 - **identity-service**, which syncs it into the database on every deploy;

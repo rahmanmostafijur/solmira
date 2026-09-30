@@ -116,6 +116,40 @@ export interface InventoryEventPayloads {
 
 export type InventoryEventType = keyof InventoryEventPayloads;
 
+/** Purchasing events (operations-service); totals are minor units in the order's currency. */
+export interface PurchasingEventPayloads {
+  'purchase_order.created': { purchaseOrderId: string; number: string; supplierId: string };
+  'purchase_order.updated': { purchaseOrderId: string; fields: string[] };
+  'purchase_order.submitted': {
+    purchaseOrderId: string;
+    number: string;
+    total: number;
+    currency: string;
+  };
+  'purchase_order.approved': { purchaseOrderId: string; number: string; approvedBy: string };
+  'purchase_order.cancelled': {
+    purchaseOrderId: string;
+    number: string;
+    fromStatus: string;
+    reason: string;
+  };
+  'purchase_order.partially_received': {
+    purchaseOrderId: string;
+    number: string;
+    receiptId: string;
+  };
+  'purchase_order.received': { purchaseOrderId: string; number: string; receiptId: string };
+  /** Stock that arrived through a purchase receipt; one event per receipt. */
+  'inventory.received': {
+    receiptId: string;
+    purchaseOrderId: string;
+    warehouseId: string;
+    lines: { variantId: string; quantity: number; inventoryLevelId: string }[];
+  };
+}
+
 /** Everything operations-service writes to its outbox. */
-export type OperationsEventPayloads = CatalogEventPayloads & InventoryEventPayloads;
+export type OperationsEventPayloads = CatalogEventPayloads &
+  InventoryEventPayloads &
+  PurchasingEventPayloads;
 export type OperationsEventType = keyof OperationsEventPayloads;

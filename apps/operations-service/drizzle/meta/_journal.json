@@ -29,6 +29,20 @@
       "when": 1790772628283,
       "tag": "0003_inventory_security_and_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790794606667,
+      "tag": "0004_purchasing_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790794630729,
+      "tag": "0005_purchasing_security",
+      "breakpoints": true
     }
   ]
 }

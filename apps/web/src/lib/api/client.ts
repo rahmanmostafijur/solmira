@@ -1,5 +1,13 @@
 import { API_PREFIX, CLIENT_HEADER, apiErrorSchema, type FieldIssue } from '@solmira/contracts';
 
+/** Headers only the client itself sets; extra headers with these names are dropped. */
+const RESERVED_HEADERS = new Set([
+  'accept',
+  'authorization',
+  'content-type',
+  CLIENT_HEADER.toLowerCase(),
+]);
+
 /** A failed API call, carrying the server's stable error code and field-level details. */
 export class ApiError extends Error {
   constructor(
@@ -28,6 +36,8 @@ export interface RequestOptions {
   /** Send the access token and refresh once on 401 (default true). */
   readonly authenticated?: boolean;
   readonly signal?: AbortSignal;
+  /** Extra request headers, e.g. an Idempotency-Key. Reserved names (see RESERVED_HEADERS) are dropped. */
+  readonly headers?: Readonly<Record<string, string>>;
 }
 
 export type ApiRequest = <T>(path: string, options?: RequestOptions) => Promise<T>;
@@ -42,7 +52,15 @@ export function createApiClient(options: ApiClientOptions): ApiRequest {
 
   const send = (path: string, request: RequestOptions, token: string | null) => {
     const fetchImpl = options.fetch ?? globalThis.fetch;
-    const headers: Record<string, string> = { Accept: 'application/json', [CLIENT_HEADER]: 'web' };
+    // Extra headers never carry credentials or override the client's own, in any letter case.
+    const extra = Object.entries(request.headers ?? {}).filter(
+      ([name]) => !RESERVED_HEADERS.has(name.toLowerCase()),
+    );
+    const headers: Record<string, string> = {
+      ...Object.fromEntries(extra),
+      Accept: 'application/json',
+      [CLIENT_HEADER]: 'web',
+    };
     if (request.body !== undefined) headers['Content-Type'] = 'application/json';
     if (token) headers.Authorization = `Bearer ${token}`;
     return fetchImpl(`${baseUrl}${path}`, {

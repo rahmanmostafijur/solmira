@@ -74,6 +74,47 @@ describe('createApiClient', () => {
     expect(refresh).not.toHaveBeenCalled();
   });
 
+  it('sends extra headers without letting them replace its own', async () => {
+    const fetchMock = vi.fn(async () => json(201, { id: 'r' }));
+    const api = createApiClient({
+      getAccessToken: () => 'token-1',
+      refreshAccessToken: async () => null,
+      fetch: fetchMock,
+    });
+
+    await api('/purchase-orders/x/receipts', {
+      method: 'POST',
+      body: {},
+      headers: { 'idempotency-key': 'key-12345', Authorization: 'forged', 'x-solmira-client': 'x' },
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.headers).toMatchObject({
+      'idempotency-key': 'key-12345',
+      Authorization: 'Bearer token-1',
+      'x-solmira-client': 'web',
+    });
+  });
+
+  it('drops reserved extra headers in any letter case, even without a token', async () => {
+    const fetchMock = vi.fn(async () => json(200, {}));
+    const api = createApiClient({
+      getAccessToken: () => null,
+      refreshAccessToken: async () => null,
+      fetch: fetchMock,
+    });
+
+    await api('/anything', {
+      headers: { authorization: 'Bearer forged', ACCEPT: 'text/html', 'X-Solmira-Client': 'x' },
+    });
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    const names = Object.keys(init.headers as Record<string, string>).map((n) => n.toLowerCase());
+    expect(names).not.toContain('authorization');
+    expect(names.filter((name) => name === 'accept')).toHaveLength(1);
+    expect(init.headers).toMatchObject({ Accept: 'application/json', 'x-solmira-client': 'web' });
+  });
+
   it('surfaces field-level validation details', async () => {
     const fetchMock = vi.fn(async () =>
       json(400, {

@@ -16,6 +16,7 @@ export const MOVEMENT_TYPE_LABELS: Record<InventoryMovementType, string> = {
   TRANSFER_IN: 'Transfer in',
   RESERVATION: 'Reserved',
   RELEASE: 'Released',
+  PURCHASE_RECEIPT: 'Purchase receipt',
 };
 
 export const ADJUSTMENT_REASON_LABELS: Record<AdjustmentReason, string> = {

@@ -370,7 +370,10 @@ describe('operations database: tenant guarantees', () => {
       await expect(
         owner.query(`delete from inventory_movements where id = $1`, [ids.movementB]),
       ).rejects.toThrow(/append-only/);
-      await expect(owner.query(`truncate inventory_movements`)).rejects.toThrow(/append-only/);
+      // Receipt lines reference the ledger, so a truncate must cascade, and that is refused too.
+      await expect(owner.query(`truncate inventory_movements cascade`)).rejects.toThrow(
+        /append-only/,
+      );
     });
 
     it('the runtime role has no update or delete policy on the ledger at all', async () => {
@@ -422,6 +425,185 @@ describe('operations database: tenant guarantees', () => {
       await expect(
         owner.query(`delete from warehouses where id = $1`, [ids.warehouseB]),
       ).rejects.toMatchObject({ constraint: 'inventory_levels_warehouse_fk' });
+    });
+  });
+
+  describe('purchasing guarantees', () => {
+    const po = { order: uuidv7(), line: uuidv7(), receipt: uuidv7(), otherProduct: uuidv7() };
+    const approvedOrder = (id: string, org: string, number: string, supplier: string) =>
+      owner.query(
+        `insert into purchase_orders (id, organization_id, number, supplier_id, warehouse_id, currency,
+           status, submitted_by, submitted_at, approved_by, approved_at, created_by)
+         values ($1, $2, $3, $4, $5, 'USD', 'APPROVED', $6, now(), $7, now(), $6)`,
+        [id, org, number, supplier, ids.warehouseB, uuidv7(), uuidv7()],
+      );
+    const line = (id: string, order: string, product: string, qty = 10, received = 0) =>
+      owner.query(
+        `insert into purchase_order_items (id, organization_id, purchase_order_id, product_id, variant_id,
+           ordered_quantity, received_quantity, unit_cost_minor, subtotal_minor, tax_minor, total_minor)
+         values ($1, $2, $3, $4, $5, $6, $7, 100, $6 * 100, 0, $6 * 100)`,
+        [id, orgB, order, product, ids.variantB, qty, received],
+      );
+
+    beforeAll(async () => {
+      await approvedOrder(po.order, orgB, 'PO-2026-000001', ids.supplierB);
+      await line(po.line, po.order, ids.productB);
+      await owner.query(
+        `insert into purchase_receipts (id, organization_id, purchase_order_id, warehouse_id,
+           idempotency_key, request_hash, correlation_id)
+         values ($1, $2, $3, $4, 'seed-key-0001', 'hash', 'seed')`,
+        [po.receipt, orgB, po.order, ids.warehouseB],
+      );
+      await owner.query(
+        `insert into products (id, organization_id, name, slug, base_price_minor, currency)
+         values ($1, $2, 'Other Product', 'other-product', 100, 'USD')`,
+        [po.otherProduct, orgB],
+      );
+    });
+
+    it.each([
+      'purchase_order_counters',
+      'purchase_orders',
+      'purchase_order_items',
+      'purchase_receipts',
+      'purchase_receipt_items',
+    ])('%s: RLS hides every other tenant’s rows', async (table) => {
+      const { rows } = await asTenant(orgA, (client) =>
+        client.query(`select count(*)::int as n from ${table} where organization_id = $1`, [orgB]),
+      );
+      expect(rows[0].n).toBe(0);
+      const none = await asTenant(null, (client) =>
+        client.query(`select count(*)::int as n from ${table}`),
+      );
+      expect(none.rows[0].n).toBe(0);
+    });
+
+    it('another tenant cannot approve, cancel or receive an order even by exact id', async () => {
+      const changed = await asTenant(orgA, async (client) => [
+        (
+          await client.query(`update purchase_orders set status = 'CANCELLED' where id = $1`, [
+            po.order,
+          ])
+        ).rowCount,
+        (
+          await client.query(
+            `update purchase_order_items set received_quantity = 10 where id = $1`,
+            [po.line],
+          )
+        ).rowCount,
+        (await client.query(`delete from purchase_order_items where id = $1`, [po.line])).rowCount,
+      ]);
+      expect(changed).toEqual([0, 0, 0]);
+    });
+
+    it('an order cannot reference another organization’s supplier or warehouse', async () => {
+      await expect(
+        approvedOrder(uuidv7(), orgA, 'PO-2026-000009', ids.supplierB),
+      ).rejects.toMatchObject({ code: '23503', constraint: 'purchase_orders_supplier_fk' });
+    });
+
+    it('a line’s variant must belong to the line’s product', async () => {
+      const order = uuidv7();
+      await approvedOrder(order, orgB, 'PO-2026-000003', ids.supplierB);
+      await expect(line(uuidv7(), order, po.otherProduct)).rejects.toMatchObject({
+        code: '23503',
+        constraint: 'purchase_order_items_variant_fk',
+      });
+    });
+
+    it('quantities and amounts are checked by the database', async () => {
+      await expect(line(uuidv7(), po.order, ids.productB, 0)).rejects.toMatchObject({
+        code: '23514',
+      });
+      await expect(
+        owner.query(`update purchase_order_items set received_quantity = 11 where id = $1`, [
+          po.line,
+        ]),
+      ).rejects.toMatchObject({ constraint: 'purchase_order_items_quantity_check' });
+      await expect(
+        owner.query(`update purchase_order_items set subtotal_minor = 1 where id = $1`, [po.line]),
+      ).rejects.toMatchObject({ constraint: 'purchase_order_items_amounts_check' });
+      await expect(
+        owner.query(`update purchase_orders set total_minor = total_minor + 1 where id = $1`, [
+          po.order,
+        ]),
+      ).rejects.toMatchObject({ constraint: 'purchase_orders_money_check' });
+    });
+
+    it('status and lifecycle timestamps cannot disagree', async () => {
+      await expect(
+        owner.query(`update purchase_orders set approved_at = null where id = $1`, [po.order]),
+      ).rejects.toMatchObject({ constraint: 'purchase_orders_approved_check' });
+      await expect(
+        owner.query(`update purchase_orders set status = 'RECEIVED' where id = $1`, [po.order]),
+      ).rejects.toMatchObject({ constraint: 'purchase_orders_received_check' });
+      await expect(
+        owner.query(`update purchase_orders set status = 'CANCELLED' where id = $1`, [po.order]),
+      ).rejects.toMatchObject({ constraint: 'purchase_orders_cancelled_check' });
+    });
+
+    it('PO numbers are unique per organization, not globally', async () => {
+      await expect(
+        approvedOrder(uuidv7(), orgB, 'PO-2026-000001', ids.supplierB),
+      ).rejects.toMatchObject({ code: '23505', constraint: 'purchase_orders_org_number_key' });
+    });
+
+    it('a receipt must be at the order’s own warehouse, and its lines on its own order', async () => {
+      const otherWarehouse = uuidv7();
+      await owner.query(
+        `insert into warehouses (id, organization_id, code, name) values ($1, $2, 'WH-OTHER', 'Other')`,
+        [otherWarehouse, orgB],
+      );
+      await expect(
+        owner.query(
+          `insert into purchase_receipts (id, organization_id, purchase_order_id, warehouse_id,
+             idempotency_key, request_hash, correlation_id)
+           values ($1, $2, $3, $4, 'seed-key-0002', 'hash', 'seed')`,
+          [uuidv7(), orgB, po.order, otherWarehouse],
+        ),
+      ).rejects.toMatchObject({ constraint: 'purchase_receipts_order_fk' });
+
+      const otherOrder = uuidv7();
+      const otherLine = uuidv7();
+      await approvedOrder(otherOrder, orgB, 'PO-2026-000002', ids.supplierB);
+      await line(otherLine, otherOrder, ids.productB);
+      await expect(
+        owner.query(
+          `insert into purchase_receipt_items (id, organization_id, receipt_id, purchase_order_id,
+             purchase_order_item_id, quantity, inventory_movement_id)
+           values ($1, $2, $3, $4, $5, 1, $6)`,
+          [uuidv7(), orgB, po.receipt, otherOrder, otherLine, ids.movementB],
+        ),
+      ).rejects.toMatchObject({ constraint: 'purchase_receipt_items_receipt_fk' });
+    });
+
+    it('receipts are history: nobody can update or delete them', async () => {
+      await expect(
+        owner.query(`update purchase_receipts set note = 'edited' where id = $1`, [po.receipt]),
+      ).rejects.toThrow(/append-only/);
+      await expect(
+        owner.query(`delete from purchase_receipts where id = $1`, [po.receipt]),
+      ).rejects.toThrow(/append-only/);
+      const changed = await asTenant(orgB, async (client) => [
+        (await client.query(`update purchase_receipts set note = 'x' where id = $1`, [po.receipt]))
+          .rowCount,
+        (await client.query(`delete from purchase_receipts where id = $1`, [po.receipt])).rowCount,
+      ]);
+      expect(changed).toEqual([0, 0]);
+    });
+
+    it('an idempotency key is used once per organization', async () => {
+      await expect(
+        owner.query(
+          `insert into purchase_receipts (id, organization_id, purchase_order_id, warehouse_id,
+             idempotency_key, request_hash, correlation_id)
+           values ($1, $2, $3, $4, 'seed-key-0001', 'other', 'seed')`,
+          [uuidv7(), orgB, po.order, ids.warehouseB],
+        ),
+      ).rejects.toMatchObject({
+        code: '23505',
+        constraint: 'purchase_receipts_org_idempotency_key',
+      });
     });
   });
 });

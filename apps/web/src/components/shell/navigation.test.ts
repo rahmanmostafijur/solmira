@@ -49,6 +49,21 @@ describe('navigation', () => {
     expect(isActive('/inventory/movements', '/inventory')).toBe(false);
   });
 
+  it('shows purchase orders by purchase_orders.read under Operations', () => {
+    const operations = (granted: readonly string[]) =>
+      visibleSections((permission) => granted.includes(permission), true)
+        .find((section) => section.title === 'Operations')
+        ?.items.map((item) => item.label) ?? [];
+
+    expect(operations(['purchase_orders.read'])).toEqual(['Purchase orders']);
+    expect(operations(['inventory.read'])).not.toContain('Purchase orders');
+    expect(operations(['inventory.read', 'purchase_orders.read'])).toContain('Purchase orders');
+    expect(findNavItem('/purchase-orders/0192f000-0000-7000-8000-000000000000')?.item.label).toBe(
+      'Purchase orders',
+    );
+    expect(findNavItem('/purchase-orders/new')?.item.label).toBe('Purchase orders');
+  });
+
   it('hides organization settings when no organization is active', () => {
     const labels = visibleSections(() => true, false).flatMap((section) =>
       section.items.map((item) => item.label),
