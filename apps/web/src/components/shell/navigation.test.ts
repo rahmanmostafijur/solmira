@@ -34,6 +34,21 @@ describe('navigation', () => {
     );
   });
 
+  it('shows inventory pages by inventory.read and selects the most specific one', () => {
+    const operations = visibleSections((permission) => permission === 'inventory.read', true).find(
+      (section) => section.title === 'Operations',
+    );
+    expect(operations?.items.map((item) => item.label)).toEqual([
+      'Inventory',
+      'Stock movements',
+      'Reservations',
+    ]);
+    expect(findNavItem('/inventory/movements')?.item.label).toBe('Stock movements');
+    expect(findNavItem('/inventory/reservations')?.item.label).toBe('Reservations');
+    expect(findNavItem('/inventory')?.item.label).toBe('Inventory');
+    expect(isActive('/inventory/movements', '/inventory')).toBe(false);
+  });
+
   it('hides organization settings when no organization is active', () => {
     const labels = visibleSections(() => true, false).flatMap((section) =>
       section.items.map((item) => item.label),

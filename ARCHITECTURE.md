@@ -151,6 +151,21 @@ key. It calls identity only to verify a warehouse manager, forwarding the caller
 - [`docs/architecture/object-storage.md`](docs/architecture/object-storage.md): storage port, upload and read flows, security properties
 - ADRs [0013](docs/adr/0013-catalog-modeling.md), [0014](docs/adr/0014-object-storage-abstraction.md), [0015](docs/adr/0015-sku-uniqueness.md), [0016](docs/adr/0016-warehouses-and-managers.md), [0017](docs/adr/0017-product-image-storage.md)
 
+## 6b. Inventory (Phase 4)
+
+Status: **Built** in operations-service as its own module. Stock per warehouse and variant is
+held in counters (`on_hand`, `reserved`, generated `available`) that the database keeps within
+`0 <= reserved <= on_hand`, next to an append-only ledger (`inventory_movements`) that every
+change writes in the same transaction and that the counters can be rebuilt from. Adjustments
+carry a reason that fixes their direction; counts are computed under lock; transfers move stock
+between warehouses atomically; reservations hold stock all or nothing. Every change is one
+guarded `UPDATE` (check and take in one statement), and multi-level changes lock rows in
+level-id order, so concurrent requests can neither oversell nor deadlock; integration tests
+prove both against real PostgreSQL. Low-stock crossings are recorded as outbox events.
+
+- [`docs/architecture/inventory.md`](docs/architecture/inventory.md): tables, write path, API, rules, events, reconciliation, console, tests
+- ADRs [0018](docs/adr/0018-inventory-ledger-and-counters.md), [0019](docs/adr/0019-stock-movement-rules.md), [0020](docs/adr/0020-reservations-and-oversell-prevention.md)
+
 ## 7. Data model (planned; built phase by phase)
 
 Conventions: UUIDv7 primary keys generated in the application (time-ordered, index friendly,
@@ -164,9 +179,11 @@ and a `version` column where optimistic concurrency is used.
 (email verification and password reset, by `purpose`), `outbox_events`.
 Tokens are stored only as SHA-256 hashes.
 
-**operations DB**: built so far (phase 3): `categories`, `suppliers`, `warehouses`, `products`,
-`product_variants`, `product_images`, `member_directory`, `outbox_events` (see
-[catalog.md](docs/architecture/catalog.md)). The full target model:
+**operations DB**: built so far: `categories`, `suppliers`, `warehouses`, `products`,
+`product_variants`, `product_images`, `member_directory`, `outbox_events` (phase 3, see
+[catalog.md](docs/architecture/catalog.md)); `inventory_levels`, `inventory_movements`,
+`inventory_reservations` (phase 4, see [inventory.md](docs/architecture/inventory.md)). The full
+target model:
 
 ```mermaid
 erDiagram
@@ -174,9 +191,10 @@ erDiagram
   suppliers ||--o{ products : supplies
   products ||--|{ product_variants : has
   products ||--o{ product_images : shows
-  warehouses ||--o{ inventory : stocks
-  product_variants ||--o{ inventory : "stocked as"
-  inventory ||--o{ inventory_movements : "changed by"
+  warehouses ||--o{ inventory_levels : stocks
+  product_variants ||--o{ inventory_levels : "stocked as"
+  inventory_levels ||--o{ inventory_movements : "changed by"
+  inventory_levels ||--o{ inventory_reservations : "held by"
   suppliers ||--o{ purchase_orders : receives
   purchase_orders ||--|{ purchase_order_items : contains
   customers ||--o{ orders : places
@@ -188,11 +206,13 @@ erDiagram
 
 Key invariants, enforced by the database and not only by code:
 
-- `inventory`: unique `(organization_id, warehouse_id, variant_id)`,
-  `CHECK (on_hand >= 0 AND reserved >= 0 AND damaged >= 0 AND reserved <= on_hand)`.
-  `available` is a generated column (`on_hand - reserved`).
-- `inventory_movements`: append-only ledger (`quantity` signed; `type`, `reference_type`, `reference_id`).
-  Stock levels can be rebuilt from it.
+- `inventory_levels` (built): unique `(organization_id, warehouse_id, variant_id)`,
+  `CHECK (on_hand >= 0 AND reserved >= 0 AND reserved <= on_hand AND on_hand <= 1e9)`.
+  `available` is a generated column (`on_hand - reserved`). Damaged stock is written off by an
+  adjustment rather than kept in a counter (ADR-0018).
+- `inventory_movements` (built): append-only ledger (signed `on_hand_change` and
+  `reserved_change`, balances after, `type`, `reason`, `reference_type`, `reference_id`), enforced
+  by RLS and a trigger. Stock levels can be rebuilt from it.
 - `purchase_order_items`: `CHECK (received_quantity <= ordered_quantity)`.
 - `orders`: unique `(organization_id, order_number)`, unique `(organization_id, idempotency_key)`.
 - Line items snapshot SKU, name and unit price at order time, so later catalog edits never rewrite history.
@@ -242,8 +262,8 @@ their side effect, so a redelivered event is a no-op.
 | `member.invited`, `member.role_changed`                                                | identity     | notification, audit                                                   |
 | `product.*`, `variant.*`, `category.*`, `supplier.*`, `warehouse.*`, `product_image.*` | operations   | audit, analytics (from phase 7; recorded in the outbox since phase 3) |
 | `order.created` / `.confirmed` / `.cancelled` / `.status_changed`                      | operations   | notification, analytics, audit                                        |
-| `inventory.reserved` / `.released` / `.adjusted` / `.transferred`                      | operations   | operations (low-stock evaluator), analytics, audit                    |
-| `inventory.low_stock`                                                                  | operations   | notification, analytics                                               |
+| `inventory.reserved` / `.released` / `.adjusted` / `.transferred`                      | operations   | analytics, audit (recorded in the outbox since phase 4)               |
+| `inventory.low_stock`                                                                  | operations   | notification, analytics (detected in the write transaction, phase 4)  |
 | `purchase_order.created` / `.received`                                                 | operations   | notification, analytics, audit                                        |
 | `shipment.created` / `.status_changed`                                                 | operations   | notification, analytics, audit                                        |
 | `notification.created`                                                                 | notification | notification WebSocket fan-out (Redis)                                |
@@ -254,8 +274,9 @@ Confirming an order runs **one PostgreSQL transaction** inside operations-servic
 
 1. Lock the order row (`SELECT … FOR UPDATE`) and validate the transition `PENDING → CONFIRMED`
    against the state machine.
-2. For each line, in a deterministic order (sorted by inventory key, to prevent deadlocks):
-   `UPDATE inventory SET reserved = reserved + $q WHERE … AND on_hand - reserved >= $q`.
+2. For each line, in a deterministic order (ascending inventory level id, to prevent deadlocks):
+   `UPDATE inventory_levels SET reserved = reserved + $q WHERE … AND on_hand >= reserved + $q`
+   (built in phase 4 as `ReservationsService.reserveLines`).
    Zero rows updated means insufficient stock, so the whole transaction rolls back.
 3. Insert `inventory_reservations`, `inventory_movements (type = reserved)` and `order_status_history`.
 4. Insert outbox events `order.confirmed` and `inventory.reserved`.
@@ -264,7 +285,8 @@ Confirming an order runs **one PostgreSQL transaction** inside operations-servic
 Two buyers racing for the last unit: both `UPDATE`s target the same row. PostgreSQL serializes
 them on the row lock, and the second re-evaluates the `WHERE` guard after the first commits,
 matches zero rows and fails cleanly. No overselling, no application-level locks. Full analysis
-in `docs/architecture/inventory-reservation.md` (phase 4).
+in [ADR-0020](docs/adr/0020-reservations-and-oversell-prevention.md), with the concurrency tests
+that prove it.
 
 ## 10. Cross-cutting
 

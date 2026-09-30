@@ -3,12 +3,13 @@ import { AuthModule, PlatformModule, platformOptionsFromEnv } from '@solmira/ser
 import { CatalogModule } from './catalog.module.js';
 import { SERVICE_NAME, type OperationsConfig } from './config.js';
 import { DatabaseModule } from './database/database.module.js';
+import { InventoryModule } from './inventory/inventory.module.js';
 import { OperationsCoreModule, type OperationsAdapters } from './operations-core.module.js';
 
 /**
- * Modular monolith root. Catalog master data (phase 3) is the first feature module; inventory,
- * purchasing, orders and fulfillment follow as separate modules that share one database and its
- * transaction boundary.
+ * Modular monolith root. Catalog master data (phase 3) and inventory (phase 4) are feature
+ * modules; purchasing, orders and fulfillment follow as separate modules that share one database
+ * and its transaction boundary.
  */
 @Module({})
 export class AppModule {
@@ -27,6 +28,7 @@ export class AppModule {
         OperationsCoreModule.register(config, adapters),
         DatabaseModule,
         CatalogModule,
+        InventoryModule,
       ],
     };
   }

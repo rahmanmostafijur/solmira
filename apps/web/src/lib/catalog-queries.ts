@@ -101,11 +101,12 @@ export const useBulkProductStatus = (org: string) =>
 
 // ---- variants -----------------------------------------------------------------------------------
 
-export const useVariants = (org: string, productId: string) =>
+export const useVariants = (org: string, productId: string, enabled = true) =>
   useQuery({
     queryKey: catalogKeys.variants(org, productId),
     queryFn: ({ signal }) =>
       api<Page<Variant>>(`/products/${productId}/variants?pageSize=${PICK_LIST_SIZE}`, { signal }),
+    enabled,
   });
 
 export const useCreateVariant = (org: string, productId: string) =>
@@ -200,11 +201,12 @@ export const useUpdateSupplier = (org: string, id: string) =>
 
 // ---- warehouses ---------------------------------------------------------------------------------
 
-export const useWarehouses = (org: string, query: Partial<WarehouseListQuery>) =>
+export const useWarehouses = (org: string, query: Partial<WarehouseListQuery>, enabled = true) =>
   useQuery({
     queryKey: catalogKeys.warehouses(org, query),
     queryFn: ({ signal }) => api<Page<Warehouse>>(`/warehouses?${toApiQuery(query)}`, { signal }),
     placeholderData: keepPreviousData,
+    enabled,
   });
 
 export const useWarehouse = (org: string, id: string) =>

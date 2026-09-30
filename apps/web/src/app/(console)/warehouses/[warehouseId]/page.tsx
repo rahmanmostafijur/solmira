@@ -83,7 +83,20 @@ function WarehouseView({
           }
         />
       </div>
-      <Panel title="Details" description="Stock levels per warehouse arrive with inventory.">
+      <Panel
+        title="Details"
+        description="Where this warehouse is and who runs it. Its stock is listed under Inventory."
+        actions={
+          can('inventory.read') && (
+            <Link
+              href={`/inventory?warehouseId=${w.id}`}
+              className="text-sm font-medium text-accent hover:underline"
+            >
+              View stock
+            </Link>
+          )
+        }
+      >
         <div className="p-5">
           <WarehouseForm
             key={w.updatedAt}

@@ -26,6 +26,9 @@ describe.
 | 0015 | [SKU uniqueness per organization, among live variants](0015-sku-uniqueness.md)                        | Accepted | 2026-09-30 |
 | 0016 | [Warehouses, and managers from the same organization](0016-warehouses-and-managers.md)                | Accepted | 2026-09-30 |
 | 0017 | [Product images: validated uploads and tenant-scoped keys](0017-product-image-storage.md)             | Accepted | 2026-09-30 |
+| 0018 | [Inventory as counters plus an append-only ledger](0018-inventory-ledger-and-counters.md)             | Accepted | 2026-09-30 |
+| 0019 | [Stock movement rules: adjustments, counts and transfers](0019-stock-movement-rules.md)               | Accepted | 2026-09-30 |
+| 0020 | [Reservations, and how overselling is prevented](0020-reservations-and-oversell-prevention.md)        | Accepted | 2026-09-30 |
 
 ## Process
 

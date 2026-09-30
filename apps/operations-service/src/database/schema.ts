@@ -1,4 +1,5 @@
 import { sql } from 'drizzle-orm';
+import { MAX_STOCK_QUANTITY } from '@solmira/contracts';
 import {
   bigint,
   check,
@@ -345,6 +346,198 @@ export const productImages = pgTable(
   ],
 );
 
+// ---- inventory ----------------------------------------------------------------------------------
+
+export const MOVEMENT_TYPE_VALUES = [
+  'ADJUSTMENT',
+  'TRANSFER_OUT',
+  'TRANSFER_IN',
+  'RESERVATION',
+  'RELEASE',
+] as const;
+export const ADJUSTMENT_REASON_VALUES = [
+  'RECEIVED',
+  'COUNT',
+  'DAMAGED',
+  'LOST',
+  'FOUND',
+  'RETURNED',
+  'CORRECTION',
+] as const;
+
+/**
+ * Current stock of one variant in one warehouse. The counters are the fast path that reservation
+ * guards run against; the ledger (inventory_movements) is the history they can be rebuilt from.
+ */
+export const inventoryLevels = pgTable(
+  'inventory_levels',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    warehouseId: uuid('warehouse_id').notNull(),
+    variantId: uuid('variant_id').notNull(),
+    onHand: integer('on_hand').notNull().default(0),
+    reserved: integer('reserved').notNull().default(0),
+    // Computed by the database, so it can never disagree with the two counters.
+    available: integer('available').generatedAlwaysAs(sql`on_hand - reserved`),
+    reorderPoint: integer('reorder_point'),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    unique('inventory_levels_org_id_key').on(table.organizationId, table.id),
+    unique('inventory_levels_org_warehouse_variant_key').on(
+      table.organizationId,
+      table.warehouseId,
+      table.variantId,
+    ),
+    foreignKey({
+      name: 'inventory_levels_warehouse_fk',
+      columns: [table.organizationId, table.warehouseId],
+      foreignColumns: [warehouses.organizationId, warehouses.id],
+    }).onDelete('restrict'),
+    foreignKey({
+      name: 'inventory_levels_variant_fk',
+      columns: [table.organizationId, table.variantId],
+      foreignColumns: [productVariants.organizationId, productVariants.id],
+    }).onDelete('restrict'),
+    // Stock of one variant across warehouses.
+    index('inventory_levels_org_variant_idx').on(table.organizationId, table.variantId),
+    index('inventory_levels_org_updated_idx').on(table.organizationId, table.updatedAt.desc()),
+    // The oversell guard of last resort: whatever the code does, these cannot be violated.
+    check(
+      'inventory_levels_quantities_check',
+      sql`${table.onHand} >= 0 and ${table.reserved} >= 0 and ${table.reserved} <= ${table.onHand}
+          and ${table.onHand} <= ${sql.raw(String(MAX_STOCK_QUANTITY))}`,
+    ),
+    check(
+      'inventory_levels_reorder_point_check',
+      sql`${table.reorderPoint} is null or ${table.reorderPoint} >= 0`,
+    ),
+  ],
+);
+
+/**
+ * Append-only stock ledger: one row per change to a level, with both deltas and the balances
+ * after it. Updates and deletes are refused by the database (see migration 0003).
+ */
+export const inventoryMovements = pgTable(
+  'inventory_movements',
+  {
+    id: uuid('id').primaryKey(),
+    // Assigned by the database at insert time, while the level's row lock is held, so per level it
+    // is exactly the order changes were applied. created_at alone cannot give that: concurrent
+    // transactions start in one order and apply in lock order.
+    sequence: bigint('sequence', { mode: 'number' }).generatedAlwaysAsIdentity(),
+    organizationId: uuid('organization_id').notNull(),
+    inventoryLevelId: uuid('inventory_level_id').notNull(),
+    type: text('type', { enum: MOVEMENT_TYPE_VALUES }).notNull(),
+    reason: text('reason', { enum: ADJUSTMENT_REASON_VALUES }),
+    onHandChange: integer('on_hand_change').notNull(),
+    reservedChange: integer('reserved_change').notNull(),
+    onHandAfter: integer('on_hand_after').notNull(),
+    reservedAfter: integer('reserved_after').notNull(),
+    referenceType: text('reference_type', { enum: ['TRANSFER', 'RESERVATION'] }),
+    referenceId: uuid('reference_id'),
+    note: text('note'),
+    actorId: uuid('actor_id'),
+    correlationId: text('correlation_id').notNull(),
+    // Wall-clock time of the insert, not the transaction start that now() would give.
+    createdAt: timestamptz('created_at')
+      .notNull()
+      .default(sql`clock_timestamp()`),
+  },
+  (table) => [
+    unique('inventory_movements_org_id_key').on(table.organizationId, table.id),
+    unique('inventory_movements_sequence_key').on(table.sequence),
+    foreignKey({
+      name: 'inventory_movements_level_fk',
+      columns: [table.organizationId, table.inventoryLevelId],
+      foreignColumns: [inventoryLevels.organizationId, inventoryLevels.id],
+    }).onDelete('restrict'),
+    index('inventory_movements_org_level_sequence_idx').on(
+      table.organizationId,
+      table.inventoryLevelId,
+      table.sequence.desc(),
+    ),
+    index('inventory_movements_org_sequence_idx').on(table.organizationId, table.sequence.desc()),
+    index('inventory_movements_org_created_idx').on(table.organizationId, table.createdAt),
+    index('inventory_movements_org_reference_idx').on(
+      table.organizationId,
+      table.referenceType,
+      table.referenceId,
+    ),
+    check(
+      'inventory_movements_type_check',
+      sql`${table.type} in (${inList(MOVEMENT_TYPE_VALUES)})`,
+    ),
+    check(
+      'inventory_movements_reason_check',
+      sql`(${table.type} = 'ADJUSTMENT') = (${table.reason} is not null)
+          and (${table.reason} is null or ${table.reason} in (${inList(ADJUSTMENT_REASON_VALUES)}))`,
+    ),
+    // Each type moves exactly one counter, in one direction.
+    check(
+      'inventory_movements_change_check',
+      sql`case ${table.type}
+            when 'ADJUSTMENT' then ${table.onHandChange} <> 0 and ${table.reservedChange} = 0
+            when 'TRANSFER_OUT' then ${table.onHandChange} < 0 and ${table.reservedChange} = 0
+            when 'TRANSFER_IN' then ${table.onHandChange} > 0 and ${table.reservedChange} = 0
+            when 'RESERVATION' then ${table.onHandChange} = 0 and ${table.reservedChange} > 0
+            when 'RELEASE' then ${table.onHandChange} = 0 and ${table.reservedChange} < 0
+          end`,
+    ),
+    check(
+      'inventory_movements_balance_check',
+      sql`${table.onHandAfter} >= 0 and ${table.reservedAfter} >= 0 and ${table.reservedAfter} <= ${table.onHandAfter}`,
+    ),
+    check(
+      'inventory_movements_reference_check',
+      sql`(${table.referenceType} is null) = (${table.referenceId} is null)`,
+    ),
+  ],
+);
+
+/** A hold on stock of one variant in one warehouse. Orders reuse it in phase 6. */
+export const inventoryReservations = pgTable(
+  'inventory_reservations',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    inventoryLevelId: uuid('inventory_level_id').notNull(),
+    quantity: integer('quantity').notNull(),
+    status: text('status', { enum: ['ACTIVE', 'RELEASED'] })
+      .notNull()
+      .default('ACTIVE'),
+    reference: text('reference').notNull(),
+    note: text('note'),
+    createdBy: uuid('created_by'),
+    releasedBy: uuid('released_by'),
+    releasedAt: timestamptz('released_at'),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique('inventory_reservations_org_id_key').on(table.organizationId, table.id),
+    foreignKey({
+      name: 'inventory_reservations_level_fk',
+      columns: [table.organizationId, table.inventoryLevelId],
+      foreignColumns: [inventoryLevels.organizationId, inventoryLevels.id],
+    }).onDelete('restrict'),
+    index('inventory_reservations_org_status_created_idx').on(
+      table.organizationId,
+      table.status,
+      table.createdAt.desc(),
+    ),
+    index('inventory_reservations_org_level_idx').on(table.organizationId, table.inventoryLevelId),
+    check('inventory_reservations_status_check', sql`${table.status} in ('ACTIVE', 'RELEASED')`),
+    check('inventory_reservations_quantity_check', sql`${table.quantity} > 0`),
+    check(
+      'inventory_reservations_released_check',
+      sql`(${table.status} = 'RELEASED') = (${table.releasedAt} is not null)`,
+    ),
+  ],
+);
+
 // ---- integration --------------------------------------------------------------------------------
 
 export const outboxEvents = pgTable(
@@ -376,6 +569,9 @@ export const schema = {
   products,
   productVariants,
   productImages,
+  inventoryLevels,
+  inventoryMovements,
+  inventoryReservations,
   outboxEvents,
 };
 export type OperationsSchema = typeof schema;

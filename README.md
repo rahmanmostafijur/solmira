@@ -24,7 +24,8 @@ Built in 12 phases; see [the roadmap](docs/ROADMAP.md).
 - [x] **Phase 1: Foundation.** Monorepo, five services on a shared platform layer, gateway, local infrastructure, CI, Docker images.
 - [x] **Phase 2: Identity and tenant isolation.** Registration, login, refresh-token rotation with reuse detection, sessions, password reset, organizations, invitations, permission-based RBAC, PostgreSQL Row Level Security, and integration tests proving cross-tenant access fails.
 - [x] **Phase 3: Catalog, suppliers, warehouses and product media.** Products and variants with per-organization SKUs, a category tree, suppliers, warehouses with managers verified against identity, private S3/MinIO image storage with signed URLs, search/filter/sort/pagination, composite tenant foreign keys and RLS on every table, and a console with data tables, forms and image management.
-- [ ] Phases 4–12: inventory, purchasing, orders, events, realtime, analytics, audit, testing depth, production readiness
+- [x] **Phase 4: Inventory.** Stock per warehouse and variant as database-guarded counters plus an append-only movement ledger, reason-checked adjustments and stock counts, atomic transfers, all-or-nothing reservations, low-stock detection, and concurrency tests proving no overselling and no deadlocks.
+- [ ] Phases 5–12: purchasing, orders, events, realtime, analytics, audit, testing depth, production readiness
 
 ## Architecture at a glance
 

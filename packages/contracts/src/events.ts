@@ -68,3 +68,54 @@ export interface CatalogEventPayloads {
 }
 
 export type CatalogEventType = keyof CatalogEventPayloads;
+
+/**
+ * Inventory events (operations-service), recorded in the same transaction as the ledger rows
+ * they describe. Quantities are whole units; `*After` values are the balances after the change.
+ */
+export interface InventoryEventPayloads {
+  'inventory.adjusted': {
+    inventoryLevelId: string;
+    warehouseId: string;
+    variantId: string;
+    reason: string;
+    quantityChange: number;
+    onHandAfter: number;
+  };
+  'inventory.transferred': {
+    transferId: string;
+    variantId: string;
+    fromWarehouseId: string;
+    toWarehouseId: string;
+    quantity: number;
+  };
+  'inventory.reserved': {
+    reference: string;
+    reservations: {
+      reservationId: string;
+      warehouseId: string;
+      variantId: string;
+      quantity: number;
+    }[];
+  };
+  'inventory.released': {
+    reservationId: string;
+    warehouseId: string;
+    variantId: string;
+    quantity: number;
+  };
+  /** Emitted when available stock falls to or below the reorder point (on the crossing only). */
+  'inventory.low_stock': {
+    inventoryLevelId: string;
+    warehouseId: string;
+    variantId: string;
+    available: number;
+    reorderPoint: number;
+  };
+}
+
+export type InventoryEventType = keyof InventoryEventPayloads;
+
+/** Everything operations-service writes to its outbox. */
+export type OperationsEventPayloads = CatalogEventPayloads & InventoryEventPayloads;
+export type OperationsEventType = keyof OperationsEventPayloads;

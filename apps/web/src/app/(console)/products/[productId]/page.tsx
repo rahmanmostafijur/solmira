@@ -215,6 +215,14 @@ function ProductView({ organizationId, productId }: { organizationId: string; pr
             <Badge tone={PRODUCT_STATUS_LABELS[p.status].tone}>
               {PRODUCT_STATUS_LABELS[p.status].label}
             </Badge>
+            {can('inventory.read') && (
+              <Link
+                href={`/inventory?productId=${p.id}`}
+                className="text-sm font-medium text-accent hover:underline"
+              >
+                Stock
+              </Link>
+            )}
             {can('products.update') && (
               <StatusActions organizationId={organizationId} product={p} />
             )}

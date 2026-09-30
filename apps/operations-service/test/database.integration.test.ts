@@ -23,6 +23,8 @@ const ids = {
   variantB: uuidv7(),
   imageB: uuidv7(),
   warehouseB: uuidv7(),
+  levelB: uuidv7(),
+  movementB: uuidv7(),
   memberA: uuidv7(),
   memberB: uuidv7(),
 };
@@ -95,6 +97,22 @@ describe('operations database: tenant guarantees', () => {
       `insert into warehouses (id, organization_id, code, name, manager_member_id) values ($1, $2, 'WH-DHK', 'Dhaka Central', $3)`,
       [ids.warehouseB, orgB, ids.memberB],
     );
+    await owner.query(
+      `insert into inventory_levels (id, organization_id, warehouse_id, variant_id, on_hand, reserved)
+       values ($1, $2, $3, $4, 10, 2)`,
+      [ids.levelB, orgB, ids.warehouseB, ids.variantB],
+    );
+    await owner.query(
+      `insert into inventory_movements (id, organization_id, inventory_level_id, type, reason,
+         on_hand_change, reserved_change, on_hand_after, reserved_after, correlation_id)
+       values ($1, $2, $3, 'ADJUSTMENT', 'RECEIVED', 10, 0, 10, 0, 'seed')`,
+      [ids.movementB, orgB, ids.levelB],
+    );
+    await owner.query(
+      `insert into inventory_reservations (id, organization_id, inventory_level_id, quantity, reference)
+       values ($1, $2, $3, 2, 'Seeded hold')`,
+      [uuidv7(), orgB, ids.levelB],
+    );
   });
 
   afterAll(async () => {
@@ -110,6 +128,9 @@ describe('operations database: tenant guarantees', () => {
       'product_images',
       'warehouses',
       'member_directory',
+      'inventory_levels',
+      'inventory_movements',
+      'inventory_reservations',
     ];
 
     it('runs as a role that cannot bypass RLS', async () => {
@@ -288,6 +309,119 @@ describe('operations database: tenant guarantees', () => {
           ),
         ),
       ).rejects.toMatchObject({ code: '23505', constraint: 'warehouses_org_code_key' });
+    });
+  });
+
+  describe('inventory guarantees', () => {
+    const movement = (level: string, org: string, type: string, onHand: number, reserved: number) =>
+      owner.query(
+        `insert into inventory_movements (id, organization_id, inventory_level_id, type, reason,
+           on_hand_change, reserved_change, on_hand_after, reserved_after, correlation_id)
+         values ($1, $2, $3, $4, $5, $6, $7, 10, 0, 'test')`,
+        [uuidv7(), org, level, type, type === 'ADJUSTMENT' ? 'CORRECTION' : null, onHand, reserved],
+      );
+
+    it('a level cannot combine another organization’s warehouse or variant', async () => {
+      await expect(
+        owner.query(
+          `insert into inventory_levels (id, organization_id, warehouse_id, variant_id) values ($1, $2, $3, $4)`,
+          [uuidv7(), orgA, ids.warehouseB, ids.variantB],
+        ),
+      ).rejects.toMatchObject({ code: '23503', constraint: 'inventory_levels_warehouse_fk' });
+    });
+
+    it('one level per warehouse and variant', async () => {
+      await expect(
+        owner.query(
+          `insert into inventory_levels (id, organization_id, warehouse_id, variant_id) values ($1, $2, $3, $4)`,
+          [uuidv7(), orgB, ids.warehouseB, ids.variantB],
+        ),
+      ).rejects.toMatchObject({
+        code: '23505',
+        constraint: 'inventory_levels_org_warehouse_variant_key',
+      });
+    });
+
+    it('counters can never go negative or reserve more than is on hand', async () => {
+      for (const change of ['on_hand = -1', 'reserved = -1', 'reserved = on_hand + 1']) {
+        await expect(
+          owner.query(`update inventory_levels set ${change} where id = $1`, [ids.levelB]),
+          change,
+        ).rejects.toMatchObject({ code: '23514', constraint: 'inventory_levels_quantities_check' });
+      }
+    });
+
+    it('available is computed by the database and cannot be written', async () => {
+      const { rows } = await owner.query(`select available from inventory_levels where id = $1`, [
+        ids.levelB,
+      ]);
+      expect(rows[0].available).toBe(8);
+      await expect(
+        owner.query(`update inventory_levels set available = 100 where id = $1`, [ids.levelB]),
+      ).rejects.toMatchObject({ code: '428C9' });
+    });
+
+    it('the ledger refuses updates and deletes, even from the owner', async () => {
+      await expect(
+        owner.query(`update inventory_movements set on_hand_change = 999 where id = $1`, [
+          ids.movementB,
+        ]),
+      ).rejects.toThrow(/append-only/);
+      await expect(
+        owner.query(`delete from inventory_movements where id = $1`, [ids.movementB]),
+      ).rejects.toThrow(/append-only/);
+      await expect(owner.query(`truncate inventory_movements`)).rejects.toThrow(/append-only/);
+    });
+
+    it('the runtime role has no update or delete policy on the ledger at all', async () => {
+      const changed = await asTenant(orgB, async (client) => [
+        (
+          await client.query(`update inventory_movements set note = 'x' where id = $1`, [
+            ids.movementB,
+          ])
+        ).rowCount,
+        (await client.query(`delete from inventory_movements where id = $1`, [ids.movementB]))
+          .rowCount,
+      ]);
+      expect(changed).toEqual([0, 0]);
+    });
+
+    it('each movement type moves exactly one counter in its own direction', async () => {
+      const invalid: [string, number, number][] = [
+        ['ADJUSTMENT', 0, 0],
+        ['ADJUSTMENT', 1, 1],
+        ['TRANSFER_OUT', 1, 0],
+        ['TRANSFER_IN', -1, 0],
+        ['RESERVATION', 0, -1],
+        ['RELEASE', 0, 1],
+        ['RESERVATION', 1, 1],
+      ];
+      for (const [type, onHand, reserved] of invalid) {
+        await expect(
+          movement(ids.levelB, orgB, type, onHand, reserved),
+          type,
+        ).rejects.toMatchObject({ code: '23514' });
+      }
+      await expect(movement(ids.levelB, orgB, 'RESERVATION', 0, 1)).resolves.toBeDefined();
+    });
+
+    it('movements and reservations cannot point at another organization’s level', async () => {
+      await expect(movement(ids.levelB, orgA, 'TRANSFER_IN', 1, 0)).rejects.toMatchObject({
+        constraint: 'inventory_movements_level_fk',
+      });
+      await expect(
+        owner.query(
+          `insert into inventory_reservations (id, organization_id, inventory_level_id, quantity, reference)
+           values ($1, $2, $3, 1, 'x')`,
+          [uuidv7(), orgA, ids.levelB],
+        ),
+      ).rejects.toMatchObject({ constraint: 'inventory_reservations_level_fk' });
+    });
+
+    it('stocked warehouses cannot be deleted from under their levels', async () => {
+      await expect(
+        owner.query(`delete from warehouses where id = $1`, [ids.warehouseB]),
+      ).rejects.toMatchObject({ constraint: 'inventory_levels_warehouse_fk' });
     });
   });
 });

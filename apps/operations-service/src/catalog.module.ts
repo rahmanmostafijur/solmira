@@ -11,7 +11,7 @@ import { SuppliersService } from './suppliers/suppliers.service.js';
 import { WarehousesController } from './warehouses/warehouses.controller.js';
 import { WarehousesService } from './warehouses/warehouses.service.js';
 
-/** Operational master data: catalog, suppliers and warehouses. Inventory (phase 4) builds on it. */
+/** Operational master data: catalog, suppliers and warehouses. Inventory builds on it. */
 @Module({
   controllers: [
     CategoriesController,

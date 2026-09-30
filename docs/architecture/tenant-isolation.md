@@ -263,22 +263,28 @@ The same three layers, with the schema layer now in full use:
 - **Policies.** `categories`, `suppliers`, `warehouses`, `products`, `product_variants`,
   `product_images` and `member_directory` each have RLS enabled and one policy
   `FOR ALL USING (organization_id = app_current_organization_id()) WITH CHECK (same)`
-  (`drizzle/0001_tenant_security_and_search.sql`). `outbox_events` has no RLS; it is written only
-  inside tenant transactions and read by the relay (phase 7).
+  (`drizzle/0001_tenant_security_and_search.sql`). Inventory (phase 4,
+  `drizzle/0003_inventory_security_and_ledger.sql`) adds the same policy on `inventory_levels` and
+  `inventory_reservations`; `inventory_movements` gets only `SELECT` and `INSERT` policies, so the
+  runtime role cannot rewrite the ledger, and a trigger refuses updates and deletes for every role.
+  `outbox_events` has no RLS; it is written only inside tenant transactions and read by the relay
+  (phase 7).
 - **Composite foreign keys.** Every reference is `(organization_id, <ref>_id) → (organization_id, id)`:
   product → category, product → supplier, variant → product, image → product, category → parent,
-  warehouse → `member_directory` (manager). Because the constraint includes `organization_id`, a
+  warehouse → `member_directory` (manager), level → warehouse, level → variant, movement → level,
+  reservation → level. Because the constraint includes `organization_id`, a
   row can only point at a row of its own organization. This holds for the owner role too, which
   RLS does not constrain.
 - **Storage keys** carry the tenant too: image keys must start with
   `organizations/{organization_id}/products/{product_id}/` (`product_images_key_prefix_check`).
 - **Cross-service ids.** A warehouse manager id is checked with identity using the caller's own
   token, then recorded in `member_directory` for the composite key (ADR-0016).
-- **Tests.** `test/database.integration.test.ts` (26) proves RLS on all seven tables and the
-  composite keys at the database level; `test/catalog-isolation.integration.test.ts` (15) and the
-  cross-tenant cases in `test/images.integration.test.ts` prove it over HTTP: organization B cannot
-  list, read, update, delete, reference or extend organization A's records, and gets `404` for
-  A's ids.
+- **Tests.** `test/database.integration.test.ts` (41) proves RLS on all ten tables, the
+  append-only ledger and the composite keys at the database level;
+  `test/catalog-isolation.integration.test.ts`, `test/inventory-isolation.integration.test.ts` and
+  the cross-tenant cases in `test/images.integration.test.ts` prove it over HTTP: organization B
+  cannot list, read, update, delete, reference, extend, move or reserve organization A's records,
+  and gets `404` (or a field-level "not found") for A's ids.
 
 ## Known limitations
 

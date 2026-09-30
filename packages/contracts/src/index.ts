@@ -4,6 +4,7 @@ export * from './catalog.js';
 export * from './events.js';
 export * from './health.js';
 export * from './http.js';
+export * from './inventory.js';
 export * from './organizations.js';
 export * from './pagination.js';
 export * from './services.js';
