@@ -1,0 +1,142 @@
+import { Logger } from '@nestjs/common';
+import { secretContext, type SecretCipher } from '@solmira/service-kit';
+import type {
+  ClaimedDelivery,
+  DeliveryContext,
+  DeliveryRepository,
+  Outcome,
+} from '../database/delivery-repository.js';
+import type { AttemptStore } from '../history/attempt-store.js';
+import { buildDeliveryRequest } from './delivery-request.js';
+import type { HttpSender, SendResult } from './http-sender.js';
+import { nextAttempt, type RetryPolicy } from './retry-schedule.js';
+
+export interface ProcessorOptions {
+  readonly retry: RetryPolicy;
+  readonly maxPayloadBytes: number;
+  /** How many times a history write is tried before the loss is logged. */
+  readonly historyWriteTries: number;
+}
+
+export interface Processed {
+  readonly outcome: Outcome['kind'];
+  readonly sent: boolean;
+  readonly errorClass: string | null;
+}
+
+const HISTORY_RETRY_DELAY_MS = 100;
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Takes one claimed delivery from loading to a recorded outcome (ADR-0031). The order of effects
+ * matters: send, write the attempt to the history, then advance the delivery in PostgreSQL. A
+ * crash anywhere repeats the same attempt number, with the same webhook id.
+ */
+export class DeliveryProcessor {
+  private readonly logger = new Logger('DeliveryProcessor');
+
+  constructor(
+    private readonly repository: DeliveryRepository,
+    private readonly sender: HttpSender,
+    private readonly attempts: AttemptStore,
+    private readonly cipher: SecretCipher,
+    private readonly options: ProcessorOptions,
+    private readonly clock: () => Date = () => new Date(),
+  ) {}
+
+  async process(claimed: ClaimedDelivery): Promise<Processed> {
+    const context = await this.repository.loadContext(claimed);
+    const refusal = context ? this.refusalFor(context) : 'delivery_data_missing';
+    if (!context || refusal) return this.giveUp(claimed, refusal ?? 'delivery_data_missing');
+
+    const secrets = this.decryptSecrets(claimed, context);
+    if (secrets.length === 0) return this.giveUp(claimed, 'signing_secret_missing');
+
+    const startedAt = this.clock();
+    const request = buildDeliveryRequest({
+      messageId: claimed.messageId,
+      payload: context.payload,
+      customHeaders: context.headers,
+      secrets,
+      now: startedAt,
+    });
+    const result = await this.sender.send({
+      url: context.url,
+      headers: request.headers,
+      body: request.body,
+    });
+
+    const outcome = this.outcomeOf(claimed, result);
+    await this.writeHistory(claimed, startedAt, result, outcome);
+    await this.repository.recordOutcome(claimed, outcome);
+    return { outcome: outcome.kind, sent: true, errorClass: result.errorClass };
+  }
+
+  private refusalFor(context: DeliveryContext): string | null {
+    if (context.archived || !context.enabled) return 'endpoint_unavailable';
+    const bytes = Buffer.byteLength(JSON.stringify(context.payload), 'utf8');
+    return bytes > this.options.maxPayloadBytes ? 'payload_too_large' : null;
+  }
+
+  private decryptSecrets(claimed: ClaimedDelivery, context: DeliveryContext): string[] {
+    const where = secretContext(claimed.organizationId, claimed.endpointId);
+    // The active secret signs first; during a rotation the previous one signs as well.
+    return [...context.secrets]
+      .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
+      .map((secret) => this.cipher.decrypt(secret, where));
+  }
+
+  private outcomeOf(claimed: ClaimedDelivery, result: SendResult): Outcome {
+    if (result.ok && result.statusCode !== null)
+      return { kind: 'succeeded', statusCode: result.statusCode };
+    const errorClass = result.errorClass ?? 'network';
+    const next = nextAttempt(this.options.retry, claimed.attempt, this.clock());
+    return next.exhausted
+      ? { kind: 'failed', statusCode: result.statusCode, errorClass }
+      : { kind: 'retry', at: next.at, statusCode: result.statusCode, errorClass };
+  }
+
+  /** A permanent refusal: nothing was sent, so there is no attempt to record in the history. */
+  private async giveUp(claimed: ClaimedDelivery, errorClass: string): Promise<Processed> {
+    await this.repository.recordOutcome(claimed, { kind: 'failed', statusCode: null, errorClass });
+    return { outcome: 'failed', sent: false, errorClass };
+  }
+
+  private async writeHistory(
+    claimed: ClaimedDelivery,
+    startedAt: Date,
+    result: SendResult,
+    outcome: Outcome,
+  ): Promise<void> {
+    const record = {
+      organizationId: claimed.organizationId,
+      messageId: claimed.messageId,
+      endpointId: claimed.endpointId,
+      deliveryId: claimed.deliveryId,
+      attempt: claimed.attempt,
+      startedAt,
+      durationMs: result.durationMs,
+      statusCode: result.statusCode,
+      errorClass: result.errorClass,
+      responseBody: result.responseBody,
+      responseBodyTruncated: result.responseBodyTruncated,
+      nextAttemptAt: outcome.kind === 'retry' ? outcome.at : null,
+    };
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        await this.attempts.record(record);
+        return;
+      } catch (error) {
+        if (attempt >= this.options.historyWriteTries) {
+          // History is derived data: the delivery state below stays correct (ADR-0032).
+          this.logger.error(
+            { err: error, deliveryId: claimed.deliveryId, attempt: claimed.attempt },
+            'Could not record the delivery attempt in the history',
+          );
+          return;
+        }
+        await sleep(HISTORY_RETRY_DELAY_MS * attempt);
+      }
+    }
+  }
+}
