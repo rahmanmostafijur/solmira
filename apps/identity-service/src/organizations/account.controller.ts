@@ -14,12 +14,12 @@ import {
   UnauthenticatedError,
   ZodValidationPipe,
   type AuthContext,
+  ApiZodBody,
 } from '@solmira/service-kit';
 import { asc, eq, isNull } from 'drizzle-orm';
 import type { z } from 'zod';
 import { Database } from '../database/database.module.js';
 import { rolePermissions, roles, users } from '../database/schema.js';
-import { ApiZodBody } from '../openapi.js';
 import { InvitationsService } from './invitations.service.js';
 import { OrganizationsService } from './organizations.service.js';
 

@@ -45,6 +45,33 @@ describe('role definitions', () => {
   });
 });
 
+describe('webhook resource permissions', () => {
+  it('reserve secret reveal, API key changes and application archiving for owners and admins', () => {
+    const admin = ['OWNER', 'ADMIN'] as const;
+    for (const permission of [
+      'endpoint_secrets.reveal',
+      'api_keys.create',
+      'api_keys.delete',
+      'applications.delete',
+    ] as const) {
+      for (const role of admin) expect(permissionsForRole(role)).toContain(permission);
+      for (const role of ['MANAGER', 'STAFF', 'VIEWER'] as const)
+        expect(permissionsForRole(role), `${role} must not have ${permission}`).not.toContain(
+          permission,
+        );
+    }
+  });
+
+  it('let managers run endpoints and event types but only read API keys', () => {
+    const manager = permissionsForRole('MANAGER');
+    expect(manager).toEqual(
+      expect.arrayContaining(['endpoints.create', 'endpoints.update', 'event_types.create']),
+    );
+    expect(manager).toContain('api_keys.read');
+    expect(permissionsForRole('STAFF')).not.toContain('api_keys.read');
+  });
+});
+
 describe('hasPermissions', () => {
   it('requires every listed permission', () => {
     expect(hasPermissions(['users.read', 'users.create'], ['users.read', 'users.create'])).toBe(

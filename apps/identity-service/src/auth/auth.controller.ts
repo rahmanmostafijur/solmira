@@ -17,12 +17,12 @@ import {
   UnauthenticatedError,
   ZodValidationPipe,
   type AuthContext,
+  ApiZodBody,
 } from '@solmira/service-kit';
 import type { Request, Response } from 'express';
 import type { z } from 'zod';
 import type { IdentityConfig } from '../config.js';
 import { IDENTITY_CONFIG } from '../identity.tokens.js';
-import { ApiZodBody } from '../openapi.js';
 import { AccountRecoveryService } from './account-recovery.service.js';
 import {
   assertFirstPartyClient,

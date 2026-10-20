@@ -76,6 +76,8 @@ services:
       PORT: 4002
       DATABASE_URL: postgres://ingest_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_ingest
       IDENTITY_JWKS_URL: http://identity-service:4001/api/v1/auth/.well-known/jwks.json
+      # Development key; deployed environments use KMS (ADR-0026). Override with INGEST_SECRETS_KEY.
+      SECRETS_ENCRYPTION_KEY: ${INGEST_SECRETS_KEY:-jwQOFPGSgMYBdzcMS4iBQfZGKQY8Iwi1LU+DxYyoREc=}
 
   notification-service:
     <<: *service-defaults

@@ -120,20 +120,20 @@ database helper from `service-kit`.
 3. **Data access** runs inside a tenant-scoped transaction (`inTenantScope`). Queries filter by
    `organization_id`, and PostgreSQL Row Level Security enforces the same rule as defense in depth.
 
-Ingestion with an API key is a second authentication scheme next to the JWT guard (Planned, Phase 4
-and 5): the key's hash is looked up in ingest-service's own database, which resolves the
+Ingestion with an API key is a second authentication scheme next to the JWT guard (keys and the
+database lookup built in Phase 4, the HTTP guard Planned for Phase 5): the key's hash is looked up in ingest-service's own database, which resolves the
 organization and application.
 
 Routing table (gateway → service):
 
-| Prefix                                                                                      | Service                                      |
-| ------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `/api/v1/auth`, `/me`, `/organizations`, `/users`, `/roles`, `/permissions`, `/invitations` | identity-service                             |
-| `/api/v1/applications`, `/event-types`, `/endpoints`, `/api-keys`                           | ingest-service (Planned, added with Phase 4) |
-| `/api/v1/notifications`, `/ws`                                                              | notification-service                         |
-| `/api/v1/analytics`, `/graphql`                                                             | analytics-service                            |
-| `/api/v1/audit-logs`                                                                        | audit-service                                |
-| everything else                                                                             | web                                          |
+| Prefix                                                                                      | Service              |
+| ------------------------------------------------------------------------------------------- | -------------------- |
+| `/api/v1/auth`, `/me`, `/organizations`, `/users`, `/roles`, `/permissions`, `/invitations` | identity-service     |
+| `/api/v1/applications` (with `/endpoints`, `/api-keys`), `/event-types`                     | ingest-service       |
+| `/api/v1/notifications`, `/ws`                                                              | notification-service |
+| `/api/v1/analytics`, `/graphql`                                                             | analytics-service    |
+| `/api/v1/audit-logs`                                                                        | audit-service        |
+| everything else                                                                             | web                  |
 
 The browser talks only to the gateway origin, so there is no CORS surface in production.
 
@@ -141,8 +141,7 @@ The browser talks only to the gateway origin, so there is no CORS surface in pro
 
 Strategy: **shared database, shared schema, `organization_id` on every tenant-owned row**
 ([ADR-0006](docs/adr/0006-multi-tenancy-shared-schema.md), [ADR-0012](docs/adr/0012-postgresql-row-level-security.md)).
-Status: **Built** for identity-service; the ingest-service plumbing is built and its tables arrive in
-Phase 4. Full description: [`docs/architecture/tenant-isolation.md`](docs/architecture/tenant-isolation.md).
+Status: **Built** for identity-service and for the ingest-service resource tables (Phase 4). Full description: [`docs/architecture/tenant-isolation.md`](docs/architecture/tenant-isolation.md).
 
 Three layers of enforcement:
 
@@ -174,7 +173,7 @@ checked by permission from a catalog in `@solmira/contracts`, synced to the data
 - [`docs/architecture/tenant-isolation.md`](docs/architecture/tenant-isolation.md)
 - ADRs [0010](docs/adr/0010-authentication-strategy.md), [0011](docs/adr/0011-refresh-token-rotation.md), [0012](docs/adr/0012-postgresql-row-level-security.md); overview in [`SECURITY.md`](SECURITY.md)
 
-## 8. Domain model (Planned, Phase 4 onward)
+## 8. Domain model (Phase 4 built; messages and deliveries Planned)
 
 ```mermaid
 erDiagram
@@ -206,10 +205,13 @@ Conventions: UUIDv7 primary keys generated in the application, `timestamptz` in 
 `role_permissions`, `invitations`, `sessions`, `refresh_tokens`, `email_tokens`, `outbox_events`.
 Tokens are stored only as SHA-256 hashes.
 
-**ingest DB**: `outbox_events` and `app_current_organization_id()` today; the domain tables arrive in
-Phases 4 and 5.
+**ingest DB** (built, Phase 4): `applications`, `event_types` (shared by all applications of an
+organization), `endpoints`, `endpoint_event_types`, `endpoint_secrets` (envelope-encrypted),
+`api_keys` (digests only), `outbox_events`, the `app_current_organization_id()` function and the
+`authenticate_api_key()` lookup. Every tenant table has RLS and composite tenant keys. Messages and
+deliveries arrive in Phase 5.
 
-## 9. Security design for outbound delivery (Planned, Phases 4 to 6)
+## 9. Security design for outbound delivery (secrets and URL policy built in Phase 4; sending Planned)
 
 - **Signing:** [Standard Webhooks](https://www.standardwebhooks.com/): `webhook-id`,
   `webhook-timestamp`, `webhook-signature` (HMAC-SHA256). During a rotation window both the old and

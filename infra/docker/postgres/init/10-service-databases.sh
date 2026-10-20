@@ -33,6 +33,10 @@ ALTER DEFAULT PRIVILEGES FOR ROLE :"owner" IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"app";
 ALTER DEFAULT PRIVILEGES FOR ROLE :"owner" IN SCHEMA public
   GRANT USAGE, SELECT ON SEQUENCES TO :"app";
+-- Functions are executable by the runtime role only when granted: migrations revoke PUBLIC access
+-- from security-definer functions.
+ALTER DEFAULT PRIVILEGES FOR ROLE :"owner" IN SCHEMA public
+  GRANT EXECUTE ON FUNCTIONS TO :"app";
 SQL
   echo "Provisioned database solmira_${service}"
 done

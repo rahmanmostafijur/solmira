@@ -14,6 +14,22 @@ export const PERMISSION_CATALOG = {
   'users.delete': 'Remove members from the organization',
   'roles.read': 'View roles and their permissions',
   'roles.assign': 'Change the role of a member',
+  'applications.read': 'View applications',
+  'applications.create': 'Create applications',
+  'applications.update': 'Edit applications',
+  'applications.delete': 'Archive and restore applications',
+  'api_keys.read': 'View API keys (never the key itself)',
+  'api_keys.create': 'Create API keys',
+  'api_keys.delete': 'Revoke API keys',
+  'event_types.read': 'View event types',
+  'event_types.create': 'Create event types',
+  'event_types.update': 'Edit event types',
+  'event_types.delete': 'Archive event types',
+  'endpoints.read': 'View endpoints',
+  'endpoints.create': 'Create endpoints',
+  'endpoints.update': 'Edit endpoints',
+  'endpoints.delete': 'Archive endpoints',
+  'endpoint_secrets.reveal': 'Reveal endpoint signing secrets (audited)',
   'analytics.read': 'View dashboards and reports',
   'audit_logs.read': 'View the audit trail',
 } as const;
@@ -26,13 +42,28 @@ export const ROLE_KEYS = ['OWNER', 'ADMIN', 'MANAGER', 'STAFF', 'VIEWER'] as con
 export type RoleKey = (typeof ROLE_KEYS)[number];
 export const roleKeySchema = z.enum(ROLE_KEYS);
 
-const READ_OPERATIONS: readonly Permission[] = ['organizations.read', 'analytics.read'];
+const READ_OPERATIONS: readonly Permission[] = [
+  'organizations.read',
+  'analytics.read',
+  'applications.read',
+  'event_types.read',
+  'endpoints.read',
+];
 
 const MANAGE_OPERATIONS: readonly Permission[] = [
   ...READ_OPERATIONS,
   'users.read',
   'roles.read',
   'audit_logs.read',
+  'api_keys.read',
+  'applications.create',
+  'applications.update',
+  'event_types.create',
+  'event_types.update',
+  'event_types.delete',
+  'endpoints.create',
+  'endpoints.update',
+  'endpoints.delete',
 ];
 
 export interface RoleDefinition {
@@ -62,14 +93,15 @@ export const ROLE_DEFINITIONS: Readonly<Record<RoleKey, RoleDefinition>> = {
   MANAGER: {
     key: 'MANAGER',
     name: 'Manager',
-    description: 'Runs day-to-day delivery operations; cannot manage members or settings',
+    description:
+      'Manages event types and endpoints; cannot manage members, API keys, secrets or settings',
     rank: 30,
     permissions: MANAGE_OPERATIONS,
   },
   STAFF: {
     key: 'STAFF',
     name: 'Staff',
-    description: 'Works with messages and deliveries',
+    description: 'Views applications, event types and endpoints',
     rank: 20,
     permissions: READ_OPERATIONS,
   },

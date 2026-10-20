@@ -254,21 +254,28 @@ revocation inside one tenant; see [authorization](authorization.md).
 
 ## ingest-service
 
-The same three layers, applied table by table as the webhook resources are added (phase 4):
+The same three layers, applied to every webhook resource table (Phase 4):
 
 - **Context.** `Database.forTenant(auth, work)` is the only entry point to the ingest database; it
   wraps `inTenantScope`. There is no unscoped variant for tenant data. The `row-level-security`
   readiness check guards the runtime role (`ingest_app`) exactly as in identity.
-- **Today.** The baseline migration holds `outbox_events` and `app_current_organization_id()`
-  (`drizzle/0001_tenant_context.sql`). `outbox_events` has no RLS: the relay reads it across
-  tenants and it is written only inside tenant transactions.
-- **Every tenant table** will have `organization_id`, a unique `(organization_id, id)` key,
-  composite foreign keys `(organization_id, <ref>_id) → (organization_id, id)`, and an RLS policy
-  `FOR ALL USING (organization_id = app_current_organization_id()) WITH CHECK (same)`. A row can
-  then only point at a row of its own organization, even for the owner role, which RLS does not
-  constrain.
-- **Tests.** `test/readiness.integration.test.ts` proves the runtime role is subject to RLS and
-  that a missing tenant context matches no tenant. Cross-tenant tests are added with each table.
+- **Tables.** `applications`, `event_types`, `endpoints`, `endpoint_event_types`, `endpoint_secrets`
+  and `api_keys` each have RLS enabled with one `FOR ALL` policy comparing `organization_id` to
+  `app_current_organization_id()` (`drizzle/0003_tenant_security.sql`). `outbox_events` has no RLS:
+  the relay reads it across tenants and it is written only inside tenant transactions.
+- **Composite foreign keys.** Every reference is `(organization_id, <ref>_id) → (organization_id, id)`:
+  endpoint → application, subscription → endpoint and event type, secret → endpoint, API key →
+  application. A row can only point at a row of its own organization, even for the owner role.
+- **The one tenant-less read.** API key authentication cannot know the tenant yet, so it calls the
+  `SECURITY DEFINER` function `authenticate_api_key(digest)` (ADR-0027). The function has a fixed
+  `search_path`, answers only for an active key of a live application, and is executable only by the
+  runtime role. The `api_keys` table itself stays invisible without a tenant.
+- **Tests.** `test/rls.integration.test.ts` proves, per table and against PostgreSQL as the runtime
+  role, that no context means no rows, a tenant sees only its rows, cross-tenant writes fail, and
+  composite keys refuse cross-tenant references. `test/tenant-isolation.integration.test.ts` proves
+  over HTTP that organization B cannot read, change, archive, reveal, subscribe to or revoke any of
+  organization A's resources (`404`). `test/api-key-authentication.integration.test.ts` covers the
+  definer function.
 
 ## Known limitations
 

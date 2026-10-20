@@ -1,4 +1,5 @@
 import { Module, type DynamicModule } from '@nestjs/common';
+import type { DestinationStream } from 'pino';
 import type { BaseEnv, PostgresEnv, RabbitmqEnv, RedisEnv } from './config/env.js';
 import { HealthModule } from './health/health.module.js';
 import { PostgresModule } from './infra/postgres.module.js';
@@ -8,7 +9,11 @@ import { createLoggerModule } from './logging/logger.module.js';
 
 export interface PlatformOptions {
   readonly serviceName: string;
-  readonly logging: { readonly level: string; readonly pretty: boolean };
+  readonly logging: {
+    readonly level: string;
+    readonly pretty: boolean;
+    readonly stream?: DestinationStream;
+  };
   readonly postgres?: { readonly url: string; readonly poolMax: number };
   readonly redis?: { readonly url: string };
   readonly rabbitmq?: { readonly url: string };

@@ -33,6 +33,10 @@ pnpm --filter @solmira/identity-service db:migrate      # runs as identity_owner
 pnpm --filter @solmira/ingest-service db:migrate        # runs as ingest_owner
 ```
 
+Ingest-service also needs `SECRETS_ENCRYPTION_KEY` (a dev value is in its `.env.example`). Set
+`ALLOW_PRIVATE_ENDPOINT_TARGETS=true` in its `.env` to register `http://localhost` receivers while
+developing; the service refuses that setting in production.
+
 Re-run identity's `db:migrate` whenever the permission catalog in `@solmira/contracts` changes: it
 syncs the roles (and removes permissions that left the catalog), and users get the new permissions
 on their next token refresh.

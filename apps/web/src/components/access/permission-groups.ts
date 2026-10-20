@@ -4,6 +4,11 @@ const AREA_LABELS: Record<string, string> = {
   organizations: 'Organization',
   users: 'Members',
   roles: 'Roles',
+  applications: 'Applications',
+  api_keys: 'API keys',
+  event_types: 'Event types',
+  endpoints: 'Endpoints',
+  endpoint_secrets: 'Signing secrets',
   analytics: 'Analytics',
   audit_logs: 'Audit trail',
 };
