@@ -63,19 +63,29 @@ invitations: `GET|POST /organizations/{id}/invitations`,
 Behavior and rules: [authentication](../architecture/authentication.md) and
 [authorization](../architecture/authorization.md).
 
-## ingest-service (Planned)
+## ingest-service
 
-Management endpoints (JWT, permission-checked; Phase 4):
+### Management (built, Phase 4)
 
-| Resource     | Endpoints                                                                                               |
-| ------------ | ------------------------------------------------------------------------------------------------------- |
-| Applications | `POST\|GET /applications`, `GET\|PATCH\|DELETE /applications/{app}`                                     |
-| API keys     | `POST\|GET /applications/{app}/api-keys` (the secret is returned once), `DELETE .../{key}` (revoke)     |
-| Event types  | `POST\|GET /applications/{app}/event-types`, `PATCH .../{name}`, `POST .../{name}/archive`              |
-| Endpoints    | `POST\|GET /applications/{app}/endpoints`, `GET\|PATCH\|DELETE .../{endpoint}`                          |
-| Secrets      | `POST .../{endpoint}/secret/rotate`, `POST .../{endpoint}/secret/reveal` (separate, audited permission) |
+JWT, permission-checked, scoped to the organization in the token. Resources are archived or revoked,
+never hard deleted ([ADR-0025](../adr/0025-webhook-resource-model.md)). List endpoints take
+`includeArchived` (`includeRevoked` for API keys).
 
-Ingestion (API key; Phase 5):
+| Resource     | Endpoints                                                                                                                                                                                |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Applications | `POST                                                                                                                                                                                    | GET /applications`, `GET                                                                         | PATCH /applications/{app}`, `POST /applications/{app}/archive`, `/restore`                                  |
+| Event types  | `POST                                                                                                                                                                                    | GET /event-types`, `GET                                                                          | PATCH /event-types/{id}`, `POST /event-types/{id}/archive` (shared by all applications of the organization) |
+| Endpoints    | `POST                                                                                                                                                                                    | GET /applications/{app}/endpoints`, `GET                                                         | PATCH                                                                                                       | DELETE /applications/{app}/endpoints/{id}` (`DELETE` archives) |
+| Secrets      | The signing secret is returned once by `POST .../endpoints`. `POST .../endpoints/{id}/secret/reveal` returns it again, needs `endpoint_secrets.reveal` (owner and admin) and is audited. |
+| API keys     | `POST                                                                                                                                                                                    | GET /applications/{app}/api-keys`(the key is returned once),`DELETE .../api-keys/{id}` (revokes) |
+
+Endpoint URLs are validated against the [URL policy](../adr/0028-endpoint-url-policy.md): https in
+production, no credentials, no private, loopback, link-local, multicast or reserved addresses (IPv4
+and IPv6), and the host must resolve to public addresses only. Custom headers cannot override
+`host`, `content-*`, `webhook-*` and similar. An endpoint with no subscribed event types receives
+all of them.
+
+### Ingestion (Planned, Phase 5)
 
 ```
 POST /api/v1/applications/{app}/messages
@@ -90,7 +100,7 @@ window (24 hours by default) returns the original message; a different body unde
 rejected with `409`. Unknown event types, payloads over the size limit, and payloads that fail the
 event type's JSON Schema are rejected with distinct error codes.
 
-Messages and deliveries (Phases 5 to 7): list and inspect messages and their attempts, replay one
+Messages and deliveries (Phases 5 to 7, Planned): list and inspect messages and their attempts, replay one
 message, and replay all failed messages of an endpoint within a time range.
 
 ## What a receiver gets (Planned, Phase 6)

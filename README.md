@@ -7,7 +7,8 @@ as a signed HTTP webhook to every endpoint its customers registered, retries fai
 exponential backoff, keeps one slow endpoint from affecting any other, and lets the tenant inspect
 every attempt and replay what failed.
 
-> **Status:** the platform foundation (Phases 1 and 2) is built. The webhook features are being
+> **Status:** the platform foundation (Phases 1 and 2) and the management API for applications,
+> event types, endpoints and API keys (Phase 4) are built. The webhook features are being
 > built phase by phase; see the [roadmap](docs/ROADMAP.md) and the
 > [progress log](docs/phases/PROGRESS.md). Anything not built yet is marked **Planned**.
 

@@ -17,8 +17,8 @@ when all of them pass and CI is green. Progress is logged in
 | 1     | Foundation                                           | Done        |
 | 2     | Identity and tenant isolation                        | Done        |
 | 3     | Pivot and cleanup                                    | Done        |
-| 4     | Applications, API keys, event types, endpoints       | In progress |
-| 5     | Message ingestion, outbox relay, fan-out             | Planned     |
+| 4     | Applications, API keys, event types, endpoints       | Done        |
+| 5     | Message ingestion, outbox relay, fan-out             | In progress |
 | 6     | Dispatcher                                           | Planned     |
 | 7     | Failure handling, isolation, replay, secret rotation | Planned     |
 | 8     | Console                                              | Planned     |
