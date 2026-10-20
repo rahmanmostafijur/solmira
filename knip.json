@@ -20,6 +20,15 @@
     },
     "packages/contracts": {
       "entry": ["src/**/*.test.ts"]
+    },
+    "apps/dispatcher": {
+      "entry": [
+        "src/main.ts",
+        "src/database/migrate.ts",
+        "scripts/*.mjs",
+        "src/**/*.test.ts",
+        "test/**/*.test.ts"
+      ]
     }
   }
 }

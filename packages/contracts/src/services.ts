@@ -10,6 +10,11 @@ export const SERVICES = [
     description: 'Applications, event types, endpoints and message ingestion',
   },
   {
+    key: 'dispatcher',
+    name: 'Dispatcher',
+    description: 'Signs and sends webhooks, schedules retries',
+  },
+  {
     key: 'notification',
     name: 'Notifications',
     description: 'Tenant alerts about failing endpoints',

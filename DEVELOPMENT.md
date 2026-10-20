@@ -33,6 +33,12 @@ pnpm --filter @solmira/identity-service db:migrate      # runs as identity_owner
 pnpm --filter @solmira/ingest-service db:migrate        # runs as ingest_owner
 ```
 
+The dispatcher (`apps/dispatcher`) needs the same `SECRETS_ENCRYPTION_KEY` as ingest-service and
+DynamoDB Local (started by `pnpm infra:up`, port 8000). It connects to the ingest database as
+`dispatcher_app`, which the Postgres init script creates and ingest's `db:migrate` grants.
+Run `pnpm --filter @solmira/dispatcher dev` after the ingest migration. For a local receiver, set
+`ALLOW_PRIVATE_ENDPOINT_TARGETS=true` in both `.env` files.
+
 Ingest-service also needs `SECRETS_ENCRYPTION_KEY` (a dev value is in its `.env.example`). Set
 `ALLOW_PRIVATE_ENDPOINT_TARGETS=true` in its `.env` to register `http://localhost` receivers while
 developing; the service refuses that setting in production.
@@ -55,18 +61,18 @@ pnpm dev
 
 ## Local endpoints
 
-| What                               | URL                                                                                  |
-| ---------------------------------- | ------------------------------------------------------------------------------------ |
-| Console (through the gateway)      | http://localhost:8080                                                                |
-| Gateway liveness                   | http://localhost:8080/gateway/health                                                 |
-| Service readiness                  | http://localhost:8080/internal/health/{identity,ingest,notification,analytics,audit} |
-| API docs (Swagger, non-production) | http://localhost:8080/internal/docs/{service}/                                       |
-| RabbitMQ management                | http://localhost:15672 (solmira / solmira_dev_password)                              |
-| PostgreSQL                         | `localhost:5433` (superuser `solmira`)                                               |
-| Redis                              | `localhost:6379`                                                                     |
-| Mailpit (every email sent locally) | http://localhost:8025 (SMTP on `localhost:2525`)                                     |
+| What                               | URL                                                                                             |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Console (through the gateway)      | http://localhost:8080                                                                           |
+| Gateway liveness                   | http://localhost:8080/gateway/health                                                            |
+| Service readiness                  | http://localhost:8080/internal/health/{identity,ingest,dispatcher,notification,analytics,audit} |
+| API docs (Swagger, non-production) | http://localhost:8080/internal/docs/{service}/                                                  |
+| RabbitMQ management                | http://localhost:15672 (solmira / solmira_dev_password)                                         |
+| PostgreSQL                         | `localhost:5433` (superuser `solmira`)                                                          |
+| Redis                              | `localhost:6379`                                                                                |
+| Mailpit (every email sent locally) | http://localhost:8025 (SMTP on `localhost:2525`)                                                |
 
-Services listen on 4001–4005 (identity 4001, ingest 4002, notification 4003, analytics 4004, audit 4005) and the web app on 3000. Always go through the gateway on 8080, which
+Services listen on 4001–4006 (identity 4001, ingest 4002, notification 4003, analytics 4004, audit 4005, dispatcher 4006) and the web app on 3000. Always go through the gateway on 8080, which
 is the only origin the browser uses (no CORS).
 
 PostgreSQL is published on **5433**, not 5432, so it does not collide with a locally installed
@@ -95,7 +101,8 @@ pnpm format          # Prettier
 
 pnpm --filter @solmira/service-kit test:integration   # needs pnpm infra:up
 pnpm --filter @solmira/identity-service test:integration   # auth, RBAC and tenant isolation
-pnpm --filter @solmira/ingest-service test:integration     # readiness, RLS role, tenant context
+pnpm --filter @solmira/ingest-service test:integration     # ingestion, fan-out, RLS, claiming
+pnpm --filter @solmira/dispatcher test:integration         # needs DynamoDB Local on :8000
 ```
 
 The ingest suite works the same way (`solmira_ingest_test`) and verifies tokens through a real JWKS

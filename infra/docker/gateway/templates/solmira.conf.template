@@ -7,6 +7,7 @@ map $internal_service $internal_upstream {
   notification ${NOTIFICATION_UPSTREAM};
   analytics    ${ANALYTICS_UPSTREAM};
   audit        ${AUDIT_UPSTREAM};
+  dispatcher   ${DISPATCHER_UPSTREAM};
 }
 
 server {
@@ -20,6 +21,7 @@ server {
   set $notification ${NOTIFICATION_UPSTREAM};
   set $analytics    ${ANALYTICS_UPSTREAM};
   set $audit        ${AUDIT_UPSTREAM};
+  set $dispatcher   ${DISPATCHER_UPSTREAM};
 
   # Declared at server level only: any add_header inside a location would drop all of these.
   add_header X-Request-Id $request_id always;
@@ -93,7 +95,7 @@ server {
   }
 
   # ---- internal: readiness and API docs, private networks only ----------------------------
-  location ~ ^/internal/health/(?<internal_service>identity|ingest|notification|analytics|audit)$ {
+  location ~ ^/internal/health/(?<internal_service>identity|ingest|dispatcher|notification|analytics|audit)$ {
     allow 127.0.0.1;
     allow 10.0.0.0/8;
     allow 172.16.0.0/12;
@@ -103,7 +105,7 @@ server {
     proxy_pass http://$internal_upstream/health/ready;
   }
 
-  location ~ ^/internal/docs/(?<internal_service>identity|ingest|notification|analytics|audit)(?<docs_path>/.*)?$ {
+  location ~ ^/internal/docs/(?<internal_service>identity|ingest|dispatcher|notification|analytics|audit)(?<docs_path>/.*)?$ {
     allow 127.0.0.1;
     allow 10.0.0.0/8;
     allow 172.16.0.0/12;

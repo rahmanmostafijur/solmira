@@ -9,7 +9,7 @@ every attempt and replay what failed.
 
 > **Status:** the platform foundation (Phases 1 and 2) and the management API for applications,
 > event types, endpoints and API keys (Phase 4), message ingestion, the outbox relay and fan-out
-> (Phase 5) are built. The webhook features are being
+> (Phase 5), and the dispatcher with signing, retries and the SSRF guard (Phase 6) are built. The webhook features are being
 > built phase by phase; see the [roadmap](docs/ROADMAP.md) and the
 > [progress log](docs/phases/PROGRESS.md). Anything not built yet is marked **Planned**.
 
@@ -39,10 +39,9 @@ Sending a webhook looks like one HTTP call. Doing it reliably is not:
 2. The message is validated and stored, and an event is written to the transactional outbox in the
    same transaction.
 3. Fan-out creates one delivery per subscribed, enabled endpoint.
-4. A dispatcher worker sends a signed HTTP POST per delivery. **Planned (Phase 6).**
+4. A dispatcher worker sends a signed HTTP POST per delivery.
 5. On failure it retries with exponential backoff and jitter. After the final attempt the delivery
-   is `failed` and can be replayed; endpoints that keep failing are disabled and the tenant is
-   notified. **Planned (Phase 7).**
+   is `failed`. Replay, and disabling endpoints that keep failing, are **Planned (Phase 7).**
 
 Delivery is **at least once**. A receiver may see the same message twice, so every request carries
 a stable `webhook-id` to deduplicate on.
