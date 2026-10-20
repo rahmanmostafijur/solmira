@@ -1,6 +1,6 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { AuthModule, PlatformModule, platformOptionsFromEnv } from '@solmira/service-kit';
-import { SERVICE_NAME, type OperationsConfig } from './config.js';
+import { SERVICE_NAME, type IngestConfig } from './config.js';
 import { DatabaseModule } from './database/database.module.js';
 
 /**
@@ -9,7 +9,7 @@ import { DatabaseModule } from './database/database.module.js';
  */
 @Module({})
 export class AppModule {
-  static register(config: OperationsConfig): DynamicModule {
+  static register(config: IngestConfig): DynamicModule {
     return {
       module: AppModule,
       imports: [

@@ -3,7 +3,7 @@
 
 map $internal_service $internal_upstream {
   identity     ${IDENTITY_UPSTREAM};
-  operations   ${OPERATIONS_UPSTREAM};
+  ingest       ${INGEST_UPSTREAM};
   notification ${NOTIFICATION_UPSTREAM};
   analytics    ${ANALYTICS_UPSTREAM};
   audit        ${AUDIT_UPSTREAM};
@@ -16,7 +16,7 @@ server {
   # Variables (rather than static upstream blocks) make nginx resolve hosts per request.
   set $web          ${WEB_UPSTREAM};
   set $identity     ${IDENTITY_UPSTREAM};
-  set $operations   ${OPERATIONS_UPSTREAM};
+  set $ingest       ${INGEST_UPSTREAM};
   set $notification ${NOTIFICATION_UPSTREAM};
   set $analytics    ${ANALYTICS_UPSTREAM};
   set $audit        ${AUDIT_UPSTREAM};
@@ -50,13 +50,6 @@ server {
     limit_req zone=api_per_ip burst=60 nodelay;
     include /etc/nginx/snippets/proxy.conf;
     proxy_pass http://$identity;
-  }
-
-  # ---- operations-service -----------------------------------------------------------------
-  location ~ ^/api/v1/(products|categories|suppliers|customers|warehouses|inventory|purchase-orders|orders|shipments)(/|$) {
-    limit_req zone=api_per_ip burst=60 nodelay;
-    include /etc/nginx/snippets/proxy.conf;
-    proxy_pass http://$operations;
   }
 
   # ---- notification-service ---------------------------------------------------------------
@@ -93,7 +86,7 @@ server {
   }
 
   # ---- internal: readiness and API docs, private networks only ----------------------------
-  location ~ ^/internal/health/(?<internal_service>identity|operations|notification|analytics|audit)$ {
+  location ~ ^/internal/health/(?<internal_service>identity|ingest|notification|analytics|audit)$ {
     allow 127.0.0.1;
     allow 10.0.0.0/8;
     allow 172.16.0.0/12;
@@ -103,7 +96,7 @@ server {
     proxy_pass http://$internal_upstream/health/ready;
   }
 
-  location ~ ^/internal/docs/(?<internal_service>identity|operations|notification|analytics|audit)(?<docs_path>/.*)?$ {
+  location ~ ^/internal/docs/(?<internal_service>identity|ingest|notification|analytics|audit)(?<docs_path>/.*)?$ {
     allow 127.0.0.1;
     allow 10.0.0.0/8;
     allow 172.16.0.0/12;

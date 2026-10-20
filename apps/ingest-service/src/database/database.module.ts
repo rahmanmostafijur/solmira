@@ -9,11 +9,11 @@ import {
 } from '@solmira/service-kit';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
-import { schema, type OperationsSchema } from './schema.js';
+import { schema, type IngestSchema } from './schema.js';
 
-export type OperationsDatabase = NodePgDatabase<OperationsSchema>;
-export type OperationsTransaction = ScopedTransaction<OperationsSchema>;
-export const OPERATIONS_DB = Symbol('OPERATIONS_DB');
+export type IngestDatabase = NodePgDatabase<IngestSchema>;
+export type IngestTransaction = ScopedTransaction<IngestSchema>;
+export const INGEST_DB = Symbol('INGEST_DB');
 
 /**
  * All operational data belongs to exactly one organization, so there is no "unscoped" entry
@@ -22,7 +22,7 @@ export const OPERATIONS_DB = Symbol('OPERATIONS_DB');
 @Injectable()
 export class Database implements OnModuleInit {
   constructor(
-    @Inject(OPERATIONS_DB) private readonly db: OperationsDatabase,
+    @Inject(INGEST_DB) private readonly db: IngestDatabase,
     @Inject(PG_POOL) private readonly pool: pg.Pool,
     @Inject(HealthRegistry) private readonly health: HealthRegistry,
   ) {}
@@ -31,10 +31,7 @@ export class Database implements OnModuleInit {
     this.health.register('row-level-security', () => assertRowLevelSecurityEnforced(this.pool));
   }
 
-  forTenant<T>(
-    auth: TenantAuthContext,
-    work: (tx: OperationsTransaction) => Promise<T>,
-  ): Promise<T> {
+  forTenant<T>(auth: TenantAuthContext, work: (tx: IngestTransaction) => Promise<T>): Promise<T> {
     return inTenantScope(
       this.db,
       { organizationId: auth.organizationId, userId: auth.userId },
@@ -47,7 +44,7 @@ export class Database implements OnModuleInit {
 @Module({
   providers: [
     {
-      provide: OPERATIONS_DB,
+      provide: INGEST_DB,
       inject: [PG_POOL],
       useFactory: (pool: pg.Pool) => drizzle(pool, { schema }),
     },

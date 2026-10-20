@@ -34,4 +34,4 @@ export const outboxEvents = pgTable(
 );
 
 export const schema = { outboxEvents };
-export type OperationsSchema = typeof schema;
+export type IngestSchema = typeof schema;

@@ -2,7 +2,7 @@
   "name": "solmira",
   "version": "0.1.0",
   "private": true,
-  "description": "Solmira — multi-tenant order, inventory and fulfillment management platform",
+  "description": "Solmira — multi-tenant webhook delivery platform",
   "license": "UNLICENSED",
   "packageManager": "pnpm@10.34.6",
   "engines": {

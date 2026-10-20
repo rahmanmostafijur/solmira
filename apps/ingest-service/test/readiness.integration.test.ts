@@ -6,7 +6,7 @@ import { createTestApp, type TestApp } from './support/test-app.js';
 const owner = new pg.Pool({ connectionString: inject('ownerDatabaseUrl'), max: 1 });
 const runtime = new pg.Pool({ connectionString: inject('appDatabaseUrl'), max: 1 });
 
-describe('operations-service against real infrastructure', () => {
+describe('ingest-service against real infrastructure', () => {
   let harness: TestApp;
 
   beforeAll(async () => {

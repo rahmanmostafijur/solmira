@@ -12,9 +12,9 @@ declare module 'vitest' {
 /** Runs once per test run: a fresh, migrated database shared by all integration test files. */
 export default async function setup(project: TestProject): Promise<void> {
   const { ownerUrl, appUrl } = await provisionTestDatabase({
-    database: 'solmira_operations_test',
-    ownerRole: 'operations_test_owner',
-    appRole: 'operations_test_app',
+    database: 'solmira_ingest_test',
+    ownerRole: 'ingest_test_owner',
+    appRole: 'ingest_test_app',
     migrate: migrateDatabase,
   });
   project.provide('ownerDatabaseUrl', ownerUrl);

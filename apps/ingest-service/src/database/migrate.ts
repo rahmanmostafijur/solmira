@@ -8,5 +8,5 @@ await runService(async () => {
     z.object({ MIGRATION_DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }) }),
   );
   await migrateDatabase(MIGRATION_DATABASE_URL);
-  process.stdout.write('operations-service: migrations applied\n');
+  process.stdout.write('ingest-service: migrations applied\n');
 });

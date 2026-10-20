@@ -1,7 +1,7 @@
 import pg from 'pg';
 
 export interface TestDatabaseOptions {
-  /** e.g. `solmira_operations_test`. Dropped and recreated on every run. */
+  /** e.g. `solmira_identity_test`. Dropped and recreated on every run. */
   readonly database: string;
   readonly ownerRole: string;
   readonly appRole: string;

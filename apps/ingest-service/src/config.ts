@@ -7,7 +7,7 @@ import {
 } from '@solmira/service-kit';
 import { z } from 'zod';
 
-export const SERVICE_NAME = 'operations-service';
+export const SERVICE_NAME = 'ingest-service';
 
 export const envSchema = baseEnvSchema.extend({
   PORT: portSchema(4002),
@@ -23,4 +23,4 @@ export const envSchema = baseEnvSchema.extend({
   ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
 });
 
-export type OperationsConfig = z.infer<typeof envSchema>;
+export type IngestConfig = z.infer<typeof envSchema>;

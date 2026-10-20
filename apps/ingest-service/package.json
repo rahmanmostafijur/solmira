@@ -1,5 +1,5 @@
 {
-  "name": "@solmira/operations-service",
+  "name": "@solmira/ingest-service",
   "version": "0.1.0",
   "private": true,
   "description": "Applications, API keys, event types, endpoints and message ingestion",
