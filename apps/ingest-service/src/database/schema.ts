@@ -204,6 +204,136 @@ export const apiKeys = pgTable(
   ],
 );
 
+// ---- messages -----------------------------------------------------------------------------------
+
+/** One event sent by a tenant (ADR-0030). Immutable once stored. */
+export const messages = pgTable(
+  'messages',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    applicationId: uuid('application_id').notNull(),
+    eventTypeId: uuid('event_type_id').notNull(),
+    payload: jsonb('payload').notNull(),
+    payloadBytes: integer('payload_bytes').notNull(),
+    idempotencyKey: text('idempotency_key').notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    unique('messages_org_id_key').on(table.organizationId, table.id),
+    foreignKey({
+      name: 'messages_application_fk',
+      columns: [table.organizationId, table.applicationId],
+      foreignColumns: [applications.organizationId, applications.id],
+    }),
+    foreignKey({
+      name: 'messages_event_type_fk',
+      columns: [table.organizationId, table.eventTypeId],
+      foreignColumns: [eventTypes.organizationId, eventTypes.id],
+    }),
+    index('messages_application_created_idx').on(
+      table.organizationId,
+      table.applicationId,
+      table.createdAt.desc(),
+    ),
+  ],
+);
+
+/**
+ * Remembers an Idempotency-Key for a retention window. The primary key is (application, key); an
+ * expired row is replaced by the next request that uses the key.
+ */
+export const idempotencyKeys = pgTable(
+  'idempotency_keys',
+  {
+    organizationId: uuid('organization_id').notNull(),
+    applicationId: uuid('application_id').notNull(),
+    key: text('key').notNull(),
+    /** SHA-256 of the event type and the canonical payload, to tell a retry from a different request. */
+    requestHash: text('request_hash').notNull(),
+    messageId: uuid('message_id').notNull(),
+    createdAt: createdAt(),
+    expiresAt: timestamptz('expires_at').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.applicationId, table.key] }),
+    foreignKey({
+      name: 'idempotency_keys_application_fk',
+      columns: [table.organizationId, table.applicationId],
+      foreignColumns: [applications.organizationId, applications.id],
+    }),
+    foreignKey({
+      name: 'idempotency_keys_message_fk',
+      columns: [table.organizationId, table.messageId],
+      foreignColumns: [messages.organizationId, messages.id],
+    }),
+    index('idempotency_keys_expires_idx').on(table.expiresAt),
+  ],
+);
+
+// ---- deliveries ---------------------------------------------------------------------------------
+
+export const DELIVERY_STATUSES = ['pending', 'in_progress', 'succeeded', 'failed'] as const;
+
+/**
+ * The state of one message to one endpoint. Fan-out creates the rows `pending` and due now; the
+ * dispatcher (Phase 6) claims and advances them.
+ */
+export const deliveries = pgTable(
+  'deliveries',
+  {
+    id: uuid('id').primaryKey(),
+    organizationId: uuid('organization_id').notNull(),
+    applicationId: uuid('application_id').notNull(),
+    messageId: uuid('message_id').notNull(),
+    endpointId: uuid('endpoint_id').notNull(),
+    status: text('status').notNull().default('pending'),
+    attemptCount: integer('attempt_count').notNull().default(0),
+    nextAttemptAt: timestamptz('next_attempt_at').notNull().defaultNow(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    unique('deliveries_org_id_key').on(table.organizationId, table.id),
+    unique('deliveries_message_endpoint_key').on(table.messageId, table.endpointId),
+    foreignKey({
+      name: 'deliveries_message_fk',
+      columns: [table.organizationId, table.messageId],
+      foreignColumns: [messages.organizationId, messages.id],
+    }),
+    foreignKey({
+      name: 'deliveries_endpoint_fk',
+      columns: [table.organizationId, table.endpointId],
+      foreignColumns: [endpoints.organizationId, endpoints.id],
+    }),
+    index('deliveries_due_idx')
+      .on(table.nextAttemptAt)
+      .where(sql`${table.status} = 'pending'`),
+    index('deliveries_endpoint_idx').on(
+      table.organizationId,
+      table.endpointId,
+      table.createdAt.desc(),
+    ),
+    check(
+      'deliveries_status',
+      sql`${table.status} in ('pending', 'in_progress', 'succeeded', 'failed')`,
+    ),
+  ],
+);
+
+// ---- consumers ----------------------------------------------------------------------------------
+
+/** Which events each consumer already applied, so a redelivered event is a no-op (ADR-0029). */
+export const processedEvents = pgTable(
+  'processed_events',
+  {
+    consumer: text('consumer').notNull(),
+    eventId: uuid('event_id').notNull(),
+    processedAt: timestamptz('processed_at').notNull().defaultNow(),
+  },
+  (table) => [primaryKey({ columns: [table.consumer, table.eventId] })],
+);
+
 // ---- integration --------------------------------------------------------------------------------
 
 /**
@@ -238,6 +368,10 @@ export const schema = {
   endpointEventTypes,
   endpointSecrets,
   apiKeys,
+  messages,
+  idempotencyKeys,
+  deliveries,
+  processedEvents,
   outboxEvents,
 };
 export type IngestSchema = typeof schema;

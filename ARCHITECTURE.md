@@ -74,7 +74,7 @@ service and one database; everything else communicates through events
 | **analytics-service**    | pre-aggregated delivery statistics                                                            | Expensive reads must not share a database with the delivery path.                   |
 | **audit-service**        | audit log                                                                                     | Append-only, long retention.                                                        |
 
-## 4. Core flow (Planned, Phases 4 to 7)
+## 4. Core flow (ingestion and fan-out built in Phase 5; delivery Planned)
 
 ```mermaid
 sequenceDiagram
@@ -121,7 +121,7 @@ database helper from `service-kit`.
    `organization_id`, and PostgreSQL Row Level Security enforces the same rule as defense in depth.
 
 Ingestion with an API key is a second authentication scheme next to the JWT guard (keys and the
-database lookup built in Phase 4, the HTTP guard Planned for Phase 5): the key's hash is looked up in ingest-service's own database, which resolves the
+database lookup built in Phase 4, the HTTP guard and per-key rate limit in Phase 5): the key's hash is looked up in ingest-service's own database, which resolves the
 organization and application.
 
 Routing table (gateway → service):
@@ -208,8 +208,8 @@ Tokens are stored only as SHA-256 hashes.
 **ingest DB** (built, Phase 4): `applications`, `event_types` (shared by all applications of an
 organization), `endpoints`, `endpoint_event_types`, `endpoint_secrets` (envelope-encrypted),
 `api_keys` (digests only), `outbox_events`, the `app_current_organization_id()` function and the
-`authenticate_api_key()` lookup. Every tenant table has RLS and composite tenant keys. Messages and
-deliveries arrive in Phase 5.
+`authenticate_api_key()` lookup. Every tenant table has RLS and composite tenant keys. Phase 5 added `messages`,
+`idempotency_keys`, `deliveries` and `processed_events`; the dispatcher (Phase 6) works on `deliveries`.
 
 ## 9. Security design for outbound delivery (secrets and URL policy built in Phase 4; sending Planned)
 
@@ -246,14 +246,15 @@ All integration events share one envelope (defined in `packages/contracts`):
 }
 ```
 
-Topology (Planned, Phase 5): one durable **topic exchange** `solmira.events`, routing key = event
+Topology (Built, Phase 5, ADR-0029): one durable **topic exchange** `solmira.events`, routing key = event
 type. Each consuming service owns a queue (`<service>.events`) bound to the patterns it cares
-about and a DLQ (`<service>.events.dlq`) after N attempts.
+about, a retry queue (`<queue>.retry`, fixed TTL) and a DLQ (`<queue>.dlq`) after N attempts.
 
 Delivery is **at least once**. Producers write events into `outbox_events` inside the business
-transaction (Built for identity, Planned for ingest). A relay publishes them with publisher
+transaction (Built for identity and ingest). The ingest-service relay publishes them with publisher
 confirms, claiming batches with `FOR UPDATE SKIP LOCKED`. Consumers are idempotent: they insert
-`(consumer, event_id)` into `processed_events` in the same transaction as their side effect.
+`(consumer, event_id)` into `processed_events` in the same transaction as their side effect (the
+fan-out consumer in ingest-service does exactly this).
 
 ## 11. Cross-cutting
 

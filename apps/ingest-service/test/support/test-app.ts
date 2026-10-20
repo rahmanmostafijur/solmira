@@ -49,7 +49,7 @@ export interface TestApp {
 export const newOrganizationId = () => randomUUID();
 
 /** The service wired to real PostgreSQL (as the RLS-restricted runtime role), Redis and RabbitMQ. */
-export async function createTestApp(): Promise<TestApp> {
+export async function createTestApp(overrides: Record<string, string> = {}): Promise<TestApp> {
   const issuer = await startTestIssuer();
   const dns = new FakeDns();
   dns.set('hooks.example.com', '93.184.216.34');
@@ -69,6 +69,8 @@ export async function createTestApp(): Promise<TestApp> {
       process.env.TEST_RABBITMQ_URL ?? 'amqp://solmira:solmira_dev_password@localhost:5672',
     IDENTITY_JWKS_URL: issuer.jwksUrl,
     SECRETS_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
+    OUTBOX_RELAY_POLL_MS: '50',
+    ...overrides,
   });
   const app = await createServiceApp(
     AppModule.register(config, { resolver: dns.resolve, logStream }),

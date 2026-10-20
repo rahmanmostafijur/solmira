@@ -28,6 +28,7 @@
     "@solmira/contracts": "workspace:*",
     "@solmira/service-kit": "workspace:*",
     "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "drizzle-orm": "^0.45.3",
     "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@swc/core": "^1.16.12",
+    "@types/express": "^5.0.3",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",

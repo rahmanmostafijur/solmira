@@ -5,6 +5,10 @@ import {
   rabbitmqEnvSchema,
   redisEnvSchema,
 } from '@solmira/service-kit';
+import {
+  DEFAULT_IDEMPOTENCY_RETENTION_SECONDS,
+  DEFAULT_MAX_MESSAGE_PAYLOAD_BYTES,
+} from '@solmira/contracts';
 import { z } from 'zod';
 
 export const SERVICE_NAME = 'ingest-service';
@@ -37,6 +41,28 @@ export const envSchema = baseEnvSchema
       ),
     /** Names the key that wrapped a secret, so keys can be rotated later. */
     SECRETS_ENCRYPTION_KEY_ID: z.string().min(1).max(64).default('local-1'),
+
+    /** Largest accepted message payload, in bytes of its JSON form. The body limit is 1 MB. */
+    MAX_MESSAGE_PAYLOAD_BYTES: z.coerce
+      .number()
+      .int()
+      .min(1024)
+      .max(1_000_000)
+      .default(DEFAULT_MAX_MESSAGE_PAYLOAD_BYTES),
+    /** How long an Idempotency-Key is remembered (ADR-0030). */
+    IDEMPOTENCY_RETENTION_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(60)
+      .max(30 * 24 * 3600)
+      .default(DEFAULT_IDEMPOTENCY_RETENTION_SECONDS),
+    /** Ingestion requests allowed per API key per minute. */
+    INGEST_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(100_000).default(600),
+    /** Published outbox rows older than this are removed by the maintenance job. */
+    OUTBOX_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(7),
+    /** Outbox relay: rows per pass and pause between passes when the outbox is empty. */
+    OUTBOX_RELAY_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
+    OUTBOX_RELAY_POLL_MS: z.coerce.number().int().min(10).max(60_000).default(500),
 
     /** Development and tests only: lets endpoints target http and non-public addresses. */
     ALLOW_PRIVATE_ENDPOINT_TARGETS: z.stringbool().default(false),

@@ -1,8 +1,15 @@
 import { Module, type DynamicModule } from '@nestjs/common';
-import { AuthModule, PlatformModule, platformOptionsFromEnv } from '@solmira/service-kit';
+import {
+  AuthModule,
+  EventConsumersModule,
+  OutboxRelayModule,
+  PlatformModule,
+  platformOptionsFromEnv,
+} from '@solmira/service-kit';
 import { SERVICE_NAME, type IngestConfig } from './config.js';
 import { DatabaseModule } from './database/database.module.js';
 import { IngestCoreModule, type IngestAdapters } from './ingest-core.module.js';
+import { IngestionModule } from './ingestion/ingestion.module.js';
 import { WebhookResourcesModule } from './webhook-resources.module.js';
 
 function platformOptions(config: IngestConfig, adapters: IngestAdapters) {
@@ -32,7 +39,14 @@ export class AppModule {
         }),
         IngestCoreModule.register(config, adapters),
         DatabaseModule,
+        // Consumers declare their queues before the relay publishes (ADR-0029).
+        EventConsumersModule.forRoot(),
+        OutboxRelayModule.forRoot({
+          batchSize: config.OUTBOX_RELAY_BATCH_SIZE,
+          pollIntervalMs: config.OUTBOX_RELAY_POLL_MS,
+        }),
         WebhookResourcesModule,
+        IngestionModule,
       ],
     };
   }

@@ -2,6 +2,8 @@
  * The integration event envelope and the identity events. Events are written to the producing
  * service's outbox in the same transaction as the change; a relay publishes them to RabbitMQ.
  */
+import { z } from 'zod';
+
 export interface EventEnvelope<TType extends string = string, TPayload = unknown> {
   readonly eventId: string;
   readonly type: TType;
@@ -13,6 +15,19 @@ export interface EventEnvelope<TType extends string = string, TPayload = unknown
   readonly causationId: string | null;
   readonly payload: TPayload;
 }
+
+/** What consumers check before they trust a message from the queue. */
+export const eventEnvelopeSchema = z.object({
+  eventId: z.uuid(),
+  type: z.string().min(1),
+  version: z.number().int().min(1),
+  occurredAt: z.iso.datetime(),
+  organizationId: z.uuid().nullable(),
+  actorId: z.uuid().nullable(),
+  correlationId: z.string().min(1),
+  causationId: z.uuid().nullable(),
+  payload: z.unknown(),
+});
 
 export interface IdentityEventPayloads {
   'user.registered': { userId: string };
@@ -42,6 +57,8 @@ export type IdentityEventType = keyof IdentityEventPayloads;
  * change. They never carry secrets, API keys or endpoint URLs (URLs can embed tokens).
  */
 export interface IngestEventPayloads {
+  /** The payload itself stays in the database; consumers load the message by id. */
+  'message.created': { messageId: string; applicationId: string; eventTypeId: string };
   'application.created': { applicationId: string; name: string };
   'application.updated': { applicationId: string; fields: string[] };
   'application.archived': { applicationId: string };

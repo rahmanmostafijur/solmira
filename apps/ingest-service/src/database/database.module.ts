@@ -5,7 +5,6 @@ import {
   assertRowLevelSecurityEnforced,
   inTenantScope,
   type ScopedTransaction,
-  type TenantAuthContext,
 } from '@solmira/service-kit';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import type pg from 'pg';
@@ -13,11 +12,19 @@ import { schema, type IngestSchema } from './schema.js';
 
 export type IngestDatabase = NodePgDatabase<IngestSchema>;
 export type IngestTransaction = ScopedTransaction<IngestSchema>;
+
+/** Whose data a unit of work may touch: a signed-in user, an API key (no user) or a consumer. */
+export interface TenantContext {
+  readonly organizationId: string;
+  readonly userId: string | null;
+}
+
 export const INGEST_DB = Symbol('INGEST_DB');
 
 /**
- * All operational data belongs to exactly one organization, so there is no "unscoped" entry
- * point here: every unit of work runs with the tenant from the verified access token.
+ * All data belongs to exactly one organization, so there is no "unscoped" entry point here:
+ * every unit of work runs with a tenant taken from the verified token, the API key's own record,
+ * or the event being processed.
  */
 @Injectable()
 export class Database implements OnModuleInit {
@@ -31,10 +38,10 @@ export class Database implements OnModuleInit {
     this.health.register('row-level-security', () => assertRowLevelSecurityEnforced(this.pool));
   }
 
-  forTenant<T>(auth: TenantAuthContext, work: (tx: IngestTransaction) => Promise<T>): Promise<T> {
+  forTenant<T>(scope: TenantContext, work: (tx: IngestTransaction) => Promise<T>): Promise<T> {
     return inTenantScope(
       this.db,
-      { organizationId: auth.organizationId, userId: auth.userId },
+      { organizationId: scope.organizationId, userId: scope.userId },
       work,
     );
   }

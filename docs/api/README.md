@@ -34,17 +34,20 @@ Every error uses one envelope:
 }
 ```
 
-| Code                                      | Status  | Meaning                                          |
-| ----------------------------------------- | ------- | ------------------------------------------------ |
-| `BAD_REQUEST`, `VALIDATION_FAILED`        | 400     | Malformed request or invalid fields (`details`). |
-| `UNAUTHENTICATED`, `TOKEN_EXPIRED`        | 401     | Missing, invalid or expired credentials.         |
-| `INVALID_CREDENTIALS`, `ACCOUNT_DISABLED` | 401/403 | Login failed or the account is disabled.         |
-| `FORBIDDEN`                               | 403     | Authenticated but missing the permission.        |
-| `NOT_FOUND`                               | 404     | Missing, or belongs to another tenant.           |
-| `CONFLICT`                                | 409     | State conflict, for example a duplicate.         |
-| `PAYLOAD_TOO_LARGE`                       | 413     | Body over the size limit.                        |
-| `RATE_LIMITED`                            | 429     | Too many requests.                               |
-| `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`   | 500/503 | Failure on our side; nothing internal is leaked. |
+| Code                                      | Status  | Meaning                                                                       |
+| ----------------------------------------- | ------- | ----------------------------------------------------------------------------- |
+| `BAD_REQUEST`, `VALIDATION_FAILED`        | 400     | Malformed request or invalid fields (`details`).                              |
+| `UNAUTHENTICATED`, `TOKEN_EXPIRED`        | 401     | Missing, invalid or expired credentials.                                      |
+| `INVALID_CREDENTIALS`, `ACCOUNT_DISABLED` | 401/403 | Login failed or the account is disabled.                                      |
+| `FORBIDDEN`                               | 403     | Authenticated but missing the permission.                                     |
+| `NOT_FOUND`                               | 404     | Missing, or belongs to another tenant.                                        |
+| `CONFLICT`                                | 409     | State conflict, for example a duplicate.                                      |
+| `PAYLOAD_TOO_LARGE`                       | 413     | Body over the size limit.                                                     |
+| `UNKNOWN_EVENT_TYPE`                      | 422     | The event type does not exist or is archived.                                 |
+| `PAYLOAD_INVALID`                         | 422     | The payload does not match the event type schema (`details` name the fields). |
+| `IDEMPOTENCY_CONFLICT`                    | 409     | The Idempotency-Key was used with a different request.                        |
+| `RATE_LIMITED`                            | 429     | Too many requests.                                                            |
+| `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`   | 500/503 | Failure on our side; nothing internal is leaked.                              |
 
 ## identity-service (built)
 
@@ -85,20 +88,34 @@ and IPv6), and the host must resolve to public addresses only. Custom headers ca
 `host`, `content-*`, `webhook-*` and similar. An endpoint with no subscribed event types receives
 all of them.
 
-### Ingestion (Planned, Phase 5)
+### Ingestion (built, Phase 5)
 
 ```
 POST /api/v1/applications/{app}/messages
 Authorization: Bearer <API key>
-Idempotency-Key: <unique per message>
+Idempotency-Key: <unique per message, 8-100 characters>
 
-{ "eventType": "invoice.paid", "payload": { ... } }
+{ "eventType": "invoice.paid", "payload": { "id": "inv_1", "amount": 5 } }
 ```
 
-`202` returns the message id. A replay of the same `Idempotency-Key` and body within the retention
-window (24 hours by default) returns the original message; a different body under the same key is
-rejected with `409`. Unknown event types, payloads over the size limit, and payloads that fail the
-event type's JSON Schema are rejected with distinct error codes.
+The key needs the `messages:write` scope and must belong to `{app}`. The response is `202` with the
+message (`id`, `applicationId`, `eventType`, `createdAt`). Delivery to endpoints happens afterwards.
+
+| Case                                                                          | Answer                                                 |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Missing, malformed, revoked, expired or unknown key (or archived application) | `401 UNAUTHENTICATED`                                  |
+| Key without the `messages:write` scope                                        | `403 FORBIDDEN`                                        |
+| Key of another application or organization                                    | `404 NOT_FOUND`                                        |
+| More than 600 requests per minute per key (configurable)                      | `429 RATE_LIMITED` with `Retry-After`                  |
+| Missing or malformed `Idempotency-Key`, or a malformed body                   | `400 VALIDATION_FAILED`                                |
+| Event type unknown or archived                                                | `422 UNKNOWN_EVENT_TYPE`                               |
+| Payload over 256 KiB (configurable)                                           | `413 PAYLOAD_TOO_LARGE`                                |
+| Payload fails the event type's JSON Schema                                    | `422 PAYLOAD_INVALID`                                  |
+| Same key and request again within 24 hours (configurable)                     | `200` with the original message; nothing new is stored |
+| Same key with a different event type or payload                               | `409 IDEMPOTENCY_CONFLICT`                             |
+
+A rejected request does not consume its Idempotency-Key, so it can be corrected and sent again with
+the same key. JSON Schema formats such as `email` and `date-time` are checked.
 
 Messages and deliveries (Phases 5 to 7, Planned): list and inspect messages and their attempts, replay one
 message, and replay all failed messages of an endpoint within a time range.
