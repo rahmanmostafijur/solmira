@@ -36,3 +36,25 @@ export interface IdentityEventPayloads {
 }
 
 export type IdentityEventType = keyof IdentityEventPayloads;
+
+/**
+ * Administrative events of ingest-service, recorded in its outbox in the same transaction as the
+ * change. They never carry secrets, API keys or endpoint URLs (URLs can embed tokens).
+ */
+export interface IngestEventPayloads {
+  'application.created': { applicationId: string; name: string };
+  'application.updated': { applicationId: string; fields: string[] };
+  'application.archived': { applicationId: string };
+  'application.restored': { applicationId: string };
+  'api_key.created': { apiKeyId: string; applicationId: string; prefix: string; scopes: string[] };
+  'api_key.revoked': { apiKeyId: string; applicationId: string };
+  'event_type.created': { eventTypeId: string; name: string };
+  'event_type.updated': { eventTypeId: string; fields: string[] };
+  'event_type.archived': { eventTypeId: string };
+  'endpoint.created': { endpointId: string; applicationId: string };
+  'endpoint.updated': { endpointId: string; applicationId: string; fields: string[] };
+  'endpoint.archived': { endpointId: string; applicationId: string };
+  'endpoint_secret.revealed': { endpointId: string; applicationId: string; secretId: string };
+}
+
+export type IngestEventType = keyof IngestEventPayloads;
