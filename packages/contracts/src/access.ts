@@ -30,6 +30,8 @@ export const PERMISSION_CATALOG = {
   'endpoints.update': 'Edit endpoints',
   'endpoints.delete': 'Archive endpoints',
   'endpoint_secrets.reveal': 'Reveal endpoint signing secrets (audited)',
+  'endpoint_secrets.rotate': 'Rotate endpoint signing secrets (audited)',
+  'deliveries.replay': 'Replay messages and failed deliveries',
   'analytics.read': 'View dashboards and reports',
   'audit_logs.read': 'View the audit trail',
 } as const;
@@ -64,6 +66,7 @@ const MANAGE_OPERATIONS: readonly Permission[] = [
   'endpoints.create',
   'endpoints.update',
   'endpoints.delete',
+  'deliveries.replay',
 ];
 
 export interface RoleDefinition {

@@ -10,4 +10,5 @@ export * from './idempotency.js';
 export * from './messages.js';
 export * from './organizations.js';
 export * from './pagination.js';
+export * from './replay.js';
 export * from './services.js';

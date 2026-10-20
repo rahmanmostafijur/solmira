@@ -72,6 +72,27 @@ export interface IngestEventPayloads {
   'endpoint.updated': { endpointId: string; applicationId: string; fields: string[] };
   'endpoint.archived': { endpointId: string; applicationId: string };
   'endpoint_secret.revealed': { endpointId: string; applicationId: string; secretId: string };
+  'endpoint_secret.rotated': {
+    endpointId: string;
+    applicationId: string;
+    previousSecretId: string;
+    previousValidUntil: string;
+  };
+  /** An endpoint failed continuously for the configured period and was disabled. */
+  'endpoint.auto_disabled': {
+    endpointId: string;
+    applicationId: string;
+    /** The host only: URLs can carry tokens. */
+    host: string;
+    failingSince: string;
+    consecutiveFailures: number;
+  };
+  'delivery.replayed': {
+    applicationId: string;
+    messageId: string | null;
+    endpointId: string | null;
+    deliveries: number;
+  };
 }
 
 export type IngestEventType = keyof IngestEventPayloads;

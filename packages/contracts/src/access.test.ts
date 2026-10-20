@@ -50,6 +50,7 @@ describe('webhook resource permissions', () => {
     const admin = ['OWNER', 'ADMIN'] as const;
     for (const permission of [
       'endpoint_secrets.reveal',
+      'endpoint_secrets.rotate',
       'api_keys.create',
       'api_keys.delete',
       'applications.delete',
@@ -60,6 +61,12 @@ describe('webhook resource permissions', () => {
           permission,
         );
     }
+  });
+
+  it('let managers replay deliveries but not staff or viewers', () => {
+    expect(permissionsForRole('MANAGER')).toContain('deliveries.replay');
+    for (const role of ['STAFF', 'VIEWER'] as const)
+      expect(permissionsForRole(role)).not.toContain('deliveries.replay');
   });
 
   it('let managers run endpoints and event types but only read API keys', () => {

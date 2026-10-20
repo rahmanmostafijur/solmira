@@ -124,3 +124,26 @@ export type EndpointListQuery = z.infer<typeof endpointListQuerySchema>;
 
 export const revealedSecretSchema = z.object({ secret: z.string() });
 export type RevealedSecret = z.infer<typeof revealedSecretSchema>;
+
+// ---- secret rotation (ADR-0033) -----------------------------------------------------------------
+
+export const DEFAULT_ROTATION_WINDOW_HOURS = 24;
+export const MAX_ROTATION_WINDOW_HOURS = 24 * 7;
+
+export const rotateSecretRequestSchema = z.object({
+  /** How long the old secret keeps signing next to the new one. */
+  windowHours: z
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_ROTATION_WINDOW_HOURS)
+    .default(DEFAULT_ROTATION_WINDOW_HOURS),
+});
+export type RotateSecretRequest = z.infer<typeof rotateSecretRequestSchema>;
+
+/** The new secret is returned once; the previous one signs until `previousValidUntil`. */
+export const rotatedSecretSchema = z.object({
+  secret: z.string(),
+  previousValidUntil: timestampSchema,
+});
+export type RotatedSecret = z.infer<typeof rotatedSecretSchema>;
