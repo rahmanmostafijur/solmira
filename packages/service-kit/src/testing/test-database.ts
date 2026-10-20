@@ -83,6 +83,9 @@ export async function provisionTestDatabase(
     await admin.query(
       `alter default privileges for role ${ownerRole} in schema public grant usage, select on sequences to ${appRole}`,
     );
+    await admin.query(
+      `alter default privileges for role ${ownerRole} in schema public grant execute on functions to ${appRole}`,
+    );
   });
 
   const urls = { ownerUrl: urlFor(ownerRole, database), appUrl: urlFor(appRole, database) };
