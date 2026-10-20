@@ -26,7 +26,7 @@ export function RequireOrganization({
         <Link href="/organizations" className="font-medium text-accent hover:underline">
           Choose or create an organization
         </Link>{' '}
-        to work with its catalog.
+        to work with its applications.
       </Alert>
     );
   }

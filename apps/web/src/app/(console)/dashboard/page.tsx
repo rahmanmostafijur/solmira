@@ -144,7 +144,7 @@ export default function DashboardPage() {
         <Panel>
           <EmptyState
             title="Create or join an organization"
-            description="Organizations hold your catalog, stock and orders. Create one, or ask a colleague to invite you."
+            description="Organizations hold your applications, endpoints and messages. Create one, or ask a colleague to invite you."
             action={
               <Link
                 href="/organizations"

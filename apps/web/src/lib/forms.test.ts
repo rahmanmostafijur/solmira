@@ -14,30 +14,30 @@ describe('applyServerError', () => {
     expect(setError).toHaveBeenCalledWith('name', { type: 'server', message: 'Enter a name' });
   });
 
-  it('routes insufficient stock details through the field mapping', () => {
+  it('maps nested server paths through the field mapping of the caller', () => {
     const setError = vi.fn();
-    const error = new ApiError(409, 'INSUFFICIENT_STOCK', 'Not enough stock', [
-      { path: 'lines.0.quantity', message: 'Only 3 available' },
-      { path: 'lines.0.variantId', message: 'Unknown variant' },
+    const error = new ApiError(400, 'VALIDATION_FAILED', 'Invalid', [
+      { path: 'lines.0.quantity', message: 'Only 3 allowed' },
+      { path: 'lines.0.itemId', message: 'Unknown item' },
     ]);
 
     applyServerError(error, setError, (path) => (path.endsWith('.quantity') ? 'quantity' : ''));
 
     expect(setError).toHaveBeenCalledWith('quantity', {
       type: 'server',
-      message: 'Only 3 available',
+      message: 'Only 3 allowed',
     });
-    expect(setError).toHaveBeenCalledWith('root', { type: 'server', message: 'Unknown variant' });
+    expect(setError).toHaveBeenCalledWith('root', { type: 'server', message: 'Unknown item' });
   });
 
   it('shows any other failure on the form root', () => {
     const setError = vi.fn();
 
-    applyServerError(new ApiError(404, 'NOT_FOUND', 'Stock level not found'), setError);
+    applyServerError(new ApiError(404, 'NOT_FOUND', 'Resource not found'), setError);
 
     expect(setError).toHaveBeenCalledWith('root', {
       type: 'server',
-      message: 'Stock level not found',
+      message: 'Resource not found',
     });
   });
 });

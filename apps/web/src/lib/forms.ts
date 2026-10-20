@@ -2,7 +2,7 @@ import type { FieldValues, Path, UseFormSetError } from 'react-hook-form';
 import { ApiError, describeError } from './api/client';
 
 /** Error codes whose details name the request fields at fault. */
-const FIELD_ERROR_CODES: ReadonlySet<string> = new Set(['VALIDATION_FAILED', 'INSUFFICIENT_STOCK']);
+const FIELD_ERROR_CODES: ReadonlySet<string> = new Set(['VALIDATION_FAILED']);
 
 /**
  * Routes a failed submission to the form: server-side field errors land on their inputs (the

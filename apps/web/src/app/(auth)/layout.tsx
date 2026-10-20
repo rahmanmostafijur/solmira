@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <Wordmark />
       </div>
       <main className="w-full max-w-sm">{children}</main>
-      <p className="mt-10 text-xs text-ink-muted">Order, inventory and fulfillment operations</p>
+      <p className="mt-10 text-xs text-ink-muted">Reliable webhook delivery</p>
     </div>
   );
 }
