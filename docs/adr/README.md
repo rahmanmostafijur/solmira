@@ -33,6 +33,10 @@ describe.
 | 0022 | [Receiving: one transaction, row locks and an Idempotency-Key](0022-transactional-idempotent-receiving.md) | Superseded by 0023 | 2026-10-01 |
 | 0023 | [Pivot to a webhook delivery platform](0023-pivot-to-webhook-delivery.md)                                  | Accepted           | 2026-10-21 |
 | 0024 | [Service boundaries for the webhook platform](0024-service-boundaries-webhook-platform.md)                 | Accepted           | 2026-10-21 |
+| 0025 | [Webhook resource model and lifecycle](0025-webhook-resource-model.md)                                     | Accepted           | 2026-10-21 |
+| 0026 | [Signing secret storage and reveal](0026-signing-secret-storage.md)                                        | Accepted           | 2026-10-21 |
+| 0027 | [API key design and lookup](0027-api-key-design.md)                                                        | Accepted           | 2026-10-21 |
+| 0028 | [Endpoint URL policy and SSRF defense at creation](0028-endpoint-url-policy.md)                            | Accepted           | 2026-10-21 |
 
 ## Process
 
