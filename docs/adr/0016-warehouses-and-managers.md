@@ -1,6 +1,6 @@
 # ADR-0016: Warehouses, and managers who must belong to the same organization
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0023
 - **Date:** 2026-09-30
 
 ## Context

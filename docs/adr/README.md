@@ -7,30 +7,32 @@ describe.
 
 ## Index
 
-| #    | Title                                                                                                      | Status   | Date       |
-| ---- | ---------------------------------------------------------------------------------------------------------- | -------- | ---------- |
-| 0001 | [Monorepo with pnpm workspaces and Turborepo](0001-monorepo-pnpm-turborepo.md)                             | Accepted | 2026-09-29 |
-| 0002 | [NestJS for backend services](0002-nestjs-for-backend-services.md)                                         | Accepted | 2026-09-29 |
-| 0003 | [Next.js for the web console](0003-nextjs-for-web.md)                                                      | Accepted | 2026-09-29 |
-| 0004 | [Service boundaries along consistency boundaries](0004-service-boundaries.md)                              | Accepted | 2026-09-29 |
-| 0005 | [PostgreSQL, one database per service](0005-postgresql-database-per-service.md)                            | Accepted | 2026-09-29 |
-| 0006 | [Multi-tenancy with a shared schema](0006-multi-tenancy-shared-schema.md)                                  | Accepted | 2026-09-29 |
-| 0007 | [Nginx as the edge gateway](0007-nginx-gateway.md)                                                         | Accepted | 2026-09-29 |
-| 0008 | [Drizzle ORM and SQL migrations](0008-drizzle-orm.md)                                                      | Accepted | 2026-09-29 |
-| 0009 | [RabbitMQ for integration events](0009-rabbitmq-for-integration-events.md)                                 | Accepted | 2026-09-29 |
-| 0010 | [Authentication strategy: signed access tokens and refresh sessions](0010-authentication-strategy.md)      | Accepted | 2026-09-29 |
-| 0011 | [Refresh token rotation with reuse detection](0011-refresh-token-rotation.md)                              | Accepted | 2026-09-29 |
-| 0012 | [PostgreSQL Row Level Security](0012-postgresql-row-level-security.md)                                     | Accepted | 2026-09-29 |
-| 0013 | [Catalog modeling: products, variants, categories and suppliers](0013-catalog-modeling.md)                 | Accepted | 2026-09-30 |
-| 0014 | [Object storage behind a port, S3 API everywhere](0014-object-storage-abstraction.md)                      | Accepted | 2026-09-30 |
-| 0015 | [SKU uniqueness per organization, among live variants](0015-sku-uniqueness.md)                             | Accepted | 2026-09-30 |
-| 0016 | [Warehouses, and managers from the same organization](0016-warehouses-and-managers.md)                     | Accepted | 2026-09-30 |
-| 0017 | [Product images: validated uploads and tenant-scoped keys](0017-product-image-storage.md)                  | Accepted | 2026-09-30 |
-| 0018 | [Inventory as counters plus an append-only ledger](0018-inventory-ledger-and-counters.md)                  | Accepted | 2026-09-30 |
-| 0019 | [Stock movement rules: adjustments, counts and transfers](0019-stock-movement-rules.md)                    | Accepted | 2026-09-30 |
-| 0020 | [Reservations, and how overselling is prevented](0020-reservations-and-oversell-prevention.md)             | Accepted | 2026-09-30 |
-| 0021 | [Purchase orders: model, lifecycle and money](0021-purchase-order-model-and-lifecycle.md)                  | Accepted | 2026-10-01 |
-| 0022 | [Receiving: one transaction, row locks and an Idempotency-Key](0022-transactional-idempotent-receiving.md) | Accepted | 2026-10-01 |
+| #    | Title                                                                                                      | Status             | Date       |
+| ---- | ---------------------------------------------------------------------------------------------------------- | ------------------ | ---------- |
+| 0001 | [Monorepo with pnpm workspaces and Turborepo](0001-monorepo-pnpm-turborepo.md)                             | Accepted           | 2026-09-29 |
+| 0002 | [NestJS for backend services](0002-nestjs-for-backend-services.md)                                         | Accepted           | 2026-09-29 |
+| 0003 | [Next.js for the web console](0003-nextjs-for-web.md)                                                      | Accepted           | 2026-09-29 |
+| 0004 | [Service boundaries along consistency boundaries](0004-service-boundaries.md)                              | Superseded by 0024 | 2026-09-29 |
+| 0005 | [PostgreSQL, one database per service](0005-postgresql-database-per-service.md)                            | Accepted           | 2026-09-29 |
+| 0006 | [Multi-tenancy with a shared schema](0006-multi-tenancy-shared-schema.md)                                  | Accepted           | 2026-09-29 |
+| 0007 | [Nginx as the edge gateway](0007-nginx-gateway.md)                                                         | Accepted           | 2026-09-29 |
+| 0008 | [Drizzle ORM and SQL migrations](0008-drizzle-orm.md)                                                      | Accepted           | 2026-09-29 |
+| 0009 | [RabbitMQ for integration events](0009-rabbitmq-for-integration-events.md)                                 | Accepted           | 2026-09-29 |
+| 0010 | [Authentication strategy: signed access tokens and refresh sessions](0010-authentication-strategy.md)      | Accepted           | 2026-09-29 |
+| 0011 | [Refresh token rotation with reuse detection](0011-refresh-token-rotation.md)                              | Accepted           | 2026-09-29 |
+| 0012 | [PostgreSQL Row Level Security](0012-postgresql-row-level-security.md)                                     | Accepted           | 2026-09-29 |
+| 0013 | [Catalog modeling: products, variants, categories and suppliers](0013-catalog-modeling.md)                 | Superseded by 0023 | 2026-09-30 |
+| 0014 | [Object storage behind a port, S3 API everywhere](0014-object-storage-abstraction.md)                      | Superseded by 0023 | 2026-09-30 |
+| 0015 | [SKU uniqueness per organization, among live variants](0015-sku-uniqueness.md)                             | Superseded by 0023 | 2026-09-30 |
+| 0016 | [Warehouses, and managers from the same organization](0016-warehouses-and-managers.md)                     | Superseded by 0023 | 2026-09-30 |
+| 0017 | [Product images: validated uploads and tenant-scoped keys](0017-product-image-storage.md)                  | Superseded by 0023 | 2026-09-30 |
+| 0018 | [Inventory as counters plus an append-only ledger](0018-inventory-ledger-and-counters.md)                  | Superseded by 0023 | 2026-09-30 |
+| 0019 | [Stock movement rules: adjustments, counts and transfers](0019-stock-movement-rules.md)                    | Superseded by 0023 | 2026-09-30 |
+| 0020 | [Reservations, and how overselling is prevented](0020-reservations-and-oversell-prevention.md)             | Superseded by 0023 | 2026-09-30 |
+| 0021 | [Purchase orders: model, lifecycle and money](0021-purchase-order-model-and-lifecycle.md)                  | Superseded by 0023 | 2026-10-01 |
+| 0022 | [Receiving: one transaction, row locks and an Idempotency-Key](0022-transactional-idempotent-receiving.md) | Superseded by 0023 | 2026-10-01 |
+| 0023 | [Pivot to a webhook delivery platform](0023-pivot-to-webhook-delivery.md)                                  | Accepted           | 2026-10-21 |
+| 0024 | [Service boundaries for the webhook platform](0024-service-boundaries-webhook-platform.md)                 | Accepted           | 2026-10-21 |
 
 ## Process
 

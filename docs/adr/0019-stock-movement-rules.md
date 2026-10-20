@@ -1,6 +1,6 @@
 # ADR-0019: Stock movement rules: adjustments, counts and transfers
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0023
 - **Date:** 2026-09-30
 
 ## Context

@@ -1,6 +1,6 @@
 # ADR-0021: Purchase orders: model, lifecycle and money
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0023
 - **Date:** 2026-10-01
 
 ## Context

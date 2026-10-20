@@ -1,6 +1,6 @@
 # ADR-0015: SKU uniqueness per organization, among live variants
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0023
 - **Date:** 2026-09-30
 
 ## Context
