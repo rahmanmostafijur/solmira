@@ -1,6 +1,6 @@
 # ADR-0018: Inventory as counters plus an append-only ledger
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0023
 - **Date:** 2026-09-30
 
 ## Context

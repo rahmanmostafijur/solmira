@@ -47,7 +47,7 @@ describe('HealthRegistry', () => {
   });
 
   it('reports a failing non-critical dependency without failing readiness', async () => {
-    const registry = new HealthRegistry('operations');
+    const registry = new HealthRegistry('ingest');
     registry.register('postgres', async () => undefined);
     registry.register(
       'object-storage',

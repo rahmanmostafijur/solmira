@@ -1,6 +1,6 @@
 # ADR-0020: Reservations, and how overselling is prevented
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0023
 - **Date:** 2026-09-30
 
 ## Context

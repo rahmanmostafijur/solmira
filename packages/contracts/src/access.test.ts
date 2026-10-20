@@ -47,10 +47,10 @@ describe('role definitions', () => {
 
 describe('hasPermissions', () => {
   it('requires every listed permission', () => {
-    expect(hasPermissions(['orders.read', 'orders.create'], ['orders.read', 'orders.create'])).toBe(
+    expect(hasPermissions(['users.read', 'users.create'], ['users.read', 'users.create'])).toBe(
       true,
     );
-    expect(hasPermissions(['orders.read'], ['orders.read', 'orders.create'])).toBe(false);
+    expect(hasPermissions(['users.read'], ['users.read', 'users.create'])).toBe(false);
   });
 });
 

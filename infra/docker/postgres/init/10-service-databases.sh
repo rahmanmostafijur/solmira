@@ -12,7 +12,7 @@ set -eu
 
 : "${SERVICE_DB_PASSWORD:?SERVICE_DB_PASSWORD must be set}"
 
-for service in identity operations notification analytics audit; do
+for service in identity ingest notification analytics audit; do
   psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
     -v db="solmira_${service}" \
     -v owner="${service}_owner" \

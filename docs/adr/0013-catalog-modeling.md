@@ -1,6 +1,6 @@
 # ADR-0013: Catalog modeling: products, variants, categories and suppliers
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0023
 - **Date:** 2026-09-30
 
 ## Context

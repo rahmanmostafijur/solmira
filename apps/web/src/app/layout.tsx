@@ -5,7 +5,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: { default: 'Solmira', template: '%s · Solmira' },
-  description: 'Order, inventory and fulfillment operations',
+  description: 'Reliable webhook delivery',
   robots: { index: false, follow: false },
 };
 

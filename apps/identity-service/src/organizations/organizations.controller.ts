@@ -96,7 +96,7 @@ export class OrganizationsController {
 
   /**
    * Single member lookup. Other services call this with the caller's own token (token relay),
-   * e.g. operations-service when assigning a warehouse manager, so tenancy is enforced here.
+   * so tenancy is enforced here.
    */
   @Get(':organizationId/members/:memberId')
   @RequirePermission('users.read')

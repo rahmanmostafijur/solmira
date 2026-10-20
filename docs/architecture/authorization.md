@@ -23,8 +23,8 @@ tenant comes from the token, never from request input.
 ## Permission catalog: one source of truth
 
 `PERMISSION_CATALOG` in `@solmira/contracts` lists every permission as `resource.action` with a
-description (43 today, covering organizations, users, roles, products, suppliers, warehouses,
-inventory, purchase orders, orders, shipments, analytics and audit logs). The same object is used by:
+description (10 today, covering organizations, users, roles, analytics and audit logs; the
+webhook resources add theirs as they are built). The same object is used by:
 
 - **identity-service**, which syncs it into the database on every deploy;
 - **the guard**, whose `@RequirePermission(...)` accepts only the `Permission` type, so a typo is a
@@ -43,13 +43,13 @@ Adding a feature means adding its permissions to the catalog and to the relevant
 
 ## Roles and ranks
 
-| Role      | Rank | Permissions                                                                                                                                                       |
-| --------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `OWNER`   | 50   | All                                                                                                                                                               |
-| `ADMIN`   | 40   | All                                                                                                                                                               |
-| `MANAGER` | 30   | All operational permissions plus `users.read`, `roles.read`, `audit_logs.read`; not `organizations.update`, `users.create/update/delete`, `roles.assign`          |
-| `STAFF`   | 20   | Read operations plus `inventory.adjust`, `inventory.reserve`, `purchase_orders.receive`, `orders.create`, `orders.update`, `shipments.create`, `shipments.update` |
-| `VIEWER`  | 10   | Read operations only (`organizations.read` and the `*.read` of operational resources and `analytics.read`)                                                        |
+| Role      | Rank | Permissions                                                                                                                                   |
+| --------- | ---- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OWNER`   | 50   | All                                                                                                                                           |
+| `ADMIN`   | 40   | All                                                                                                                                           |
+| `MANAGER` | 30   | Read permissions plus `users.read`, `roles.read`, `audit_logs.read`; not `organizations.update`, `users.create/update/delete`, `roles.assign` |
+| `STAFF`   | 20   | Read permissions (`organizations.read`, `analytics.read`) until the webhook resource permissions land                                         |
+| `VIEWER`  | 10   | Read permissions only (`organizations.read`, `analytics.read`)                                                                                |
 
 Owner and admin have the same permissions. They differ only in **rank**, which governs who can
 manage whom. Rank is used for assignment rules and never for access checks.
@@ -208,7 +208,7 @@ without the UI. The session hint cookie and the Next.js proxy likewise only rout
 
 - System roles only. The schema allows organization-specific roles (`roles.organization_id` not
   null, readable only within that organization), but no API creates them yet.
-- `perms` grows with the catalog. With 32 permissions the token is small; if the catalog grows by
+- `perms` grows with the catalog. With a few dozen permissions the token is small; if the catalog grows by
   an order of magnitude, a permission-set version in the token with a lookup cache is the next step.
 - Services other than identity adopt the guard as their routes are built; until then they expose
   only public health routes.

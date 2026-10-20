@@ -11,8 +11,8 @@ export const DEFAULT_CHECK_TIMEOUT_MS = 2_000;
  */
 export interface HealthCheckOptions {
   /**
-   * Critical checks gate readiness. A non-critical dependency (e.g. object storage for product
-   * images) is reported, but its outage degrades one feature instead of pulling the instance
+   * Critical checks gate readiness. A non-critical dependency (e.g. a mail relay) is reported,
+   * but its outage degrades one feature instead of pulling the instance
    * out of the load balancer.
    */
   readonly critical?: boolean;

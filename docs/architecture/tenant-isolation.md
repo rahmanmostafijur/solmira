@@ -1,7 +1,7 @@
 # Tenant isolation
 
-Status: **Built** for identity-service (phase 2) and operations-service (phase 3); every later
-service reuses the same mechanism. Decisions: [ADR-0006](../adr/0006-multi-tenancy-shared-schema.md),
+Status: **Built** for identity-service (phase 2); ingest-service has the plumbing (phase 3) and its
+tables arrive in phase 4. Every service reuses the same mechanism. Decisions: [ADR-0006](../adr/0006-multi-tenancy-shared-schema.md),
 [ADR-0012](../adr/0012-postgresql-row-level-security.md). Related: [authorization](authorization.md).
 
 ## Strategy
@@ -252,44 +252,23 @@ server-side.
 **Authorization: `authorization.integration.test.ts` (13 tests)** covers roles, ranks and immediate
 revocation inside one tenant; see [authorization](authorization.md).
 
-## operations-service (phase 3)
+## ingest-service
 
-The same three layers, with the schema layer now in full use:
+The same three layers, applied table by table as the webhook resources are added (phase 4):
 
-- **Context.** `Database.forTenant(auth, work)` is the only entry point to the operations database;
-  it wraps `inTenantScope`. There is no unscoped variant, because every operations table is
-  tenant-owned. The `row-level-security` readiness check guards the runtime role
-  (`operations_app`) exactly as in identity.
-- **Policies.** `categories`, `suppliers`, `warehouses`, `products`, `product_variants`,
-  `product_images` and `member_directory` each have RLS enabled and one policy
-  `FOR ALL USING (organization_id = app_current_organization_id()) WITH CHECK (same)`
-  (`drizzle/0001_tenant_security_and_search.sql`). Inventory (phase 4,
-  `drizzle/0003_inventory_security_and_ledger.sql`) adds the same policy on `inventory_levels` and
-  `inventory_reservations`; `inventory_movements` gets only `SELECT` and `INSERT` policies, so the
-  runtime role cannot rewrite the ledger, and a trigger refuses updates and deletes for every role.
-  Purchasing (phase 5, `drizzle/0005_purchasing_security.sql`) follows the same pattern: `FOR ALL`
-  policies on orders, lines and the number counter; `SELECT` + `INSERT` only, plus append-only
-  triggers, on receipts and receipt lines.
-  `outbox_events` has no RLS; it is written only inside tenant transactions and read by the relay
-  (phase 7).
-- **Composite foreign keys.** Every reference is `(organization_id, <ref>_id) → (organization_id, id)`:
-  product → category, product → supplier, variant → product, image → product, category → parent,
-  warehouse → `member_directory` (manager), level → warehouse, level → variant, movement → level,
-  reservation → level, order → supplier and warehouse, line → order and
-  `(product, variant)`, receipt → `(order, warehouse)`, receipt line → `(receipt, order)` and
-  `(order, line)` and ledger row. Because the constraint includes `organization_id`, a
-  row can only point at a row of its own organization. This holds for the owner role too, which
-  RLS does not constrain.
-- **Storage keys** carry the tenant too: image keys must start with
-  `organizations/{organization_id}/products/{product_id}/` (`product_images_key_prefix_check`).
-- **Cross-service ids.** A warehouse manager id is checked with identity using the caller's own
-  token, then recorded in `member_directory` for the composite key (ADR-0016).
-- **Tests.** `test/database.integration.test.ts` (41) proves RLS on all ten tables, the
-  append-only ledger and the composite keys at the database level;
-  `test/catalog-isolation.integration.test.ts`, `test/inventory-isolation.integration.test.ts` and
-  the cross-tenant cases in `test/images.integration.test.ts` prove it over HTTP: organization B
-  cannot list, read, update, delete, reference, extend, move or reserve organization A's records,
-  and gets `404` (or a field-level "not found") for A's ids.
+- **Context.** `Database.forTenant(auth, work)` is the only entry point to the ingest database; it
+  wraps `inTenantScope`. There is no unscoped variant for tenant data. The `row-level-security`
+  readiness check guards the runtime role (`ingest_app`) exactly as in identity.
+- **Today.** The baseline migration holds `outbox_events` and `app_current_organization_id()`
+  (`drizzle/0001_tenant_context.sql`). `outbox_events` has no RLS: the relay reads it across
+  tenants and it is written only inside tenant transactions.
+- **Every tenant table** will have `organization_id`, a unique `(organization_id, id)` key,
+  composite foreign keys `(organization_id, <ref>_id) → (organization_id, id)`, and an RLS policy
+  `FOR ALL USING (organization_id = app_current_organization_id()) WITH CHECK (same)`. A row can
+  then only point at a row of its own organization, even for the owner role, which RLS does not
+  constrain.
+- **Tests.** `test/readiness.integration.test.ts` proves the runtime role is subject to RLS and
+  that a missing tenant context matches no tenant. Cross-tenant tests are added with each table.
 
 ## Known limitations
 

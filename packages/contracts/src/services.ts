@@ -5,17 +5,17 @@ export const SERVICES = [
     description: 'Authentication, organizations, members and roles',
   },
   {
-    key: 'operations',
-    name: 'Operations',
-    description: 'Catalog, inventory, purchasing, orders and fulfillment',
+    key: 'ingest',
+    name: 'Ingest',
+    description: 'Applications, event types, endpoints and message ingestion',
   },
   {
     key: 'notification',
     name: 'Notifications',
-    description: 'In-app, email and real-time delivery',
+    description: 'Tenant alerts about failing endpoints',
   },
-  { key: 'analytics', name: 'Analytics', description: 'Dashboard read models and reporting' },
-  { key: 'audit', name: 'Audit', description: 'Audit trail and event history' },
+  { key: 'analytics', name: 'Analytics', description: 'Delivery success rates and latency' },
+  { key: 'audit', name: 'Audit', description: 'Audit trail of administrative actions' },
 ] as const;
 
 export type ServiceKey = (typeof SERVICES)[number]['key'];

@@ -1,6 +1,6 @@
 # ADR-0004: Service boundaries along consistency boundaries
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0024
 - **Date:** 2026-09-29
 
 ## Context

@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * Design tokens. A restrained, high-density palette for an operations tool: neutral surfaces,
+ * Design tokens. A restrained, high-density palette for an operations console: neutral surfaces,
  * one accent, and status colours reserved for status only.
  */
 @theme {

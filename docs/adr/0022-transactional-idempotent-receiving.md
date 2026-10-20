@@ -1,6 +1,6 @@
 # ADR-0022: Receiving: one transaction, row locks and an Idempotency-Key
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0023
 - **Date:** 2026-10-01
 
 ## Context

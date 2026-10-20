@@ -2,7 +2,7 @@ import type { FieldValues, Path, UseFormSetError } from 'react-hook-form';
 import { ApiError, describeError } from './api/client';
 
 /** Error codes whose details name the request fields at fault. */
-const FIELD_ERROR_CODES: ReadonlySet<string> = new Set(['VALIDATION_FAILED', 'INSUFFICIENT_STOCK']);
+const FIELD_ERROR_CODES: ReadonlySet<string> = new Set(['VALIDATION_FAILED']);
 
 /**
  * Routes a failed submission to the form: server-side field errors land on their inputs (the
@@ -25,18 +25,4 @@ export function applyServerError<T extends FieldValues>(
     return;
   }
   setError('root' as Path<T>, { type: 'server', message: describeError(error) });
-}
-
-/**
- * The part of an update request the user actually changed (react-hook-form's dirty fields), so
- * saving one field never overwrites another someone else edited meanwhile. Null when unchanged.
- */
-export function pickDirty<T extends object>(
-  request: T,
-  dirty: Partial<Record<keyof T, unknown>>,
-): Partial<T> | null {
-  const changed = Object.fromEntries(
-    Object.entries(request).filter(([key]) => Boolean(dirty[key as keyof T])),
-  ) as Partial<T>;
-  return Object.keys(changed).length > 0 ? changed : null;
 }

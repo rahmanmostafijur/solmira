@@ -82,7 +82,7 @@ describe('createApiClient', () => {
       fetch: fetchMock,
     });
 
-    await api('/purchase-orders/x/receipts', {
+    await api('/applications/x/messages', {
       method: 'POST',
       body: {},
       headers: { 'idempotency-key': 'key-12345', Authorization: 'forged', 'x-solmira-client': 'x' },

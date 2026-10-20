@@ -1,6 +1,6 @@
 # ADR-0014: Object storage behind a port, S3 API everywhere, MinIO locally
 
-- **Status:** Accepted
+- **Status:** Superseded by ADR-0023
 - **Date:** 2026-09-30
 
 ## Context

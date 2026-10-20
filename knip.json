@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "ignoreExportsUsedInFile": true,
+  "workspaces": {
+    ".": {
+      "entry": ["vitest.service.config.ts"]
+    },
+    "apps/*-service": {
+      "entry": [
+        "src/main.ts",
+        "src/database/migrate.ts",
+        "scripts/*.mjs",
+        "src/**/*.test.ts",
+        "test/**/*.test.ts"
+      ]
+    },
+    "packages/service-kit": {
+      "entry": ["src/index.ts", "src/testing/index.ts", "src/**/*.test.ts", "test/**/*.ts"],
+      "ignoreDependencies": ["pino-pretty"]
+    },
+    "packages/contracts": {
+      "entry": ["src/**/*.test.ts"]
+    }
+  }
+}
