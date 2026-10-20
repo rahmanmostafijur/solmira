@@ -37,6 +37,8 @@ describe.
 | 0026 | [Signing secret storage and reveal](0026-signing-secret-storage.md)                                        | Accepted           | 2026-10-21 |
 | 0027 | [API key design and lookup](0027-api-key-design.md)                                                        | Accepted           | 2026-10-21 |
 | 0028 | [Endpoint URL policy and SSRF defense at creation](0028-endpoint-url-policy.md)                            | Accepted           | 2026-10-21 |
+| 0029 | [Event backbone: outbox relay, consumers, retries and DLQs](0029-event-backbone.md)                        | Accepted           | 2026-10-21 |
+| 0030 | [Message ingestion, idempotency and fan-out](0030-message-ingestion.md)                                    | Accepted           | 2026-10-21 |
 
 ## Process
 
