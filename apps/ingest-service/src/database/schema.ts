@@ -290,6 +290,12 @@ export const deliveries = pgTable(
     status: text('status').notNull().default('pending'),
     attemptCount: integer('attempt_count').notNull().default(0),
     nextAttemptAt: timestamptz('next_attempt_at').notNull().defaultNow(),
+    /** While `in_progress`: when the claim expires and another worker may take the delivery. */
+    lockedUntil: timestamptz('locked_until'),
+    lastAttemptAt: timestamptz('last_attempt_at'),
+    lastStatusCode: integer('last_status_code'),
+    lastErrorClass: text('last_error_class'),
+    completedAt: timestamptz('completed_at'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -309,6 +315,9 @@ export const deliveries = pgTable(
     index('deliveries_due_idx')
       .on(table.nextAttemptAt)
       .where(sql`${table.status} = 'pending'`),
+    index('deliveries_in_progress_idx')
+      .on(table.lockedUntil)
+      .where(sql`${table.status} = 'in_progress'`),
     index('deliveries_endpoint_idx').on(
       table.organizationId,
       table.endpointId,

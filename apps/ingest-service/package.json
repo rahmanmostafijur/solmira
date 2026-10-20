@@ -4,6 +4,12 @@
   "private": true,
   "description": "Applications, API keys, event types, endpoints and message ingestion",
   "type": "module",
+  "exports": {
+    "./migrations": {
+      "types": "./dist/database/migrations.d.ts",
+      "default": "./dist/database/migrations.js"
+    }
+  },
   "files": [
     "dist",
     "drizzle"
