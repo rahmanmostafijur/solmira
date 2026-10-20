@@ -10,9 +10,8 @@ await runService(async () => {
     port: config.PORT,
     nodeEnv: config.NODE_ENV,
     docs: {
-      title: 'Solmira Operations API',
-      description:
-        'Products, variants, suppliers, customers, warehouses, inventory, purchase orders, orders and shipments.',
+      title: 'Solmira Ingest API',
+      description: 'Applications, event types, endpoints and message ingestion.',
     },
   });
 });

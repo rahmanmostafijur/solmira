@@ -2,7 +2,7 @@
   "name": "@solmira/operations-service",
   "version": "0.1.0",
   "private": true,
-  "description": "Catalog, suppliers, warehouses, inventory, purchasing, orders and fulfillment",
+  "description": "Applications, API keys, event types, endpoints and message ingestion",
   "type": "module",
   "files": [
     "dist",
@@ -21,8 +21,6 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1142.0",
-    "@aws-sdk/s3-request-presigner": "^3.1142.0",
     "@nestjs/common": "^12.1.1",
     "@nestjs/core": "^12.1.1",
     "@nestjs/platform-express": "^12.1.1",
@@ -39,7 +37,6 @@
   "devDependencies": {
     "@swc/core": "^1.16.12",
     "@types/express": "^5.0.3",
-    "@types/multer": "^2.3.0",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",

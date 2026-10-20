@@ -1,7 +1,6 @@
 import { provisionTestDatabase } from '@solmira/service-kit/testing';
 import type { TestProject } from 'vitest/node';
 import { migrateDatabase } from '../../src/database/migrations.js';
-import { ensureTestBucket } from './test-app.js';
 
 declare module 'vitest' {
   export interface ProvidedContext {
@@ -20,5 +19,4 @@ export default async function setup(project: TestProject): Promise<void> {
   });
   project.provide('ownerDatabaseUrl', ownerUrl);
   project.provide('appDatabaseUrl', appUrl);
-  await ensureTestBucket();
 }
