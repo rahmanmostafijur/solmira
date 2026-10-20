@@ -13,6 +13,7 @@ const config = loadConfig(envSchema, {
   DATABASE_URL: 'postgres://test:test@127.0.0.1:1/test',
   REDIS_URL: 'redis://127.0.0.1:1',
   RABBITMQ_URL: 'amqp://test:test@127.0.0.1:1',
+  SECRETS_ENCRYPTION_KEY: Buffer.alloc(32, 1).toString('base64'),
 });
 
 describe(SERVICE_NAME, () => {
