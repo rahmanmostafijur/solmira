@@ -2,9 +2,9 @@
 
 One row per phase. Updated when a phase merges.
 
-| Phase | Status      | Date | PR / description         | Decisions | Deferred |
-| ----- | ----------- | ---- | ------------------------ | --------- | -------- |
-| 3     | In progress | -    | [phase-3.md](phase-3.md) | -         | -        |
+| Phase | Status | Date       | PR / description         | Decisions                                                                                                                             | Deferred                                       |
+| ----- | ------ | ---------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| 3     | Done   | 2026-10-21 | [phase-3.md](phase-3.md) | Applications and API keys in ingest-service; baseline migration reset; unused web components deleted (restore from `v0-distribution`) | Cross-tenant tests for ingest tables (Phase 4) |
 
 ## Notes
 

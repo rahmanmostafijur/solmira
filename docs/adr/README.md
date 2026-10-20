@@ -44,8 +44,8 @@ A new ADR starts as `Proposed`, is discussed in the pull request that introduces
 that references the old one, and the old record's status is changed to `Superseded by ADR-NNNN`
 (the only edit ever made to it). Typos and broken links may be fixed; reasoning is never
 rewritten after the fact, so the log stays an honest history of what was known when each
-decision was made. Decisions that are planned for later phases (for example DynamoDB event
-history in phase 10 and the AWS topology in phase 12) get their own ADRs when those phases start.
+decision was made. Decisions that are planned for later phases (for example retry scheduling, DynamoDB attempt
+history and the AWS topology) get their own ADRs when those phases start.
 
 ## Template
 

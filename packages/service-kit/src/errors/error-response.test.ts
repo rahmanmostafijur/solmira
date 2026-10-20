@@ -9,11 +9,11 @@ import { INTERNAL_ERROR_MESSAGE, toErrorResponse } from './error-response.js';
 
 describe('toErrorResponse', () => {
   it('maps AppError subclasses to their status, code and message', () => {
-    const response = toErrorResponse(new ConflictError('SKU already exists'), 'req-1');
+    const response = toErrorResponse(new ConflictError('Name already exists'), 'req-1');
 
     expect(response).toEqual({
       status: 409,
-      body: { error: { code: 'CONFLICT', message: 'SKU already exists', requestId: 'req-1' } },
+      body: { error: { code: 'CONFLICT', message: 'Name already exists', requestId: 'req-1' } },
     });
   });
 

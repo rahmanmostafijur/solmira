@@ -1,7 +1,8 @@
 # Security
 
-This document summarises the security controls built so far (through phase 2: identity,
-authentication, organizations, RBAC and tenant isolation). Design detail lives in:
+This document summarises the security controls of Solmira, a multi-tenant webhook delivery
+platform. Controls marked **Planned** are designed but not built yet. Built so far: identity,
+authentication, organizations, RBAC and tenant isolation. Design detail lives in:
 
 - [Authentication](docs/architecture/authentication.md): tokens, sessions, rotation, revocation,
   passwords, lockout, recovery, CSRF, theft analysis
@@ -60,11 +61,12 @@ email; account lockout can be triggered by anyone who knows an email; no MFA yet
 
 ## Secrets handling
 
-| Aspect         | Development                                                                                              | Deployed environments                                                                          |
-| -------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Signing keys   | Generated locally with `pnpm --filter @solmira/identity-service keys:generate` into the service's `.env` | Held in a secret manager (AWS Secrets Manager, phase 12); private key only in identity-service |
-| Database roles | `<service>_owner` and `<service>_app` share one dev password (`infra/docker/postgres/init`)              | Per-role credentials in the secret manager                                                     |
-| `.env` files   | Git-ignored; only `.env.example` files with placeholder or dev-only values are committed                 | Not used; configuration comes from the environment                                             |
+| Aspect                            | Development                                                                                              | Deployed environments                                                                          |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Signing keys                      | Generated locally with `pnpm --filter @solmira/identity-service keys:generate` into the service's `.env` | Held in a secret manager (AWS Secrets Manager, phase 12); private key only in identity-service |
+| Webhook signing secrets (Planned) | Encrypted with a local data key from the environment                                                     | Envelope encryption with AWS KMS; plaintext only in memory while signing                       |
+| Database roles                    | `<service>_owner` and `<service>_app` share one dev password (`infra/docker/postgres/init`)              | Per-role credentials in the secret manager                                                     |
+| `.env` files                      | Git-ignored; only `.env.example` files with placeholder or dev-only values are committed                 | Not used; configuration comes from the environment                                             |
 
 Every service validates its environment with zod at startup and fails fast, reporting the names,
 never the values, of invalid variables. identity-service refuses to start without signing keys.
@@ -100,7 +102,33 @@ with `[REDACTED]`. Login and reset throttles key Redis entries by `sha256(email)
 addresses are not stored there. Unknown errors are returned as `500 INTERNAL_ERROR` without stack
 traces or driver messages.
 
+## Threat model
+
+Assets: tenants' event payloads, signing secrets, API keys, the ability to make the platform send
+requests, and the availability of delivery for every tenant.
+
+Trust boundaries: the public API (tenant backends with API keys), the console (browser users with
+JWTs), and the dispatcher's outbound requests to **untrusted, tenant-supplied URLs**.
+
+| Threat                                                 | Control                                                                                                                                                                                                                                                               | Status                                    |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| **SSRF** through an endpoint URL                       | URL validation at creation and again at send time. Reject private, loopback, link-local (including 169.254.169.254), multicast and reserved ranges for IPv4 and IPv6, including IPv4-mapped IPv6 and encoded forms. HTTPS only in production. No credentials in URLs. | Planned (Phases 4, 6)                     |
+| **DNS rebinding** (host resolves public, then private) | Resolve at send time and pin the resolved address for the connection; re-check the pinned address against the deny list.                                                                                                                                              | Planned (Phase 6)                         |
+| **SSRF through redirects**                             | Redirects are not followed by default.                                                                                                                                                                                                                                | Planned (Phase 6)                         |
+| **Response-based exfiltration** from internal hosts    | Stored response bodies are truncated and shown only to the owning tenant.                                                                                                                                                                                             | Planned (Phase 6)                         |
+| **Slow or hostile endpoint** exhausting workers        | Connect and total timeouts, payload and response size limits, per-endpoint concurrency and rate limits, circuit breaking, fair claiming across tenants.                                                                                                               | Planned (Phases 6, 7)                     |
+| **Forged webhooks** received by a customer             | Standard Webhooks signatures (HMAC-SHA256) over id, timestamp and body; timestamp tolerance on the receiver; secret rotation with dual signing.                                                                                                                       | Planned (Phases 6, 7)                     |
+| **Signing secret leak**                                | Encrypted at rest (envelope encryption), never logged (logger redaction), never returned after creation except through an audited reveal permission.                                                                                                                  | Planned (Phase 4)                         |
+| **API key leak**                                       | Shown once, stored only as a hash, scoped to an application, revocable immediately, last-used tracking, per-key rate limiting.                                                                                                                                        | Planned (Phases 4, 5)                     |
+| **Cross-tenant access**                                | Token-derived tenant, composite foreign keys, PostgreSQL RLS, 404 for foreign ids, cross-tenant tests per resource. DynamoDB: `TENANT#` key prefix, IAM leading keys, application tests.                                                                              | Built (identity), Planned (new resources) |
+| **Replay of an ingestion request**                     | `Idempotency-Key` per (application, key), 24-hour retention by default; a different body under the same key is rejected.                                                                                                                                              | Planned (Phase 5)                         |
+| **Message loss or duplication**                        | Transactional outbox, publisher confirms, idempotent consumers; delivery is at least once, and receivers deduplicate on `webhook-id`.                                                                                                                                 | Planned (Phase 5)                         |
+| **Stolen refresh token / credential stuffing**         | Rotation with reuse detection, hashed storage, lockout, Argon2id.                                                                                                                                                                                                     | Built                                     |
+
+Out of scope: a compromised tenant backend that holds a valid API key can send messages as that
+tenant until the key is revoked; a compromised receiver can leak what it receives.
+
 ## Not yet built
 
-MFA, audit-log API and UI (phase 10), security test suite for IDOR and role escalation across all
-services (phase 11), production hardening checklist and secret rotation runbooks (phase 12).
+Everything marked **Planned** above, MFA, the audit log API and UI (phase 10), the production
+hardening checklist and secret rotation runbooks (phase 12).

@@ -18,7 +18,7 @@ pnpm infra:up
 Then create each service's `.env` from its example (values already match the compose defaults):
 
 ```bash
-for s in identity operations notification analytics audit; do
+for s in identity ingest notification analytics audit; do
   cp apps/$s-service/.env.example apps/$s-service/.env
 done
 cp apps/web/.env.example apps/web/.env
@@ -27,16 +27,19 @@ cp apps/web/.env.example apps/web/.env
 Generate the access-token signing key pair and apply the identity database migrations:
 
 ```bash
-pnpm turbo run build --filter=@solmira/identity-service...
+pnpm turbo run build --filter=@solmira/identity-service... --filter=@solmira/ingest-service...
 pnpm --filter @solmira/identity-service keys:generate   # writes JWT_PRIVATE_KEY / JWT_PUBLIC_KEY into its .env
 pnpm --filter @solmira/identity-service db:migrate      # runs as identity_owner, syncs roles and permissions
-pnpm turbo run build --filter=@solmira/operations-service...
-pnpm --filter @solmira/operations-service db:migrate    # runs as operations_owner: catalog schema, RLS, search indexes
+pnpm --filter @solmira/ingest-service db:migrate        # runs as ingest_owner
 ```
 
-Re-run identity's `db:migrate` whenever the permission catalog in `@solmira/contracts` changes
-(for example after pulling Phase 3): it syncs the roles, and users get the new permissions on
-their next token refresh.
+Re-run identity's `db:migrate` whenever the permission catalog in `@solmira/contracts` changes: it
+syncs the roles (and removes permissions that left the catalog), and users get the new permissions
+on their next token refresh.
+
+> **After the webhook pivot:** databases created before it still contain the old schema of
+> the previous version. Run `docker compose down -v` once, then repeat the steps above. This deletes
+> local data.
 
 ```bash
 pnpm dev
@@ -48,19 +51,18 @@ pnpm dev
 
 ## Local endpoints
 
-| What                               | URL                                                                                      |
-| ---------------------------------- | ---------------------------------------------------------------------------------------- |
-| Console (through the gateway)      | http://localhost:8080                                                                    |
-| Gateway liveness                   | http://localhost:8080/gateway/health                                                     |
-| Service readiness                  | http://localhost:8080/internal/health/{identity,operations,notification,analytics,audit} |
-| API docs (Swagger, non-production) | http://localhost:8080/internal/docs/{service}/                                           |
-| RabbitMQ management                | http://localhost:15672 (solmira / solmira_dev_password)                                  |
-| PostgreSQL                         | `localhost:5433` (superuser `solmira`)                                                   |
-| Redis                              | `localhost:6379`                                                                         |
-| Mailpit (every email sent locally) | http://localhost:8025 (SMTP on `localhost:2525`)                                         |
-| MinIO (S3 API / console)           | http://localhost:9000 / http://localhost:9001 (solmira / solmira_dev_minio_password)     |
+| What                               | URL                                                                                  |
+| ---------------------------------- | ------------------------------------------------------------------------------------ |
+| Console (through the gateway)      | http://localhost:8080                                                                |
+| Gateway liveness                   | http://localhost:8080/gateway/health                                                 |
+| Service readiness                  | http://localhost:8080/internal/health/{identity,ingest,notification,analytics,audit} |
+| API docs (Swagger, non-production) | http://localhost:8080/internal/docs/{service}/                                       |
+| RabbitMQ management                | http://localhost:15672 (solmira / solmira_dev_password)                              |
+| PostgreSQL                         | `localhost:5433` (superuser `solmira`)                                               |
+| Redis                              | `localhost:6379`                                                                     |
+| Mailpit (every email sent locally) | http://localhost:8025 (SMTP on `localhost:2525`)                                     |
 
-Services listen on 4001–4005 and the web app on 3000. Always go through the gateway on 8080, which
+Services listen on 4001–4005 (identity 4001, ingest 4002, notification 4003, analytics 4004, audit 4005) and the web app on 3000. Always go through the gateway on 8080, which
 is the only origin the browser uses (no CORS).
 
 PostgreSQL is published on **5433**, not 5432, so it does not collide with a locally installed
@@ -81,6 +83,7 @@ The script runs only on an empty volume. To re-run it: `docker compose down -v &
 
 ```bash
 pnpm lint            # ESLint across the workspace
+pnpm knip            # unused files, exports and dependencies
 pnpm typecheck       # tsc --noEmit everywhere (next typegen for web)
 pnpm test            # unit tests (no Docker needed)
 pnpm build           # production builds
@@ -88,17 +91,20 @@ pnpm format          # Prettier
 
 pnpm --filter @solmira/service-kit test:integration   # needs pnpm infra:up
 pnpm --filter @solmira/identity-service test:integration   # auth, RBAC and tenant isolation
-pnpm --filter @solmira/operations-service test:integration # catalog, RLS, composite keys, images on MinIO
+pnpm --filter @solmira/ingest-service test:integration     # readiness, RLS role, tenant context
 ```
 
-The operations suites work the same way (`solmira_operations_test`, a `solmira-test-media`
-bucket in the local MinIO). They verify tokens through a real JWKS endpoint served by the test
-harness; the identity member lookup is the only fake, at the service boundary.
+The ingest suite works the same way (`solmira_ingest_test`) and verifies tokens through a real JWKS
+endpoint served by the test harness.
 
 The identity integration suites provision their own throwaway database (`solmira_identity_test`)
 with separate owner and runtime roles, so they run exactly as deployed: the application talks to
 PostgreSQL as a role that Row Level Security applies to. Email is captured in memory; everything
 else (PostgreSQL, Redis) is real.
+
+If another PostgreSQL already uses port 5433, start the stack with `POSTGRES_PORT=5434 pnpm infra:up`
+and point the tests at it with
+`TEST_ADMIN_DATABASE_URL=postgres://solmira:solmira_dev_password@localhost:5434/postgres`.
 
 Schema changes: edit `apps/identity-service/src/database/schema.ts`, run
 `pnpm --filter @solmira/identity-service db:generate`, review the generated SQL, then `db:migrate`.
@@ -113,9 +119,8 @@ docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build
 ```
 
 This builds the production images (multi-stage, non-root, `tini` as PID 1) and points the gateway
-at the containers instead of the host. One-off `identity-migrate` and `operations-migrate` containers apply
-migrations as the owner roles before the services start, and `minio-init` creates the private media
-bucket; the runtime container never receives owner
+at the containers instead of the host. One-off `identity-migrate` and `ingest-migrate` containers apply
+migrations as the owner roles before the services start; the runtime container never receives owner
 credentials. It reads the signing keys from `apps/identity-service/.env`, so run `keys:generate`
 first.
 
@@ -144,6 +149,4 @@ first.
 | identity readiness shows `row-level-security: error`           | `DATABASE_URL` uses the owner or a superuser role. The runtime must connect as `identity_app`.                                                                     |
 | Login answers `429 RATE_LIMITED`                               | Five failed attempts lock that email for 15 minutes; the gateway also limits `/auth/login` per IP.                                                                 |
 | Mailpit fails with "ports are not available: 1025"             | Windows reserves 1025–1124 on some machines; the default host port is therefore 2525.                                                                              |
-| Catalog pages missing or "You do not have access" for an owner | The roles in identity predate the catalog permissions. Run identity's `db:migrate`, then reload the console.                                                       |
-| Product images fail to load (broken image)                     | MinIO is not running, or `S3_PUBLIC_ENDPOINT` is not reachable from the browser. Check `http://localhost:9000/minio/health/ready`.                                 |
 | Signed out after switching tabs rapidly                        | Two tabs presented the same refresh token (treated as theft). The web app serialises refreshes with the Web Locks API; old browsers without it can still hit this. |

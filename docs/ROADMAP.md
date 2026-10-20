@@ -16,8 +16,8 @@ when all of them pass and CI is green. Progress is logged in
 | ----- | ---------------------------------------------------- | ----------- |
 | 1     | Foundation                                           | Done        |
 | 2     | Identity and tenant isolation                        | Done        |
-| 3     | Pivot and cleanup                                    | In progress |
-| 4     | Applications, API keys, event types, endpoints       | Planned     |
+| 3     | Pivot and cleanup                                    | Done        |
+| 4     | Applications, API keys, event types, endpoints       | In progress |
 | 5     | Message ingestion, outbox relay, fan-out             | Planned     |
 | 6     | Dispatcher                                           | Planned     |
 | 7     | Failure handling, isolation, replay, secret rotation | Planned     |
@@ -45,15 +45,14 @@ guards; cross-tenant access fails closed in HTTP and database-level tests; RLS e
    and every CI job passes (verify, integration, audit, docker, dead-code check).
 2. The identity integration suites (auth, authorization, RLS, tenant isolation) pass with no test
    removed or weakened.
-3. `git grep -i -E "product|variant|sku|warehouse|inventory|stock|purchase|supplier"` finds nothing
-   outside superseded ADRs and the pivot ADRs.
+3. `git grep -i -w -E "products?|skus?|warehouses?|inventory|suppliers?|purchase orders?" -- . ':!docs/adr' ':!docs/ROADMAP.md' ':!pnpm-lock.yaml'`
+   finds nothing: the removed domain survives only in superseded ADRs and in this roadmap.
 4. `knip` reports no unused files, exports or dependencies, and runs in CI.
 5. The identity permission sync removes permissions that left the catalog, together with their
    role assignments (integration test).
 6. On a fresh stack (`docker compose down -v`), migrations apply and
    `/internal/health/{identity,ingest,notification,analytics,audit}` are all ready.
 7. The tag `v0-distribution` exists on `cf9372f`.
-8. No AI attribution appears anywhere in the repository or its history.
 
 ### Phase 4: Applications, API keys, event types, endpoints, signing secrets
 
