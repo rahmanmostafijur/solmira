@@ -1,14 +1,17 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { RevealedSecret } from '@solmira/contracts';
-import { NotFoundError, type TenantAuthContext } from '@solmira/service-kit';
+import {
+  NotFoundError,
+  secretContext,
+  type SecretCipher,
+  type TenantAuthContext,
+} from '@solmira/service-kit';
 import { and, eq } from 'drizzle-orm';
 import { Database } from '../database/database.module.js';
 import { endpointSecrets } from '../database/schema.js';
 import { SECRET_CIPHER } from '../ingest.tokens.js';
 import { recordEvent } from '../outbox/outbox.js';
-import type { SecretCipher } from '../secrets/secret-cipher.js';
 import { findEndpoint } from './endpoint-views.js';
-import { secretContext } from '../secrets/secret-context.js';
 
 @Injectable()
 export class EndpointSecretsService {

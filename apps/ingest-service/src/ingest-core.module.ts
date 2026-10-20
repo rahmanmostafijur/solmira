@@ -1,12 +1,13 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import {
+  LocalSecretCipher,
   resolveAddresses,
   type AddressResolver,
   type DestinationStream,
+  type SecretCipher,
 } from '@solmira/service-kit';
 import type { IngestConfig } from './config.js';
 import { ADDRESS_RESOLVER, INGEST_CONFIG, SECRET_CIPHER } from './ingest.tokens.js';
-import { LocalSecretCipher, type SecretCipher } from './secrets/secret-cipher.js';
 
 /** Replaceable collaborators, so tests can fake DNS without touching the network. */
 export interface IngestAdapters {
