@@ -21,6 +21,8 @@ const ids = {
   endpointB: uuidv7(),
   secretA: uuidv7(),
   keyA: uuidv7(),
+  messageA: uuidv7(),
+  messageB: uuidv7(),
 };
 const TABLES = [
   'applications',
@@ -29,6 +31,9 @@ const TABLES = [
   'endpoint_event_types',
   'endpoint_secrets',
   'api_keys',
+  'messages',
+  'idempotency_keys',
+  'deliveries',
 ] as const;
 
 async function asTenant<T>(
@@ -52,7 +57,7 @@ async function asTenant<T>(
   }
 }
 
-async function seed(org: string, app: string, type: string, endpoint: string) {
+async function seed(org: string, app: string, type: string, endpoint: string, message: string) {
   await owner.query(`insert into applications (id, organization_id, name) values ($1, $2, 'App')`, [
     app,
     org,
@@ -71,12 +76,27 @@ async function seed(org: string, app: string, type: string, endpoint: string) {
      values ($1, $2, $3)`,
     [org, endpoint, type],
   );
+  await owner.query(
+    `insert into messages (id, organization_id, application_id, event_type_id, payload, payload_bytes, idempotency_key)
+     values ($1, $2, $3, $4, '{}', 2, $5)`,
+    [message, org, app, type, 'key-' + message],
+  );
+  await owner.query(
+    `insert into idempotency_keys (organization_id, application_id, key, request_hash, message_id, expires_at)
+     values ($1, $2, $4, 'hash', $3, now() + interval '1 day')`,
+    [org, app, message, 'key-' + message],
+  );
+  await owner.query(
+    `insert into deliveries (id, organization_id, application_id, message_id, endpoint_id)
+     values ($1, $2, $3, $4, $5)`,
+    [uuidv7(), org, app, message, endpoint],
+  );
 }
 
 describe('PostgreSQL Row Level Security (runtime role)', () => {
   beforeAll(async () => {
-    await seed(orgA, ids.appA, ids.typeA, ids.endpointA);
-    await seed(orgB, ids.appB, ids.typeB, ids.endpointB);
+    await seed(orgA, ids.appA, ids.typeA, ids.endpointA, ids.messageA);
+    await seed(orgB, ids.appB, ids.typeB, ids.endpointB, ids.messageB);
     await owner.query(
       `insert into endpoint_secrets (id, organization_id, endpoint_id, ciphertext, wrapped_data_key, key_id)
        values ($1, $2, $3, decode('00', 'hex'), decode('00', 'hex'), 'k')`,
@@ -157,5 +177,36 @@ describe('PostgreSQL Row Level Security (runtime role)', () => {
         [uuidv7(), orgB, ids.appA, 'b'.repeat(64)],
       ),
     ).rejects.toThrow(/api_keys_application_fk/);
+    await expect(
+      owner.query(
+        `insert into messages (id, organization_id, application_id, event_type_id, payload, payload_bytes, idempotency_key)
+         values ($1, $2, $3, $4, '{}', 2, 'x')`,
+        [uuidv7(), orgB, ids.appB, ids.typeA],
+      ),
+    ).rejects.toThrow(/messages_event_type_fk/);
+    await expect(
+      owner.query(
+        `insert into deliveries (id, organization_id, application_id, message_id, endpoint_id)
+         values ($1, $2, $3, $4, $5)`,
+        [uuidv7(), orgB, ids.appB, ids.messageA, ids.endpointB],
+      ),
+    ).rejects.toThrow(/deliveries_message_fk/);
+    await expect(
+      owner.query(
+        `insert into deliveries (id, organization_id, application_id, message_id, endpoint_id)
+         values ($1, $2, $3, $4, $5)`,
+        [uuidv7(), orgB, ids.appB, ids.messageB, ids.endpointA],
+      ),
+    ).rejects.toThrow(/deliveries_endpoint_fk/);
+  });
+
+  it('allows only one delivery per message and endpoint', async () => {
+    await expect(
+      owner.query(
+        `insert into deliveries (id, organization_id, application_id, message_id, endpoint_id)
+         values ($1, $2, $3, $4, $5)`,
+        [uuidv7(), orgA, ids.appA, ids.messageA, ids.endpointA],
+      ),
+    ).rejects.toThrow(/deliveries_message_endpoint_key/);
   });
 });
