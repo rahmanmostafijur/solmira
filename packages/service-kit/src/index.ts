@@ -31,3 +31,8 @@ export * from './net/ip-policy.js';
 export * from './net/resolve-addresses.js';
 export * from './openapi/api-zod-body.js';
 export type { DestinationStream } from 'pino';
+export * from './messaging/event-consumer-host.js';
+export * from './messaging/event-consumer.js';
+export * from './messaging/outbox-relay.js';
+export * from './messaging/outbox-relay.service.js';
+export * from './messaging/topology.js';
