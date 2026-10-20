@@ -7,7 +7,7 @@ import type {
 } from '@solmira/contracts';
 import type { TenantAuthContext } from '@solmira/service-kit';
 import { v7 as uuidv7 } from 'uuid';
-import { orNotFound } from '../common/query.js';
+import { orNotFound } from '@solmira/service-kit';
 import { Database, type OperationsTransaction } from '../database/database.module.js';
 import { recordEvent } from '../outbox/outbox.js';
 import {

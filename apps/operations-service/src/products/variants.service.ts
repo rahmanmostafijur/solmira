@@ -10,7 +10,7 @@ import {
 import { ConflictError, type TenantAuthContext } from '@solmira/service-kit';
 import { and, asc, count, eq, ne, or } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
-import { contains, iso, offsetOf, orNotFound, pageOf, rethrowConflict } from '../common/query.js';
+import { contains, iso, offsetOf, orNotFound, pageOf, rethrowConflict } from '@solmira/service-kit';
 import { Database, type OperationsTransaction } from '../database/database.module.js';
 import { productVariants, products } from '../database/schema.js';
 import { recordEvent } from '../outbox/outbox.js';

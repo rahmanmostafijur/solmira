@@ -10,7 +10,7 @@ import type {
 import type { TenantAuthContext } from '@solmira/service-kit';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
-import { contains, offsetOf, orNotFound, pageOf } from '../common/query.js';
+import { contains, offsetOf, orNotFound, pageOf } from '@solmira/service-kit';
 import { Database, type OperationsTransaction } from '../database/database.module.js';
 import { inventoryLevels, inventoryReservations } from '../database/schema.js';
 import { recordEvent } from '../outbox/outbox.js';

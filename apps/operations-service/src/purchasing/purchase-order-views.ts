@@ -5,7 +5,7 @@ import type {
   PurchaseReceipt,
 } from '@solmira/contracts';
 import { and, asc, count, desc, eq, inArray, max, sql } from 'drizzle-orm';
-import { iso, orNotFound } from '../common/query.js';
+import { iso, orNotFound } from '@solmira/service-kit';
 import type { OperationsTransaction } from '../database/database.module.js';
 import {
   productVariants,

@@ -31,7 +31,7 @@ import {
 } from '@solmira/service-kit';
 import type { Request } from 'express';
 import { bearerTokenOf } from '../common/bearer.js';
-import { uuidParam } from '../common/pipes.js';
+import { uuidParam } from '@solmira/service-kit';
 import { WarehousesService } from './warehouses.service.js';
 
 @ApiTags('warehouses')

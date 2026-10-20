@@ -1,6 +1,6 @@
 import type { TenantAuthContext } from '@solmira/service-kit';
 import { and, eq } from 'drizzle-orm';
-import { referenceError } from '../common/query.js';
+import { referenceError } from '@solmira/service-kit';
 import type { OperationsTransaction } from '../database/database.module.js';
 import { categories, suppliers } from '../database/schema.js';
 

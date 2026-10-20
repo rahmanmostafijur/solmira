@@ -7,7 +7,6 @@ import {
   canTransitionPurchaseOrder,
   createPurchaseOrderRequestSchema,
   formatPurchaseOrderNumber,
-  idempotencyKeySchema,
   isPurchaseOrderEditable,
   isPurchaseOrderOpen,
   isPurchaseOrderReceivable,
@@ -196,20 +195,6 @@ describe('requests', () => {
       [{ ...line, quantity: 2.5 }],
     ])
       expect(receivePurchaseOrderRequestSchema.safeParse({ lines }).success).toBe(false);
-  });
-
-  it('accepts UUIDs and similar tokens as idempotency keys, nothing unsafe', () => {
-    expect(idempotencyKeySchema.safeParse(id(9)).success).toBe(true);
-    expect(idempotencyKeySchema.safeParse('receipt:2026-10-01.1').success).toBe(true);
-    for (const bad of [
-      undefined,
-      '',
-      'short',
-      'has spaces here',
-      'x'.repeat(101),
-      'semi;colon;key',
-    ])
-      expect(idempotencyKeySchema.safeParse(bad).success, String(bad)).toBe(false);
   });
 
   it('formats PO numbers with a six-digit minimum sequence', () => {

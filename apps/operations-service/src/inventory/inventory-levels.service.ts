@@ -9,7 +9,7 @@ import type {
 } from '@solmira/contracts';
 import type { TenantAuthContext } from '@solmira/service-kit';
 import { and, asc, desc, eq, gte, lt, not, or, sql } from 'drizzle-orm';
-import { contains, offsetOf, orNotFound, pageOf } from '../common/query.js';
+import { contains, offsetOf, orNotFound, pageOf } from '@solmira/service-kit';
 import { Database } from '../database/database.module.js';
 import {
   inventoryLevels,

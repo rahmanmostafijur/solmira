@@ -32,7 +32,7 @@ import {
 } from '@solmira/service-kit';
 import { and, asc, desc, eq, gte, lt, lte, or, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
-import { contains, offsetOf, orNotFound, pageOf, rethrowConflict } from '../common/query.js';
+import { contains, offsetOf, orNotFound, pageOf, rethrowConflict } from '@solmira/service-kit';
 import { Database, type OperationsTransaction } from '../database/database.module.js';
 import {
   purchaseOrderCounters,

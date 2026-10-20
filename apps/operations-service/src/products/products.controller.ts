@@ -48,7 +48,7 @@ import {
   type TenantAuthContext,
 } from '@solmira/service-kit';
 import type { z } from 'zod';
-import { uuidParam } from '../common/pipes.js';
+import { uuidParam } from '@solmira/service-kit';
 import type { UploadedFile as UploadedImageFile } from '../storage/image-validation.js';
 import { ProductImagesService } from './product-images.service.js';
 import { ProductsService } from './products.service.js';

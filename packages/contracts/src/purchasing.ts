@@ -239,16 +239,6 @@ export const receivePurchaseOrderRequestSchema = z.object({
 });
 export type ReceivePurchaseOrderRequest = z.infer<typeof receivePurchaseOrderRequestSchema>;
 
-/**
- * Receipts are retry-safe: the client sends a unique key per receiving attempt, and a retry with
- * the same key returns the original receipt instead of receiving twice.
- */
-export const IDEMPOTENCY_KEY_HEADER = 'idempotency-key';
-export const idempotencyKeySchema = z
-  .string({ error: 'Send an Idempotency-Key header, e.g. a UUID generated for this receipt' })
-  .trim()
-  .regex(/^[A-Za-z0-9_\-:.]{8,100}$/, 'Idempotency-Key must be 8-100 letters, digits or - _ : .');
-
 export const purchaseOrderListQuerySchema = paginationQuerySchema
   .extend({
     /** Matches the PO number or the supplier's name. */

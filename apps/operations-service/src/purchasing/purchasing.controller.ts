@@ -46,7 +46,7 @@ import {
   type TenantAuthContext,
 } from '@solmira/service-kit';
 import type { Response } from 'express';
-import { uuidParam } from '../common/pipes.js';
+import { uuidParam } from '@solmira/service-kit';
 import { PurchaseOrdersService } from './purchase-orders.service.js';
 import { ReceivingService } from './receiving.service.js';
 

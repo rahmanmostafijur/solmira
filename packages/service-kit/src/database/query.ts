@@ -1,7 +1,7 @@
 import { toPage, type Page, type PaginationQuery } from '@solmira/contracts';
-import { ConflictError, NotFoundError, ValidationError } from '@solmira/service-kit';
+import { ConflictError, NotFoundError, ValidationError } from '../errors/app-error.js';
 import { sql, type SQL } from 'drizzle-orm';
-import { violatedConstraint } from '../database/errors.js';
+import { violatedConstraint } from './pg-errors.js';
 
 /**
  * Escapes LIKE wildcards so user search text matches literally ("50%" finds "50%", not "50…").

@@ -12,7 +12,7 @@ import {
 } from '@solmira/service-kit';
 import { and, asc, count, eq, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
-import { iso, orNotFound } from '../common/query.js';
+import { iso, orNotFound } from '@solmira/service-kit';
 import type { OperationsConfig } from '../config.js';
 import { Database, type OperationsTransaction } from '../database/database.module.js';
 import { productImages, products } from '../database/schema.js';

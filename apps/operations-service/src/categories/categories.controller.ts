@@ -28,7 +28,7 @@ import {
   ZodValidationPipe,
   type TenantAuthContext,
 } from '@solmira/service-kit';
-import { uuidParam } from '../common/pipes.js';
+import { uuidParam } from '@solmira/service-kit';
 import { CategoriesService } from './categories.service.js';
 
 @ApiTags('categories')

@@ -17,10 +17,10 @@ import {
   pageOf,
   referenceError,
   rethrowConflict,
-} from '../common/query.js';
+} from '@solmira/service-kit';
 import { slugify } from '../common/slug.js';
 import { Database, type OperationsTransaction } from '../database/database.module.js';
-import { violatedConstraint } from '../database/errors.js';
+import { violatedConstraint } from '@solmira/service-kit';
 import { categories, products } from '../database/schema.js';
 import { recordEvent } from '../outbox/outbox.js';
 import { assertValidPlacement } from './category-rules.js';

@@ -9,7 +9,7 @@ import type {
 import type { TenantAuthContext } from '@solmira/service-kit';
 import { and, asc, count, desc, eq, or } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
-import { contains, iso, offsetOf, orNotFound, pageOf, rethrowConflict } from '../common/query.js';
+import { contains, iso, offsetOf, orNotFound, pageOf, rethrowConflict } from '@solmira/service-kit';
 import { Database, type OperationsTransaction } from '../database/database.module.js';
 import { memberDirectory, warehouses } from '../database/schema.js';
 import { MemberDirectoryService } from '../members/member-directory.service.js';
