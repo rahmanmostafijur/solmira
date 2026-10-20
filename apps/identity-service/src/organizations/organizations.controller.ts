@@ -32,9 +32,9 @@ import {
   ZodValidationPipe,
   type AuthContext,
   type TenantAuthContext,
+  ApiZodBody,
 } from '@solmira/service-kit';
 import { z } from 'zod';
-import { ApiZodBody } from '../openapi.js';
 import { InvitationsService } from './invitations.service.js';
 import { MembersService } from './members.service.js';
 import { OrganizationsService } from './organizations.service.js';
