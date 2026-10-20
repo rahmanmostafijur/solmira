@@ -6,7 +6,13 @@ import type {
   EndpointListQuery,
   UpdateEndpointRequest,
 } from '@solmira/contracts';
-import { offsetOf, pageOf, type TenantAuthContext } from '@solmira/service-kit';
+import {
+  offsetOf,
+  pageOf,
+  secretContext,
+  type SecretCipher,
+  type TenantAuthContext,
+} from '@solmira/service-kit';
 import { and, count, desc, eq, isNull, type SQL } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { findApplication } from '../applications/applications.service.js';
@@ -14,8 +20,6 @@ import { Database } from '../database/database.module.js';
 import { endpointSecrets, endpoints } from '../database/schema.js';
 import { SECRET_CIPHER } from '../ingest.tokens.js';
 import { recordEvent } from '../outbox/outbox.js';
-import type { SecretCipher } from '../secrets/secret-cipher.js';
-import { secretContext } from '../secrets/secret-context.js';
 import { generateSigningSecret } from '../secrets/signing-secret.js';
 import { EndpointUrlValidator } from './endpoint-url-validator.js';
 import {

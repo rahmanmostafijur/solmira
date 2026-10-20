@@ -37,3 +37,5 @@ export * from './messaging/outbox-relay.js';
 export * from './messaging/outbox-relay.service.js';
 export * from './messaging/topology.js';
 export type { Redis } from 'ioredis';
+export * from './crypto/secret-cipher.js';
+export * from './crypto/secret-context.js';

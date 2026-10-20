@@ -114,6 +114,29 @@ services:
       PORT: 4005
       DATABASE_URL: postgres://audit_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_audit
 
+  # The delivery worker (ADR-0031). It uses the ingest database as its own, narrower role and has
+  # no inbound API beyond health. DynamoDB Local holds the attempt history.
+  dispatcher:
+    restart: unless-stopped
+    build:
+      { context: ., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE: dispatcher } }
+    depends_on:
+      postgres: { condition: service_healthy }
+      dynamodb: { condition: service_started }
+      ingest-migrate: { condition: service_completed_successfully }
+    environment:
+      NODE_ENV: production
+      LOG_LEVEL: info
+      PORT: 4006
+      DATABASE_URL: postgres://dispatcher_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_ingest
+      # Development key; deployed environments use KMS (ADR-0026). Must match ingest-service.
+      SECRETS_ENCRYPTION_KEY: ${INGEST_SECRETS_KEY:-jwQOFPGSgMYBdzcMS4iBQfZGKQY8Iwi1LU+DxYyoREc=}
+      DYNAMODB_ENDPOINT: http://dynamodb:8000
+      DYNAMODB_CREATE_TABLE: 'true'
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+
   web:
     restart: unless-stopped
     build: { context: ., dockerfile: infra/docker/web.Dockerfile }
@@ -129,3 +152,4 @@ services:
       NOTIFICATION_UPSTREAM: notification-service:4003
       ANALYTICS_UPSTREAM: analytics-service:4004
       AUDIT_UPSTREAM: audit-service:4005
+      DISPATCHER_UPSTREAM: dispatcher:4006

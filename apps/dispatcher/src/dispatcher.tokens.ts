@@ -1,0 +1,7 @@
+export const DISPATCHER_CONFIG = Symbol('DISPATCHER_CONFIG');
+export const DELIVERY_REPOSITORY = Symbol('DELIVERY_REPOSITORY');
+export const DELIVERY_PROCESSOR = Symbol('DELIVERY_PROCESSOR');
+export const HTTP_SENDER = Symbol('HTTP_SENDER');
+export const ATTEMPT_STORE = Symbol('ATTEMPT_STORE');
+export const SECRET_CIPHER = Symbol('SECRET_CIPHER');
+export const ADDRESS_RESOLVER = Symbol('ADDRESS_RESOLVER');

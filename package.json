@@ -17,7 +17,7 @@
     "format": "prettier --write .",
     "knip": "knip",
     "format:check": "prettier --check .",
-    "infra:up": "docker compose up -d postgres redis rabbitmq mailpit gateway",
+    "infra:up": "docker compose up -d postgres redis rabbitmq dynamodb mailpit gateway",
     "infra:down": "docker compose down",
     "stack:up": "docker compose --profile apps up -d --build",
     "clean": "turbo run clean"

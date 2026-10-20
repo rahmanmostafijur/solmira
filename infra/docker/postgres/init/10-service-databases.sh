@@ -40,3 +40,12 @@ ALTER DEFAULT PRIVILEGES FOR ROLE :"owner" IN SCHEMA public
 SQL
   echo "Provisioned database solmira_${service}"
 done
+
+# The dispatcher works on the ingest database as its own role (ADR-0031). The ingest migration step
+# grants it exactly the access it needs; Row Level Security applies to it.
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
+  -v pwd="$SERVICE_DB_PASSWORD" <<'SQL'
+CREATE ROLE dispatcher_app LOGIN PASSWORD :'pwd';
+GRANT CONNECT, TEMPORARY ON DATABASE solmira_ingest TO dispatcher_app;
+SQL
+echo "Provisioned role dispatcher_app"

@@ -280,6 +280,27 @@ The same three layers, applied to every webhook resource table (Phase 4):
   organization A's resources (`404`). `test/api-key-authentication.integration.test.ts` covers the
   definer function.
 
+## dispatcher
+
+The worker uses the ingest database with its own role, `dispatcher_app` (ADR-0031):
+
+- **Grants.** The ingest migration step grants it `SELECT` on messages, endpoints and endpoint secrets,
+  `SELECT, UPDATE` on deliveries, and `EXECUTE` on `claim_due_deliveries()`. It gets nothing on API
+  keys, applications, event types, idempotency records or the outbox.
+- **RLS applies.** The role owns nothing, so the same policies as for the ingest service filter its
+  rows. After claiming, every read and write runs inside the tenant of the delivery
+  (`set_config('app.organization_id', ...)` per transaction).
+- **One cross-tenant read.** `claim_due_deliveries()` runs with the owner's rights, returns only ids,
+  takes at most a few deliveries per organization, and is not callable by `PUBLIC`.
+- **DynamoDB** has no RLS: every key starts with `TENANT#<organizationId>` and the store has no read
+  method without an organization (ADR-0032). In AWS an IAM policy with `dynamodb:LeadingKeys` limits
+  each role to its own prefixes (Phase 12).
+- **Tests.** `test/dispatch-isolation.integration.test.ts` proves the role cannot read the tables it
+  was not granted, sees no rows without a tenant, cannot change another tenant's delivery, that a
+  tenant's attempt history is invisible to another tenant that knows the message id, and that a
+  small tenant is served in the same pass as a large backlog. `test/claim-deliveries.integration.test.ts`
+  in ingest-service covers the claim function itself.
+
 ## Known limitations
 
 - `organizations_select` uses an `EXISTS` over `organization_members` per row. Cheap at identity's

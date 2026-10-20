@@ -120,7 +120,7 @@ the same key. JSON Schema formats such as `email` and `date-time` are checked.
 Messages and deliveries (Phases 5 to 7, Planned): list and inspect messages and their attempts, replay one
 message, and replay all failed messages of an endpoint within a time range.
 
-## What a receiver gets (Planned, Phase 6)
+## What a receiver gets (built, Phase 6)
 
 An HTTP `POST` with the message payload as the body and the
 [Standard Webhooks](https://www.standardwebhooks.com/) headers:
@@ -131,4 +131,9 @@ An HTTP `POST` with the message payload as the body and the
 | `webhook-timestamp` | Unix seconds when the attempt was signed. Reject stale timestamps.                                  |
 | `webhook-signature` | `v1,<base64 HMAC-SHA256>` over `id.timestamp.body`; several space-separated values during rotation. |
 
-Any `2xx` response counts as success. Everything else, including timeouts, is retried with backoff.
+Any `2xx` response counts as success. Everything else, including timeouts, redirects (which are
+not followed) and connection errors, is retried with backoff and jitter: by default immediately,
+after 5 seconds, 5 minutes, 30 minutes, 2 hours, 5 hours, 10 hours and 10 hours (eight attempts).
+The request has a 5 second connect timeout and a 30 second overall timeout. The `webhook-id`
+stays the same for every attempt of a message, so deduplicate on it. Verify with
+[`@solmira/webhooks`](../../packages/webhooks) (`verifyWebhook`) or any Standard Webhooks library.

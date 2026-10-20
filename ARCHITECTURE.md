@@ -31,8 +31,8 @@ flowchart LR
 ```
 
 Built: gateway, web (authentication and organization pages), identity-service, ingest-service
-shell. Planned: dispatcher (Phase 6), DynamoDB history (Phase 6), the three consumers' logic
-(Phases 7, 9, 10).
+(management API, ingestion, fan-out), the dispatcher and its DynamoDB attempt history. Planned: the
+three consumers' logic (Phases 7, 9, 10) and the failure-handling features of Phase 7.
 
 ## 2. Repository structure
 
@@ -41,7 +41,7 @@ apps/
   web/                    Next.js 16 app router UI (console)
   identity-service/       auth, sessions, organizations, members, roles, invitations
   ingest-service/         applications, API keys, event types, endpoints, message ingestion, fan-out
-  dispatcher/             delivery worker (Planned, Phase 6)
+  dispatcher/             delivery worker: claims, signs, sends, retries
   notification-service/   tenant alerts about failing endpoints
   analytics-service/      delivery success rate and latency read models
   audit-service/          audit log of administrative actions
@@ -69,12 +69,12 @@ service and one database; everything else communicates through events
 | ------------------------ | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | **identity-service**     | users, credentials, sessions, organizations, memberships, roles, permissions, invitations     | Security-critical, holds the token signing key.                                     |
 | **ingest-service**       | applications, API keys, event types, endpoints, signing secrets, messages, deliveries, outbox | A message, its outbox event and its fan-out must commit together.                   |
-| **dispatcher** (Planned) | nothing durable of its own; reads and updates delivery state, writes attempt history          | Long-running outbound traffic to untrusted hosts must scale and fail independently. |
+| **dispatcher**           | nothing durable of its own; reads and updates delivery state, writes attempt history          | Long-running outbound traffic to untrusted hosts must scale and fail independently. |
 | **notification-service** | tenant alerts                                                                                 | Pure event consumer; its failure must never block delivery.                         |
 | **analytics-service**    | pre-aggregated delivery statistics                                                            | Expensive reads must not share a database with the delivery path.                   |
 | **audit-service**        | audit log                                                                                     | Append-only, long retention.                                                        |
 
-## 4. Core flow (ingestion and fan-out built in Phase 5; delivery Planned)
+## 4. Core flow (built through delivery and retries; replay and circuit breaking are Phase 7)
 
 ```mermaid
 sequenceDiagram
@@ -98,8 +98,11 @@ sequenceDiagram
 ```
 
 Delivery state and `next_attempt_at` live in PostgreSQL and are claimed with
-`FOR UPDATE SKIP LOCKED` with tenant fairness. RabbitMQ carries fan-out and wake-ups; "DLQ" is an
-explicit `failed` state plus a replay path. The ADR for this lands with the dispatcher.
+`FOR UPDATE SKIP LOCKED`, at most a few per organization per pass so one tenant's backlog cannot
+fill a batch ([ADR-0031](docs/adr/0031-dispatcher-design.md)). RabbitMQ carries fan-out;
+"DLQ" is an explicit `failed` state plus a replay path (Phase 7). A claim carries a lease, so work
+held by a dead worker is retried. Each HTTP attempt is recorded in DynamoDB
+([ADR-0032](docs/adr/0032-attempt-history-dynamodb.md)); PostgreSQL holds the current state.
 
 Delivery is **at least once**. A worker that dies after sending and before recording retries the
 delivery with the same `webhook-id`; receivers deduplicate on it.
@@ -211,15 +214,15 @@ organization), `endpoints`, `endpoint_event_types`, `endpoint_secrets` (envelope
 `authenticate_api_key()` lookup. Every tenant table has RLS and composite tenant keys. Phase 5 added `messages`,
 `idempotency_keys`, `deliveries` and `processed_events`; the dispatcher (Phase 6) works on `deliveries`.
 
-## 9. Security design for outbound delivery (secrets and URL policy built in Phase 4; sending Planned)
+## 9. Security design for outbound delivery (built)
 
 - **Signing:** [Standard Webhooks](https://www.standardwebhooks.com/): `webhook-id`,
   `webhook-timestamp`, `webhook-signature` (HMAC-SHA256). During a rotation window both the old and
   the new secret sign the request.
 - **SSRF:** endpoint URLs and redirect targets that resolve to private, loopback, link-local
   (including 169.254.169.254), multicast or reserved ranges are rejected for IPv4 and IPv6. DNS is
-  resolved at send time and the address is pinned for the connection, so DNS rebinding cannot swap
-  it. HTTPS only in production. Redirects are not followed.
+  resolved at send time, inside the connection's own lookup, and the socket connects to exactly that
+  validated address, so DNS rebinding has no window. HTTPS only in production. Redirects are not followed.
 - **Secrets:** signing secrets are stored with envelope encryption (a local key in development,
   AWS KMS in production), never logged and never returned after creation, except through an
   explicit, audited "reveal" permission. API keys are stored as hashes.

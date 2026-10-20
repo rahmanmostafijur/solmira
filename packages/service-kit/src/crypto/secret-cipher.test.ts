@@ -1,9 +1,9 @@
 import { randomBytes } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { LocalSecretCipher } from './secret-cipher.js';
-import { generateSigningSecret } from './signing-secret.js';
 
 const key = () => randomBytes(32).toString('base64');
+const generateSigningSecret = () => 'whsec_' + randomBytes(32).toString('base64');
 
 describe('LocalSecretCipher', () => {
   const context = 'org-1:endpoint-1';
@@ -45,14 +45,5 @@ describe('LocalSecretCipher', () => {
     const cipher = new LocalSecretCipher(key(), 'k1');
     const stored = cipher.encrypt('secret', context);
     expect(() => cipher.decrypt({ ...stored, keyId: 'k0' }, context)).toThrow('unknown key');
-  });
-});
-
-describe('generateSigningSecret', () => {
-  it('follows the Standard Webhooks format with 32 random bytes', () => {
-    const secret = generateSigningSecret();
-    expect(secret).toMatch(/^whsec_[A-Za-z0-9+/]{43}=$/);
-    expect(Buffer.from(secret.slice(6), 'base64')).toHaveLength(32);
-    expect(generateSigningSecret()).not.toBe(secret);
   });
 });

@@ -1,0 +1,1 @@
+CREATE INDEX "deliveries_in_progress_idx" ON "deliveries" USING btree ("locked_until") WHERE "deliveries"."status" = 'in_progress';

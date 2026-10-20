@@ -1,0 +1,43 @@
+{
+  "name": "@solmira/dispatcher",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Delivery worker: claims due deliveries, signs and sends webhooks, schedules retries",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json && concurrently -k -n tsc,svc -c blue,green \"tsc -p tsconfig.build.json --watch --preserveWatchOutput\" \"node --env-file-if-exists=.env --watch dist/main.js\"",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint src test",
+    "test": "vitest run -c ../../vitest.service.config.ts",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1154.0",
+    "@aws-sdk/lib-dynamodb": "^3.1154.0",
+    "@nestjs/common": "^12.1.1",
+    "@nestjs/core": "^12.1.1",
+    "@nestjs/platform-express": "^12.1.1",
+    "@solmira/service-kit": "workspace:*",
+    "@solmira/webhooks": "workspace:*",
+    "pg": "^8.23.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "undici": "8.12.3",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@solmira/ingest-service": "workspace:*",
+    "@swc/core": "^1.16.12",
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
+    "concurrently": "^10.0.5",
+    "unplugin-swc": "^2.0.0",
+    "vitest": "^5.0.2"
+  }
+}

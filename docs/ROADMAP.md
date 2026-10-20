@@ -19,8 +19,8 @@ when all of them pass and CI is green. Progress is logged in
 | 3     | Pivot and cleanup                                    | Done        |
 | 4     | Applications, API keys, event types, endpoints       | Done        |
 | 5     | Message ingestion, outbox relay, fan-out             | Done        |
-| 6     | Dispatcher                                           | In progress |
-| 7     | Failure handling, isolation, replay, secret rotation | Planned     |
+| 6     | Dispatcher                                           | Done        |
+| 7     | Failure handling, isolation, replay, secret rotation | In progress |
 | 8     | Console                                              | Planned     |
 | 9     | Realtime delivery feed and analytics                 | Planned     |
 | 10    | Audit and receiver verification library              | Planned     |

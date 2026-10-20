@@ -67,6 +67,13 @@ services:
       timeout: 5s
       retries: 20
 
+  # DynamoDB Local for the delivery attempt history (ADR-0032). In AWS, DynamoDB itself.
+  dynamodb:
+    image: amazon/dynamodb-local:2.6.1
+    command: ['-jar', 'DynamoDBLocal.jar', '-sharedDb', '-inMemory']
+    ports:
+      - '${DYNAMODB_PORT:-8000}:8000'
+
   # Development mail catcher: every email the platform sends lands here (web UI on :8025).
   # Deployed environments send through Amazon SES over the same SMTP interface.
   mailpit:
@@ -88,6 +95,7 @@ services:
       NOTIFICATION_UPSTREAM: ${NOTIFICATION_UPSTREAM:-host.docker.internal:4003}
       ANALYTICS_UPSTREAM: ${ANALYTICS_UPSTREAM:-host.docker.internal:4004}
       AUDIT_UPSTREAM: ${AUDIT_UPSTREAM:-host.docker.internal:4005}
+      DISPATCHER_UPSTREAM: ${DISPATCHER_UPSTREAM:-host.docker.internal:4006}
     extra_hosts:
       - 'host.docker.internal:host-gateway'
     tmpfs:

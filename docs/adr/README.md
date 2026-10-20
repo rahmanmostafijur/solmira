@@ -39,6 +39,8 @@ describe.
 | 0028 | [Endpoint URL policy and SSRF defense at creation](0028-endpoint-url-policy.md)                            | Accepted           | 2026-10-21 |
 | 0029 | [Event backbone: outbox relay, consumers, retries and DLQs](0029-event-backbone.md)                        | Accepted           | 2026-10-21 |
 | 0030 | [Message ingestion, idempotency and fan-out](0030-message-ingestion.md)                                    | Accepted           | 2026-10-21 |
+| 0031 | [Dispatcher design: claiming, leases, retries and the delivery request](0031-dispatcher-design.md)         | Accepted           | 2026-10-21 |
+| 0032 | [Delivery attempt history in DynamoDB](0032-attempt-history-dynamodb.md)                                   | Accepted           | 2026-10-21 |
 
 ## Process
 
