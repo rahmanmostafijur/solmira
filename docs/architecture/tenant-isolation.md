@@ -256,20 +256,23 @@ revocation inside one tenant; see [authorization](authorization.md).
 
 The same three layers, applied to every webhook resource table (Phase 4):
 
-- **Context.** `Database.forTenant(auth, work)` is the only entry point to the ingest database; it
+- **Context.** `Database.forTenant(scope, work)` is the only entry point to the ingest database; it
   wraps `inTenantScope`. There is no unscoped variant for tenant data. The `row-level-security`
   readiness check guards the runtime role (`ingest_app`) exactly as in identity.
-- **Tables.** `applications`, `event_types`, `endpoints`, `endpoint_event_types`, `endpoint_secrets`
-  and `api_keys` each have RLS enabled with one `FOR ALL` policy comparing `organization_id` to
-  `app_current_organization_id()` (`drizzle/0003_tenant_security.sql`). `outbox_events` has no RLS:
-  the relay reads it across tenants and it is written only inside tenant transactions.
+- **Tables.** `applications`, `event_types`, `endpoints`, `endpoint_event_types`, `endpoint_secrets`,
+  `api_keys`, `messages`, `idempotency_keys` and `deliveries` each have RLS enabled with one `FOR ALL` policy comparing `organization_id` to
+  `app_current_organization_id()` (`drizzle/0003_tenant_security.sql`, `0005_messages_security.sql`). `outbox_events` and
+  `processed_events` have no RLS: they hold ids and event types only; consumers set the tenant from
+  the event they process. The outbox relay reads `outbox_events` across tenants, and rows are
+  written only inside tenant transactions.
 - **Composite foreign keys.** Every reference is `(organization_id, <ref>_id) → (organization_id, id)`:
   endpoint → application, subscription → endpoint and event type, secret → endpoint, API key →
-  application. A row can only point at a row of its own organization, even for the owner role.
-- **The one tenant-less read.** API key authentication cannot know the tenant yet, so it calls the
+  application, message → application and event type, delivery → message and endpoint. A row can only point at a row of its own organization, even for the owner role.
+- **Tenant-less reads.** API key authentication cannot know the tenant yet, so it calls the
   `SECURITY DEFINER` function `authenticate_api_key(digest)` (ADR-0027). The function has a fixed
   `search_path`, answers only for an active key of a live application, and is executable only by the
-  runtime role. The `api_keys` table itself stays invisible without a tenant.
+  runtime role. The `api_keys` table itself stays invisible without a tenant. The maintenance job
+  removes expired idempotency records the same way, through `purge_expired_idempotency_keys()`.
 - **Tests.** `test/rls.integration.test.ts` proves, per table and against PostgreSQL as the runtime
   role, that no context means no rows, a tenant sees only its rows, cross-tenant writes fail, and
   composite keys refuse cross-tenant references. `test/tenant-isolation.integration.test.ts` proves

@@ -8,7 +8,8 @@ exponential backoff, keeps one slow endpoint from affecting any other, and lets 
 every attempt and replay what failed.
 
 > **Status:** the platform foundation (Phases 1 and 2) and the management API for applications,
-> event types, endpoints and API keys (Phase 4) are built. The webhook features are being
+> event types, endpoints and API keys (Phase 4), message ingestion, the outbox relay and fan-out
+> (Phase 5) are built. The webhook features are being
 > built phase by phase; see the [roadmap](docs/ROADMAP.md) and the
 > [progress log](docs/phases/PROGRESS.md). Anything not built yet is marked **Planned**.
 
@@ -34,7 +35,7 @@ Sending a webhook looks like one HTTP call. Doing it reliably is not:
 ## How it works
 
 1. The tenant calls `POST /api/v1/applications/{app}/messages` with an API key and an
-   `Idempotency-Key`. **Planned (Phase 5).**
+   `Idempotency-Key`.
 2. The message is validated and stored, and an event is written to the transactional outbox in the
    same transaction.
 3. Fan-out creates one delivery per subscribed, enabled endpoint.
