@@ -36,6 +36,8 @@ jobs:
           restore-keys: turbo-${{ runner.os }}-
       - run: pnpm install --frozen-lockfile
       - run: pnpm format:check
+      - name: Dead code and unused dependencies
+        run: pnpm knip
       - run: pnpm turbo run lint typecheck test build --cache-dir=.turbo/cache
 
   integration:

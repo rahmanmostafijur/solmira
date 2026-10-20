@@ -6,7 +6,6 @@ import type {
   Invitation,
   Member,
   MembershipSummary,
-  MeResponse,
   Organization,
   RoleSummary,
   SessionSummary,
@@ -29,9 +28,6 @@ export const queryKeys = {
   invitations: (organizationId: string) => ['org', organizationId, 'invitations'] as const,
   roles: (organizationId: string) => ['org', organizationId, 'roles'] as const,
 };
-
-export const useMe = () =>
-  useQuery({ queryKey: queryKeys.me, queryFn: () => api<MeResponse>('/me') });
 
 export const useOrganizations = () =>
   useQuery({

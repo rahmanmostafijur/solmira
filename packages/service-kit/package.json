@@ -53,7 +53,6 @@
   "devDependencies": {
     "@nestjs/common": "^12.1.1",
     "@nestjs/core": "^12.1.1",
-    "@nestjs/testing": "^12.1.1",
     "@swc/core": "^1.16.12",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^5.0.3",

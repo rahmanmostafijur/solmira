@@ -17,7 +17,6 @@
     "@hookform/resolvers": "^5.9.1",
     "@solmira/contracts": "workspace:*",
     "@tanstack/react-query": "^5.104.0",
-    "@tanstack/react-table": "^9.2.4",
     "clsx": "^2.1.1",
     "lucide-react": "^1.48.0",
     "next": "16.3.7",
