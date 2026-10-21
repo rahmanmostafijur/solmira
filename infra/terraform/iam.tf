@@ -90,7 +90,7 @@ data "aws_iam_policy_document" "ingest" {
   statement {
     sid       = "WrapSigningSecrets"
     actions   = ["kms:GenerateDataKey", "kms:Decrypt"]
-    resources = [aws_kms_key.secrets.arn]
+    resources = concat([aws_kms_key.secrets.arn], var.signing_secrets_previous_key_arns)
     condition {
       test     = "StringEquals"
       variable = "kms:EncryptionContext:purpose"
@@ -115,7 +115,7 @@ data "aws_iam_policy_document" "dispatcher" {
   statement {
     sid       = "UnwrapSigningSecrets"
     actions   = ["kms:Decrypt"]
-    resources = [aws_kms_key.secrets.arn]
+    resources = concat([aws_kms_key.secrets.arn], var.signing_secrets_previous_key_arns)
     condition {
       test     = "StringEquals"
       variable = "kms:EncryptionContext:purpose"

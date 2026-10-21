@@ -22,8 +22,9 @@ output "subnets_for_oneoff_tasks" {
 
 output "oneoff_task_definitions" {
   value = {
-    bootstrap = aws_ecs_task_definition.bootstrap.family
-    migrate   = { for service, task in aws_ecs_task_definition.migrate : service => task.family }
+    bootstrap    = aws_ecs_task_definition.bootstrap.family
+    migrate      = { for service, task in aws_ecs_task_definition.migrate : service => task.family }
+    dead_letters = aws_ecs_task_definition.dead_letters.family
   }
 }
 

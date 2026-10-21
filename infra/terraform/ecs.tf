@@ -67,10 +67,14 @@ locals {
       IDENTITY_JWKS_URL  = local.jwks_url
       DYNAMODB_TABLE     = local.attempts_table
       SECRETS_KMS_KEY_ID = aws_kms_key.secrets.arn
+
+      SECRETS_KMS_PREVIOUS_KEY_IDS = join(",", var.signing_secrets_previous_key_arns)
     }
     dispatcher = {
       DYNAMODB_TABLE     = local.attempts_table
       SECRETS_KMS_KEY_ID = aws_kms_key.secrets.arn
+
+      SECRETS_KMS_PREVIOUS_KEY_IDS = join(",", var.signing_secrets_previous_key_arns)
       # One worker takes at most this many in flight; the cap per endpoint is across all workers.
       DISPATCH_PER_ENDPOINT = tostring(var.dispatcher_per_endpoint_cap)
       DISPATCH_CONCURRENCY  = "50"
@@ -138,8 +142,8 @@ module "service" {
   port                   = each.value
   cpu                    = var.services[each.key].cpu
   memory                 = var.services[each.key].memory
-  desired_count          = var.services[each.key].desired_count
-  min_count              = var.services[each.key].min_count
+  desired_count          = var.start_services ? var.services[each.key].desired_count : 0
+  min_count              = var.start_services ? var.services[each.key].min_count : 0
   max_count              = var.services[each.key].max_count
   environment            = merge(local.common_environment, { PORT = tostring(each.value) }, local.service_environment[each.key])
   secrets                = local.service_secrets[each.key]

@@ -81,3 +81,29 @@ resource "aws_ecs_task_definition" "bootstrap" {
     },
   ])
 }
+
+# The dead-letter tool (docs/operations/dead-letter-queues.md). The command is given when the task is
+# started, for example `peek ingest.fan-out`; the broker address comes from the secret.
+resource "aws_ecs_task_definition" "dead_letters" {
+  family                   = "${local.name}-dead-letters"
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = 256
+  memory                   = 512
+  execution_role_arn       = aws_iam_role.execution.arn
+  task_role_arn            = aws_iam_role.bootstrap.arn
+
+  container_definitions = jsonencode([
+    {
+      name                   = "dead-letters"
+      image                  = "${aws_ecr_repository.service["ingest"].repository_url}:${var.image_tag}"
+      essential              = true
+      entryPoint             = ["node", "node_modules/@solmira/service-kit/dist/messaging/dead-letters-cli.js"]
+      command                = ["peek", "ingest.fan-out"]
+      readonlyRootFilesystem = true
+      environment            = [{ name = "NODE_ENV", value = "production" }]
+      secrets                = [{ name = "RABBITMQ_URL", valueFrom = "${aws_secretsmanager_secret.service["ingest"].arn}:RABBITMQ_URL::" }]
+      logConfiguration       = local.oneoff_log
+    },
+  ])
+}

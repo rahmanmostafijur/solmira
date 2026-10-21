@@ -225,3 +225,17 @@ variable "alarm_email" {
   description = "Address that receives alarm notifications (confirm the subscription once)."
   type        = string
 }
+
+# ---- rollout ---------------------------------------------------------------------------------------
+
+variable "start_services" {
+  description = "Run the services. False on the first apply, so the databases exist and are bootstrapped and migrated before any task starts (docs/operations/first-deploy.md)."
+  type        = bool
+  default     = true
+}
+
+variable "signing_secrets_previous_key_arns" {
+  description = "ARNs of KMS keys that earlier wrapped signing secrets and must still be readable, after the key was replaced (docs/operations/key-rotation.md)."
+  type        = list(string)
+  default     = []
+}
