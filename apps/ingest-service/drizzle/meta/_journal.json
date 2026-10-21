@@ -78,6 +78,13 @@
       "when": 1792532910426,
       "tag": "0010_claim_with_isolation",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792566271032,
+      "tag": "0011_claim_serialized",
+      "breakpoints": true
     }
   ]
 }
