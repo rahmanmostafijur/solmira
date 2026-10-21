@@ -2,7 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # Phase branches are merged into pivot/webhook-platform; both run CI on push so a phase can be
+    # checked before it merges, without opening a pull request.
+    branches: [main, pivot/webhook-platform, 'phase-*/**']
   pull_request:
 
 concurrency:
