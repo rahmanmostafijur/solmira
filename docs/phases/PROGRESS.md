@@ -15,6 +15,70 @@ One row per phase. Updated when a phase merges.
 | 11    | Done   | 2026-10-21 | [phase-11.md](phase-11.md) | Real processes and infrastructure for chaos and load; a control burst for isolation claims; only measured figures; claims serialized by an advisory lock and the worker waits for a free slot (ADR-0037)                                                                                                                                                                        | AWS figures and a soak test (Phase 12); an index-backed organization queue if the claim cost matters at scale                                           |
 | 12    | Done   | 2026-10-21 | [phase-12.md](phase-12.md) | ECS Fargate with managed data stores, written as Terraform that is validated and planned offline and never applied (ADR-0038); metrics as EMF log lines, OpenTelemetry traces behind a collector, alarms and dashboard as code (ADR-0039); KMS envelope encryption; migrations and bootstrap as one-off tasks; runbooks and a security review that say they were not run on AWS | Apply in a non-production account and exercise the runbooks; image scanning, MFA, account-level detection, bulk re-encryption (see the security review) |
 
+## Remaining work
+
+Built on 2026-10-22 from the repository, the phase records, the security review and a route-by-route
+comparison of the services with the console. Ticked when done; each item names its phase.
+
+### Phase 13: product gaps (`phase-13/product-gaps`)
+
+- [ ] CI runs on phase branches (it ran only on `main`, so no pivot phase had been checked by CI).
+- [ ] CI green from a clean checkout: dependency audit (Next.js 16.3.7 and `source-map-js` advisories)
+      and the Terraform offline plan fail on the integration branch.
+- [ ] Applications: edit name and description in the console (the API exists).
+- [ ] Event types: edit description and schema in the console; restore an archived event type (API and
+      console).
+- [ ] Endpoints: restore an archived endpoint (API and console).
+- [ ] API keys: rename (API and console); show revoked keys on request.
+- [ ] Notifications: the API exists, the console has no screen; add a list with mark-read and
+      mark-all-read.
+- [ ] Profile: change your name and your password while signed in (only the reset-by-email flow exists).
+- [ ] Stale delivery status in the message list (root cause, fix, regression tests).
+- [ ] Dev-mode restarts: compare with production images; graceful console behaviour while a service
+      restarts; document in DEVELOPMENT.md.
+- [ ] Validation errors name the field, the rule and an example; all limits in the API reference.
+- [ ] Each edit, restore and rename is permission-guarded, audited and covered by role and cross-tenant
+      tests.
+
+### Phase 14: console redesign (`phase-14/console-redesign`)
+
+- [ ] shadcn/ui on Tailwind CSS 4 with Radix primitives and lucide icons; obsolete components removed.
+- [ ] Shell: collapsible sidebar, top bar with organization switcher, global search by ID, user menu,
+      light/dark/system theme.
+- [ ] Home: onboarding checklist that ticks itself off; success rate, recent failures, endpoints that
+      need attention, quick actions.
+- [ ] Empty states, skeletons, toasts, confirmations, relative times with exact time on hover, tables
+      with search, filter, sort and pagination.
+- [ ] One-time secret dialog, copy buttons, code snippets (curl, Node.js, Python) for sending and
+      verifying, pre-filled with the application's ID.
+- [ ] Endpoint page: test send with a live result; message inspector timeline with pretty JSON and
+      one-click replay; consistent status badges with text.
+- [ ] Responsive and WCAG 2.1 AA (keyboard, focus, labels, contrast).
+- [ ] Component tests for the shared components; Playwright flows: sign up to first delivery, endpoint
+      edit/disable, replay, API key create/revoke, application edit/archive.
+
+### Phase 15: documentation and release hardening (`phase-15/docs-release`)
+
+- [ ] README and docs match the product: console screenshots (light and dark) and the architecture
+      diagram.
+- [ ] Image vulnerability scanning in CI (security review F8).
+- [ ] Final summary in this file.
+
+## Owner review needed
+
+Decisions that need the owner, or actions that must not be taken without them. Work continued
+around each one.
+
+- **`main` is still at the pre-pivot commit `cf9372f`.** Every phase merged into
+  `pivot/webhook-platform`, which descends from `main`, so `main` can be fast-forwarded with no history
+  rewrite. Moving the default branch is left to the owner.
+- **Deleting an organization** is not offered: it spans six services' data and needs a retention
+  decision (keep the audit trail? for how long?). Members can still be removed and resources archived.
+- **Multi-factor authentication** (security review F9) is a product and security decision; not built.
+- **A security contact** (F14) needs a real address that only the owner can give.
+- **AWS**: nothing is applied (unchanged from Phase 12); the first deployment needs an account and
+  credentials.
+
 ## Notes
 
 - Pull requests are described in `docs/phases/phase-N.md` when the GitHub CLI is not
