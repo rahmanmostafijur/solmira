@@ -1,12 +1,14 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, HttpCode, HttpStatus, Inject, Patch, Post } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   PERMISSION_CATALOG,
   tokenRequestSchema,
+  updateProfileRequestSchema,
   type MeResponse,
   type Permission,
   type RoleKey,
   type RoleSummary,
+  type UpdateProfileRequest,
 } from '@solmira/contracts';
 import {
   CurrentAuth,
@@ -20,6 +22,7 @@ import { asc, eq, isNull } from 'drizzle-orm';
 import type { z } from 'zod';
 import { Database } from '../database/database.module.js';
 import { rolePermissions, roles, users } from '../database/schema.js';
+import { recordEvent } from '../outbox/outbox.js';
 import { InvitationsService } from './invitations.service.js';
 import { OrganizationsService } from './organizations.service.js';
 
@@ -49,6 +52,30 @@ export class AccountController {
       memberships: await this.organizations.listForUser(auth.userId),
       activeOrganizationId: auth.organizationId,
     };
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: "Change the signed-in user's own profile (the name)" })
+  @ApiZodBody(updateProfileRequestSchema)
+  async updateProfile(
+    @CurrentAuth() auth: AuthContext,
+    @Body(new ZodValidationPipe(updateProfileRequestSchema)) body: UpdateProfileRequest,
+  ): Promise<MeResponse> {
+    await this.database.unscoped(async (tx) => {
+      const [row] = await tx
+        .update(users)
+        .set({ ...body, updatedAt: new Date() })
+        .where(eq(users.id, auth.userId))
+        .returning({ id: users.id });
+      if (!row) throw new UnauthenticatedError();
+      await recordEvent(
+        tx,
+        'user.profile_updated',
+        { userId: row.id, fields: Object.keys(body) },
+        { actorId: auth.userId },
+      );
+    });
+    return this.me(auth);
   }
 
   @Post('invitations/accept')

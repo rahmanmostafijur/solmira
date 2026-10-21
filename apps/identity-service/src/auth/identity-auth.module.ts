@@ -6,11 +6,12 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwksController } from './jwks.controller.js';
 import { PasswordHasher } from './password-hasher.js';
+import { PasswordController } from './password.controller.js';
 import { SessionsController } from './sessions.controller.js';
 import { SessionsService } from './sessions.service.js';
 
 @Module({
-  controllers: [AuthController, SessionsController, JwksController],
+  controllers: [AuthController, SessionsController, PasswordController, JwksController],
   providers: [
     AccessContextService,
     AccessTokenIssuer,
