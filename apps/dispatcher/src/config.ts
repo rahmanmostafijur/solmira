@@ -1,4 +1,10 @@
-import { baseEnvSchema, portSchema, postgresEnvSchema } from '@solmira/service-kit';
+import {
+  baseEnvSchema,
+  portSchema,
+  postgresEnvSchema,
+  secretCipherEnvShape,
+  secretCipherProblems,
+} from '@solmira/service-kit';
 import { z } from 'zod';
 
 export const SERVICE_NAME = 'dispatcher';
@@ -28,14 +34,8 @@ export const envSchema = baseEnvSchema
     PORT: portSchema(4006),
     ...postgresEnvSchema.shape,
 
-    /** Must match the key ingest-service encrypts signing secrets with (ADR-0026). */
-    SECRETS_ENCRYPTION_KEY: z
-      .string()
-      .refine(
-        (value) => Buffer.from(value, 'base64').length === 32,
-        'Must be 32 bytes, base64 encoded (openssl rand -base64 32)',
-      ),
-    SECRETS_ENCRYPTION_KEY_ID: z.string().min(1).max(64).default('local-1'),
+    /** Must be the same key source as ingest-service, which encrypts the secrets (ADR-0026, ADR-0038). */
+    ...secretCipherEnvShape,
     /** Development and tests only: allows http and non-public targets. Refused in production. */
     ALLOW_PRIVATE_ENDPOINT_TARGETS: z.stringbool().default(false),
 
@@ -92,6 +92,11 @@ export const envSchema = baseEnvSchema
   .refine((env) => env.DISPATCH_LEASE_SECONDS * 1000 > env.DELIVERY_TIMEOUT_MS * 2, {
     path: ['DISPATCH_LEASE_SECONDS'],
     message: 'The lease must be longer than twice the delivery timeout',
+  })
+  .superRefine((env, context) => {
+    for (const [path, message] of secretCipherProblems(env)) {
+      context.addIssue({ code: 'custom', path: [path], message });
+    }
   });
 
 export type DispatcherConfig = z.infer<typeof envSchema>;

@@ -4,6 +4,7 @@ import type { Options as PinoHttpOptions } from 'pino-http';
 import { stdTimeFunctions, type DestinationStream } from 'pino';
 import { REQUEST_ID_HEADER } from '@solmira/contracts';
 import { getRequestContext } from '../context/request-context.js';
+import { activeTraceIds } from '@solmira/telemetry';
 
 /** Redaction happens inside the logger so no call site can forget it. */
 export const REDACTED_LOG_PATHS = [
@@ -55,7 +56,11 @@ export function createLoggerModule({
     // (message consumers run inside the same AsyncLocalStorage context).
     mixin: () => {
       const context = getRequestContext();
-      return context ? { requestId: context.requestId, correlationId: context.correlationId } : {};
+      // The ids of the active trace, so a log line can be found from a trace and the other way round.
+      return {
+        ...(context ? { requestId: context.requestId, correlationId: context.correlationId } : {}),
+        ...activeTraceIds(),
+      };
     },
     genReqId: (req) => String(req.headers[REQUEST_ID_HEADER] ?? ''),
     redact: { paths: REDACTED_LOG_PATHS, censor: '[REDACTED]' },

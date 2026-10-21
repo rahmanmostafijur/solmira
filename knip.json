@@ -15,7 +15,13 @@
       ]
     },
     "packages/service-kit": {
-      "entry": ["src/index.ts", "src/testing/index.ts", "src/**/*.test.ts", "test/**/*.ts"],
+      "entry": [
+        "src/index.ts",
+        "src/testing/index.ts",
+        "src/messaging/dead-letters-cli.ts",
+        "src/**/*.test.ts",
+        "test/**/*.ts"
+      ],
       "ignoreDependencies": ["pino-pretty"]
     },
     "packages/contracts": {
@@ -31,10 +37,13 @@
       ]
     },
     "packages/webhooks": {
-      "entry": ["src/index.ts", "src/**/*.test.ts", "examples/**/*.ts"]
+      "entry": ["src/**/*.test.ts", "examples/**/*.ts"]
     },
     "tests/resilience": {
       "entry": ["chaos/**/*.chaos.test.ts", "load/run.ts", "load/sweep.ts", "scripts/*.mjs"]
+    },
+    "packages/telemetry": {
+      "entry": ["src/index.ts", "src/testing.ts", "src/**/*.test.ts"]
     }
   }
 }

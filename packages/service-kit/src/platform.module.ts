@@ -6,9 +6,12 @@ import { PostgresModule } from './infra/postgres.module.js';
 import { RabbitMqModule } from './infra/rabbitmq.module.js';
 import { RedisModule } from './infra/redis.module.js';
 import { createLoggerModule } from './logging/logger.module.js';
+import { MetricsModule } from './metrics/metrics.module.js';
+import { TracingModule } from './tracing/tracing.interceptor.js';
 
 export interface PlatformOptions {
   readonly serviceName: string;
+  readonly metrics?: { readonly enabled: boolean; readonly write?: (line: string) => void };
   readonly logging: {
     readonly level: string;
     readonly pretty: boolean;
@@ -26,6 +29,7 @@ export function platformOptionsFromEnv(serviceName: string, env: PlatformEnv): P
   return {
     serviceName,
     logging: { level: env.LOG_LEVEL, pretty: env.LOG_PRETTY },
+    metrics: { enabled: env.METRICS_ENABLED },
     ...(env.DATABASE_URL
       ? { postgres: { url: env.DATABASE_URL, poolMax: env.DATABASE_POOL_MAX ?? 10 } }
       : {}),
@@ -46,6 +50,12 @@ export class PlatformModule {
       module: PlatformModule,
       imports: [
         createLoggerModule({ serviceName, ...options.logging }),
+        MetricsModule.forRoot({
+          enabled: options.metrics?.enabled ?? false,
+          serviceName,
+          ...(options.metrics?.write ? { write: options.metrics.write } : {}),
+        }),
+        TracingModule,
         HealthModule.forRoot(serviceName),
         ...(options.postgres
           ? [PostgresModule.forRoot({ ...options.postgres, applicationName: serviceName })]

@@ -16,6 +16,16 @@ const pemSchema = z
   .transform((value) => value.replace(/\\n/g, '\n'))
   .refine((value) => value.includes('-----BEGIN'), { message: 'Must be a PEM-encoded key' });
 
+const previousKeysSchema = z.array(
+  z.object({
+    kid: z.string().min(1),
+    publicKey: z
+      .string()
+      .transform((value) => value.replace(/\\n/g, '\n'))
+      .refine((value) => value.includes('-----BEGIN PUBLIC KEY'), 'Must be a PEM public key'),
+  }),
+);
+
 export const envSchema = baseEnvSchema.extend({
   PORT: portSchema(4001),
   ...postgresEnvSchema.shape,
@@ -27,6 +37,25 @@ export const envSchema = baseEnvSchema.extend({
   JWT_PRIVATE_KEY: pemSchema,
   JWT_PUBLIC_KEY: pemSchema,
   JWT_KEY_ID: z.string().min(1).default('identity-1'),
+  /**
+   * Public keys of earlier signing keys, still published so tokens signed with them stay valid until
+   * they expire (a rotation, docs/operations/key-rotation.md). JSON: [{"kid": "identity-1", "publicKey": "<PEM>"}].
+   * Remove an entry once an access token lifetime has passed.
+   */
+  JWT_PREVIOUS_PUBLIC_KEYS: z
+    .string()
+    .default('[]')
+    .transform((value, context) => {
+      try {
+        return previousKeysSchema.parse(JSON.parse(value));
+      } catch {
+        context.addIssue({
+          code: 'custom',
+          message: 'Must be JSON: [{"kid": "...", "publicKey": "<PEM>"}]',
+        });
+        return z.NEVER;
+      }
+    }),
   JWT_ISSUER: z.string().min(1).default('solmira-identity'),
   JWT_AUDIENCE: z.string().min(1).default('solmira-api'),
 

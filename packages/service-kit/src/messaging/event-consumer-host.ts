@@ -8,13 +8,19 @@ import {
 } from '@nestjs/common';
 import type { ConfirmChannel } from 'amqplib';
 import { RabbitMqConnection } from '../infra/rabbitmq.module.js';
+import { MetricsRegistry } from '../metrics/registry.js';
 import {
   DEFAULT_PREFETCH,
   DEFAULT_RETRY_DELAY_MS,
   processMessage,
   type EventConsumerDefinition,
 } from './event-consumer.js';
-import { assertConsumerQueues, assertEventExchanges } from './topology.js';
+import {
+  assertConsumerQueues,
+  assertEventExchanges,
+  deadLetterQueueOf,
+  retryQueueOf,
+} from './topology.js';
 
 /** Consumers declare their queues before the relay publishes, so no event meets a missing queue. */
 const CONSUMER_ORDER = 0;
@@ -30,7 +36,10 @@ export class EventConsumerHost implements OnApplicationShutdown {
   private channels: ConfirmChannel[] = [];
   private listening = false;
 
-  constructor(@Inject(RabbitMqConnection) private readonly connection: RabbitMqConnection) {}
+  constructor(
+    @Inject(RabbitMqConnection) private readonly connection: RabbitMqConnection,
+    @Inject(MetricsRegistry) private readonly metrics: MetricsRegistry,
+  ) {}
 
   /** Call during module initialization, before the application finishes bootstrapping. */
   register(definition: EventConsumerDefinition): void {
@@ -40,6 +49,7 @@ export class EventConsumerHost implements OnApplicationShutdown {
     if (!this.listening) {
       this.listening = true;
       this.connection.onConnected(() => this.attachAll(), CONSUMER_ORDER);
+      this.metrics.collect(() => this.sampleQueues());
     }
   }
 
@@ -48,6 +58,32 @@ export class EventConsumerHost implements OnApplicationShutdown {
       .splice(0)
       .map((channel) => channel.close().catch(() => undefined));
     await Promise.all(closing);
+  }
+
+  /**
+   * Reports how many events wait in each consumer's queues. The dead-letter count is the one to
+   * alarm on: anything in it is an event no consumer could process and an operator must look at
+   * (runbook: docs/operations/dead-letter-queues.md).
+   */
+  private async sampleQueues(): Promise<void> {
+    const channel = await this.connection.createChannel();
+    // A passive check of a queue that does not exist closes the channel, so errors end the sample.
+    channel.on('error', () => undefined);
+    try {
+      for (const { queue } of this.definitions) {
+        const [ready, retry, dead] = await Promise.all([
+          channel.checkQueue(queue),
+          channel.checkQueue(retryQueueOf(queue)),
+          channel.checkQueue(deadLetterQueueOf(queue)),
+        ]);
+        const dimensions = { Queue: queue };
+        this.metrics.gauge('QueueMessages', ready.messageCount, 'Count', dimensions);
+        this.metrics.gauge('RetryMessages', retry.messageCount, 'Count', dimensions);
+        this.metrics.gauge('DeadLetterMessages', dead.messageCount, 'Count', dimensions);
+      }
+    } finally {
+      await channel.close().catch(() => undefined);
+    }
   }
 
   private async attachAll(): Promise<void> {

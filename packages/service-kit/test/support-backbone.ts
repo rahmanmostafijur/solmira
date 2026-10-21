@@ -21,6 +21,7 @@ export const uniqueName = (prefix: string) => prefix + '.' + randomUUID().slice(
 export async function startBackbone(
   definitions: readonly EventConsumerDefinition[],
   relay: { batchSize: number; pollIntervalMs: number } | null,
+  metrics?: { enabled: boolean; write: (line: string) => void },
 ): Promise<NestExpressApplication> {
   const app = await createServiceApp(
     BackboneProbeModule.register(
@@ -29,6 +30,7 @@ export async function startBackbone(
         logging: { level: 'silent', pretty: false },
         postgres: { url: env.postgres, poolMax: 4 },
         rabbitmq: { url: env.rabbitmq },
+        ...(metrics ? { metrics } : {}),
       },
       definitions,
       relay,
@@ -88,6 +90,25 @@ export async function queueExists(
   try {
     await channel.checkQueue(name);
     return true;
+  } catch {
+    return false;
+  } finally {
+    await channel.close().catch(() => undefined);
+  }
+}
+
+/**
+ * True once a consumer is attached to the queue. A queue exists before it is bound and consumed, and
+ * a message published in between has nowhere to go, so tests wait for this before they publish.
+ */
+export async function hasConsumer(
+  connection: Awaited<ReturnType<typeof openBroker>>['connection'],
+  name: string,
+): Promise<boolean> {
+  const channel = await connection.createChannel();
+  channel.on('error', () => undefined);
+  try {
+    return (await channel.checkQueue(name)).consumerCount > 0;
   } catch {
     return false;
   } finally {

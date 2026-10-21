@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { secretContext, type SecretCipher } from '@solmira/service-kit';
+import { MetricsRegistry, secretContext, withSpan, type SecretCipher } from '@solmira/service-kit';
 import type {
   ClaimedDelivery,
   DeliveryContext,
@@ -26,6 +26,9 @@ export interface Processed {
 }
 
 const HISTORY_RETRY_DELAY_MS = 100;
+const RESULT_OF = { succeeded: 'succeeded', retry: 'retrying', failed: 'failed' } as const;
+/** How long a delivery waits when its secret cannot be decrypted right now. */
+const SECRET_RETRY_DELAY_MS = 30_000;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -44,19 +47,53 @@ export class DeliveryProcessor {
     private readonly options: ProcessorOptions,
     private readonly limiter: EndpointRateLimiter,
     private readonly clock: () => Date = () => new Date(),
+    private readonly metrics: MetricsRegistry = new MetricsRegistry({
+      enabled: false,
+      serviceName: 'dispatcher',
+    }),
   ) {}
 
-  async process(claimed: ClaimedDelivery): Promise<Processed> {
+  /** One delivery attempt as a span: ids and the outcome, never the URL, payload or response. */
+  process(claimed: ClaimedDelivery): Promise<Processed> {
+    return withSpan(
+      'delivery.attempt',
+      {
+        'organization.id': claimed.organizationId,
+        'endpoint.id': claimed.endpointId,
+        'message.id': claimed.messageId,
+        'delivery.id': claimed.deliveryId,
+        'delivery.attempt': claimed.attempt,
+      },
+      async (span) => {
+        const processed = await this.processDelivery(claimed);
+        span.setAttribute('delivery.outcome', processed.outcome);
+        if (processed.errorClass) span.setAttribute('delivery.error_class', processed.errorClass);
+        return processed;
+      },
+    );
+  }
+
+  private async processDelivery(claimed: ClaimedDelivery): Promise<Processed> {
     const context = await this.repository.loadContext(claimed);
     const refusal = context ? this.refusalFor(context) : 'delivery_data_missing';
     if (!context || refusal) return this.giveUp(claimed, refusal ?? 'delivery_data_missing');
 
-    const secrets = this.decryptSecrets(claimed, context);
+    const secrets = await this.decryptSecrets(claimed, context);
+    if (secrets === null) {
+      this.metrics.count('SecretDecryptFailures');
+      this.metrics.count('DeliveriesDeferred', 1, { Reason: 'secret' });
+      await this.repository.defer(
+        claimed,
+        new Date(this.clock().getTime() + SECRET_RETRY_DELAY_MS),
+      );
+      return { outcome: 'deferred', sent: false, errorClass: null };
+    }
     if (secrets.length === 0) return this.giveUp(claimed, 'signing_secret_missing');
 
     const decision = await this.limiter.tryAcquire(claimed.endpointId, context.rateLimitPerSecond);
     if (!decision.allowed) {
       // Over the endpoint's rate limit: wait for the next window, no attempt is counted.
+      this.metrics.count('DeliveriesDeferred', 1, { Reason: 'rate_limit' });
       await this.repository.defer(
         claimed,
         new Date(this.clock().getTime() + decision.retryAfterMs),
@@ -84,6 +121,8 @@ export class DeliveryProcessor {
       startedAt,
       durationMs: result.durationMs,
     });
+    this.metrics.count('Attempts', 1, { Result: RESULT_OF[outcome.kind] });
+    this.metrics.observe('AttemptDuration', result.durationMs, 'Milliseconds');
     return { outcome: outcome.kind, sent: true, errorClass: result.errorClass };
   }
 
@@ -93,12 +132,27 @@ export class DeliveryProcessor {
     return bytes > this.options.maxPayloadBytes ? 'payload_too_large' : null;
   }
 
-  private decryptSecrets(claimed: ClaimedDelivery, context: DeliveryContext): string[] {
+  private async decryptSecrets(
+    claimed: ClaimedDelivery,
+    context: DeliveryContext,
+  ): Promise<string[] | null> {
     const where = secretContext(claimed.organizationId, claimed.endpointId);
     // The active secret signs first; during a rotation the previous one signs as well.
-    return [...context.secrets]
-      .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
-      .map((secret) => this.cipher.decrypt(secret, where));
+    const ordered = [...context.secrets].sort((a, b) =>
+      a.status === b.status ? 0 : a.status === 'active' ? -1 : 1,
+    );
+    try {
+      return await Promise.all(ordered.map((secret) => this.cipher.decrypt(secret, where)));
+    } catch (error) {
+      // The key service is unreachable or throttling, or a secret cannot be opened. Nothing was
+      // sent, so the delivery waits and no attempt is counted; the failure is logged (never the
+      // secret) and an alarm watches for it.
+      this.logger.error(
+        { err: error, deliveryId: claimed.deliveryId, endpointId: claimed.endpointId },
+        'Could not decrypt the signing secret; the delivery is deferred',
+      );
+      return null;
+    }
   }
 
   private outcomeOf(claimed: ClaimedDelivery, result: SendResult): Outcome {

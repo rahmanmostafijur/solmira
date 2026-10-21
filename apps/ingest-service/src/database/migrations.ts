@@ -55,6 +55,8 @@ export async function grantDispatcherAccess(pool: pg.Pool, role: string): Promis
     'grant select (id, organization_id, name) on event_types to ' + role,
     'grant insert on outbox_events to ' + role,
     'grant execute on function claim_due_deliveries(integer, integer, integer, integer) to ' + role,
+    // The backlog size and age for the dispatcher's metrics: two numbers across organizations.
+    'grant execute on function delivery_backlog() to ' + role,
     'grant execute on function app_current_organization_id() to ' + role,
   ])
     await pool.query(statement);

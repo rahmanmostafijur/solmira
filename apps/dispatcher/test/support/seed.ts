@@ -42,7 +42,7 @@ async function insertSecret(
   secret: string,
   status: 'active' | 'previous',
 ) {
-  const encrypted = cipher.encrypt(secret, secretContext(organizationId, endpointId));
+  const encrypted = await cipher.encrypt(secret, secretContext(organizationId, endpointId));
   await db.query(
     `insert into endpoint_secrets (id, organization_id, endpoint_id, status, ciphertext, wrapped_data_key, key_id, expires_at)
      values ($1, $2, $3, $4, $5, $6, $7, case when $4 = 'previous' then now() + interval '1 day' else null end)`,

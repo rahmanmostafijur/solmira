@@ -36,6 +36,11 @@ WORKDIR /app
 # The deploy output contains only what each package's "files" whitelist allows (dist, and for
 # identity-service its SQL migrations) plus production node_modules.
 COPY --from=builder --chown=node:node /out ./
+# The RDS certificate authorities. Node trusts them in addition to its own (NODE_EXTRA_CA_CERTS in the
+# task definition), so a connection string with sslmode=verify-full checks the database's identity.
+# The checksum pins the file: when AWS publishes a new bundle the build fails until it is updated
+# deliberately (docs/operations/certificate-bundle.md).
+ADD --chown=node:node --checksum=sha256:90a6f1a7978a1b1b096dca6c57511ca48d3b8cf052f8e704baf358f34ea2f21b   https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /app/certs/rds-global-bundle.pem
 USER node
 HEALTHCHECK --interval=15s --timeout=3s --start-period=20s --retries=3 \
   CMD wget -qO- "http://127.0.0.1:${PORT}/health/live" || exit 1

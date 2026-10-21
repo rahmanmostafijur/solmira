@@ -8,7 +8,8 @@ import {
 } from '@nestjs/common';
 import {
   HealthRegistry,
-  LocalSecretCipher,
+  MetricsRegistry,
+  createSecretCipher,
   PG_POOL,
   REDIS,
   type Redis,
@@ -92,10 +93,7 @@ export class DispatcherModule {
         { provide: ADDRESS_RESOLVER, useValue: adapters.resolver ?? resolveAddresses },
         {
           provide: SECRET_CIPHER,
-          useValue: new LocalSecretCipher(
-            config.SECRETS_ENCRYPTION_KEY,
-            config.SECRETS_ENCRYPTION_KEY_ID,
-          ),
+          useValue: createSecretCipher(config),
         },
         {
           provide: ATTEMPT_STORE,
@@ -142,6 +140,7 @@ export class DispatcherModule {
             ATTEMPT_STORE,
             SECRET_CIPHER,
             ENDPOINT_RATE_LIMITER,
+            MetricsRegistry,
           ],
           useFactory: (
             repository: DeliveryRepository,
@@ -149,6 +148,7 @@ export class DispatcherModule {
             attempts: AttemptStore,
             cipher: SecretCipher,
             limiter: EndpointRateLimiter,
+            metrics: MetricsRegistry,
           ) =>
             new DeliveryProcessor(
               repository,
@@ -164,6 +164,8 @@ export class DispatcherModule {
                 historyWriteTries: HISTORY_WRITE_TRIES,
               },
               limiter,
+              () => new Date(),
+              metrics,
             ),
         },
         DispatcherHealth,

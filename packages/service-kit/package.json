@@ -34,15 +34,17 @@
     "rxjs": "^7.8.2"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "^3.1154.0",
     "@nestjs/platform-express": "^12.1.1",
     "@nestjs/swagger": "^12.0.2",
     "@solmira/contracts": "workspace:*",
+    "@solmira/telemetry": "workspace:*",
     "amqplib": "^2.2.0",
     "cookie-parser": "^1.4.7",
     "drizzle-orm": "^0.45.3",
     "helmet": "^8.3.0",
-    "jose": "^6.2.12",
     "ioredis": "^6.0.0",
+    "jose": "^6.2.12",
     "nestjs-pino": "^5.2.1",
     "pg": "^8.23.0",
     "pino": "^10.3.1",

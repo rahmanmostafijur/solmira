@@ -51,10 +51,16 @@ export class EndpointsService {
   ): Promise<CreatedEndpoint> {
     const url = await this.urls.assertAllowed(input.url);
     const signingSecret = generateSigningSecret();
+    const id = uuidv7();
+    // Encrypted before the transaction: the key service is a network call, and no connection should
+    // be held while waiting for it.
+    const encrypted = await this.cipher.encrypt(
+      signingSecret,
+      secretContext(auth.organizationId, id),
+    );
     return this.database.forTenant(auth, async (tx) => {
       await findApplication(tx, auth, applicationId);
       await assertSubscribable(tx, auth, input.eventTypeIds);
-      const id = uuidv7();
       const [row] = await tx
         .insert(endpoints)
         .values({
@@ -76,7 +82,7 @@ export class EndpointsService {
         organizationId: auth.organizationId,
         endpointId: id,
         status: 'active',
-        ...this.cipher.encrypt(signingSecret, secretContext(auth.organizationId, id)),
+        ...encrypted,
       });
       await recordEvent(tx, auth, 'endpoint.created', { endpointId: id, applicationId });
       return { ...toEndpoint(row!, input.eventTypeIds), signingSecret };

@@ -5,6 +5,7 @@ import {
   type OnApplicationBootstrap,
   type OnApplicationShutdown,
 } from '@nestjs/common';
+import { MetricsRegistry } from '@solmira/service-kit';
 import type { DispatcherConfig } from './config.js';
 import type { ClaimedDelivery, DeliveryRepository } from './database/delivery-repository.js';
 import type { DeliveryProcessor } from './delivery/delivery-processor.js';
@@ -31,9 +32,18 @@ export class DispatcherService implements OnApplicationBootstrap, OnApplicationS
     @Inject(DELIVERY_REPOSITORY) private readonly repository: DeliveryRepository,
     @Inject(DELIVERY_PROCESSOR) private readonly processor: DeliveryProcessor,
     @Inject(DISPATCHER_CONFIG) private readonly config: DispatcherConfig,
+    @Inject(MetricsRegistry) private readonly metrics: MetricsRegistry,
   ) {}
 
   onApplicationBootstrap(): void {
+    // The main health signals of the service: how much is waiting and for how long. A worker that is
+    // alive but not keeping up shows here long before anything fails.
+    this.metrics.collect(async () => {
+      const backlog = await this.repository.backlog();
+      this.metrics.gauge('DeliveriesDue', backlog.due);
+      this.metrics.gauge('OldestDueAge', backlog.oldestDueSeconds, 'Seconds');
+      this.metrics.gauge('InFlight', this.inFlight.size);
+    });
     if (this.config.DISPATCH_AUTOSTART) this.loop = this.run();
   }
 
