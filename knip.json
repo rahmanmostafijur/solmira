@@ -29,6 +29,9 @@
         "src/**/*.test.ts",
         "test/**/*.test.ts"
       ]
+    },
+    "packages/webhooks": {
+      "entry": ["src/index.ts", "src/**/*.test.ts", "examples/**/*.ts"]
     }
   }
 }

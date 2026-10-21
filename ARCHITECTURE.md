@@ -34,8 +34,8 @@ Built: gateway, web (authentication and organization pages), identity-service, i
 (management API, ingestion, fan-out, replay, rotation), the dispatcher with endpoint isolation and its
 DynamoDB attempt history, notification-service (alerts), and the console (applications, endpoints,
 event types, API keys, message inspector with attempt timeline, replay, test send), the realtime
-delivery feed (notification-service) and delivery analytics (analytics-service, ADR-0035). Planned:
-the audit consumer (Phase 10).
+delivery feed (notification-service), delivery analytics (analytics-service, ADR-0035), the audit
+trail (audit-service, ADR-0036) and the receiver verification library (`@solmira/webhooks`).
 
 ## 2. Repository structure
 

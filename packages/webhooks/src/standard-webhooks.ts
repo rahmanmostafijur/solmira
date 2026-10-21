@@ -33,14 +33,16 @@ export class WebhookVerificationError extends Error {
   }
 }
 
-export interface SignedHeaders {
+/** A type alias, not an interface, so the headers can be passed anywhere a header map is expected. */
+export type SignedHeaders = {
   readonly [WEBHOOK_ID_HEADER]: string;
   readonly [WEBHOOK_TIMESTAMP_HEADER]: string;
   readonly [WEBHOOK_SIGNATURE_HEADER]: string;
-}
+};
 
 /** The raw key behind a secret: `whsec_` plus base64 (the prefix is optional). */
 export function signingKey(secret: string): Buffer {
+  if (typeof secret !== 'string') throw new Error('The signing secret must be a string');
   const encoded = secret.startsWith(SECRET_PREFIX) ? secret.slice(SECRET_PREFIX.length) : secret;
   const key = Buffer.from(encoded, 'base64');
   if (key.length === 0) throw new Error('The signing secret is empty or not valid base64');

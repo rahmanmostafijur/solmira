@@ -254,6 +254,17 @@ describe('role- and permission-based authorization', () => {
         .delete(`/api/v1/organizations/${orgId}/invitations/${revocable.body.id}`)
         .set(bearer(owner))
         .expect(404);
+
+      // Withdrawing an invitation is an administrative action: exactly one audited event, with the
+      // organization and the person who did it, and none for the refused second attempt.
+      const events = await t.db.query(
+        `select organization_id, actor_id from outbox_events
+          where type = 'invitation.revoked' and payload->>'invitationId' = $1`,
+        [revocable.body.id],
+      );
+      expect(events.rows).toHaveLength(1);
+      expect(events.rows[0].organization_id).toBe(orgId);
+      expect(events.rows[0].actor_id).not.toBeNull();
     });
 
     it('rejects duplicate pending invitations and existing members', async () => {

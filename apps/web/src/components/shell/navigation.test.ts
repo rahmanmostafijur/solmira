@@ -37,4 +37,14 @@ describe('navigation', () => {
     expect(labels).toContain('Event types');
     expect(labels).not.toContain('Applications');
   });
+
+  it('shows the audit log only with audit_logs.read', () => {
+    const labelsFor = (granted: string) =>
+      visibleSections((permission) => permission === granted, true).flatMap((section) =>
+        section.items.map((item) => item.label),
+      );
+    expect(labelsFor('audit_logs.read')).toContain('Audit log');
+    expect(labelsFor('organizations.read')).not.toContain('Audit log');
+    expect(findNavItem('/settings/audit-log')?.item.label).toBe('Audit log');
+  });
 });
