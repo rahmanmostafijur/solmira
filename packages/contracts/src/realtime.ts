@@ -2,7 +2,7 @@ import { z } from 'zod';
 import type { DeliveryAttemptedPayload } from './events.js';
 
 /**
- * The realtime delivery feed (ADR-0035). A client connects to `/api/v1/realtime`, sends one `auth`
+ * The realtime delivery feed (ADR-0035). A client connects to `/ws/v1/deliveries`, sends one `auth`
  * frame with its access token, and then receives only events of the organization in that token.
  * The feed is live only: after a reconnect, load the current state from the REST API.
  */
@@ -14,7 +14,7 @@ export const realtimeClientFrameSchema = z.object({
 });
 export type RealtimeClientFrame = z.infer<typeof realtimeClientFrameSchema>;
 
-export const REALTIME_PATH = '/api/v1/realtime';
+export const REALTIME_PATH = '/ws/v1/deliveries';
 export const REALTIME_AUTH_TIMEOUT_MS = 5_000;
 
 /** WebSocket close codes the feed uses (4000-4999 is the application range). */

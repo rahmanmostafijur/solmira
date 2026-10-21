@@ -10,12 +10,32 @@ import { DatabaseModule } from './database/database.module.js';
 import { EndpointAlertsConsumer } from './notifications/endpoint-alerts.consumer.js';
 import { NotificationsController } from './notifications/notifications.controller.js';
 import { NotificationsService } from './notifications/notifications.service.js';
+import { FeedConsumer } from './realtime/feed.consumer.js';
+import { RealtimeGateway } from './realtime/realtime.gateway.js';
+import { RealtimeHub } from './realtime/realtime.hub.js';
 
-@Module({
-  controllers: [NotificationsController],
-  providers: [NotificationsService, EndpointAlertsConsumer],
-})
-class NotificationsModule {}
+@Module({})
+class NotificationsModule {
+  static register(config: NotificationConfig): DynamicModule {
+    return {
+      module: NotificationsModule,
+      controllers: [NotificationsController],
+      providers: [
+        NotificationsService,
+        EndpointAlertsConsumer,
+        {
+          provide: RealtimeHub,
+          useValue: new RealtimeHub({
+            maxPerOrganization: config.REALTIME_MAX_CONNECTIONS_PER_ORGANIZATION,
+            maxBufferedBytes: config.REALTIME_MAX_BUFFERED_BYTES,
+          }),
+        },
+        FeedConsumer,
+        RealtimeGateway,
+      ],
+    };
+  }
+}
 
 @Module({})
 export class AppModule {
@@ -32,7 +52,7 @@ export class AppModule {
         }),
         DatabaseModule,
         EventConsumersModule.forRoot(),
-        NotificationsModule,
+        NotificationsModule.register(config),
       ],
     };
   }
