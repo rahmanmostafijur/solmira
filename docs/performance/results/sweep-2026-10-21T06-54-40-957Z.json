@@ -1,0 +1,58 @@
+{
+  "environment": {
+    "measuredAt": "2026-10-21T06:54:40.957Z",
+    "commit": "efd0c92",
+    "dirty": true,
+    "node": "v24.13.0",
+    "os": "Windows_NT 10.0.19045 (x64)",
+    "cpu": "AMD Ryzen 5 2400G with Radeon Vega Graphics     x 8",
+    "memoryGiB": 13.9,
+    "topology": "Everything on one machine: the load generator, the receivers, the ingest service, the dispatcher, PostgreSQL, Redis, RabbitMQ and DynamoDB Local (the last four in Docker)."
+  },
+  "messages": 1500,
+  "endpoints": 3,
+  "rows": [
+    {
+      "concurrency": 20,
+      "poolMax": 10,
+      "deliveries": 4500,
+      "seconds": 37.89,
+      "deliveriesPerSecond": 118.8
+    },
+    {
+      "concurrency": 20,
+      "poolMax": 20,
+      "deliveries": 4500,
+      "seconds": 49.06,
+      "deliveriesPerSecond": 91.7
+    },
+    {
+      "concurrency": 50,
+      "poolMax": 20,
+      "deliveries": 4500,
+      "seconds": 49.58,
+      "deliveriesPerSecond": 90.8
+    },
+    {
+      "concurrency": 50,
+      "poolMax": 50,
+      "deliveries": 4500,
+      "seconds": 50.11,
+      "deliveriesPerSecond": 89.8
+    },
+    {
+      "concurrency": 100,
+      "poolMax": 50,
+      "deliveries": 4500,
+      "seconds": 52.71,
+      "deliveriesPerSecond": 85.4
+    },
+    {
+      "concurrency": 100,
+      "poolMax": 100,
+      "deliveries": 4500,
+      "seconds": 50.2,
+      "deliveriesPerSecond": 89.6
+    }
+  ]
+}

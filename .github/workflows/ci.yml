@@ -136,6 +136,26 @@ jobs:
             apps/web/test-results
           retention-days: 7
 
+  chaos:
+    name: Chaos tests (endpoint down, endpoint slow, broker restart, worker crash)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The scenarios run the ingest service and the dispatcher as processes and stop and start the
+      # broker through compose, so the infrastructure comes from the compose file, not from CI services.
+      - name: Start infrastructure
+        run: docker compose up -d --wait postgres redis rabbitmq dynamodb
+      - run: pnpm --filter @solmira/resilience chaos
+        env:
+          TEST_ADMIN_DATABASE_URL: postgres://solmira:solmira_dev_password@localhost:5433/postgres
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

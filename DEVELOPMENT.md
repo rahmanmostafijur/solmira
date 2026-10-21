@@ -114,6 +114,14 @@ pnpm --filter @solmira/audit-service test:integration         # audit records, i
 The ingest suite works the same way (`solmira_ingest_test`) and verifies tokens through a real JWKS
 endpoint served by the test harness.
 
+### Load and chaos tests
+
+`tests/resilience` runs the real ingest service and dispatcher as processes. `pnpm --filter
+@solmira/resilience chaos` runs the four chaos scenarios ([`docs/resilience`](docs/resilience/README.md));
+`load` and `load:sweep` measure throughput and latency and write results to `docs/performance/results`
+([`docs/performance`](docs/performance/README.md)). They need `pnpm infra:up` and a
+`TEST_ADMIN_DATABASE_URL`; the broker scenario stops and starts the compose `rabbitmq` container.
+
 ### End-to-end browser test
 
 `pnpm --filter @solmira/web test:e2e` drives the console in Chromium through the gateway against the

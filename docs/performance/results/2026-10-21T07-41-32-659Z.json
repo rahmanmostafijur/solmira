@@ -1,0 +1,96 @@
+{
+  "environment": {
+    "measuredAt": "2026-10-21T07:41:32.659Z",
+    "commit": "efd0c92",
+    "dirty": true,
+    "node": "v24.13.0",
+    "os": "Windows_NT 10.0.19045 (x64)",
+    "cpu": "AMD Ryzen 5 2400G with Radeon Vega Graphics     x 8",
+    "memoryGiB": 13.9,
+    "topology": "Everything on one machine: the load generator, the receivers, the ingest service, the dispatcher, PostgreSQL, Redis, RabbitMQ and DynamoDB Local (the last four in Docker)."
+  },
+  "settings": {
+    "dispatcherEnv": {
+      "DISPATCH_PER_ENDPOINT": "20",
+      "DISPATCH_CONCURRENCY": "50",
+      "DATABASE_POOL_MAX": "20",
+      "DISPATCH_BATCH_SIZE": "50"
+    },
+    "ingestMessages": 600,
+    "ingestConcurrency": 50,
+    "endpoints": 3,
+    "apiKeys": 4,
+    "steadyRatesPerSecond": [40, 40, 40],
+    "steadySeconds": 20
+  },
+  "ingestion": {
+    "sent": 600,
+    "accepted": 600,
+    "rejected": 0,
+    "seconds": 7.13,
+    "acceptedPerSecond": 84.2,
+    "responseTime": {
+      "count": 600,
+      "minMs": 173,
+      "p50Ms": 594,
+      "p95Ms": 747,
+      "p99Ms": 775,
+      "maxMs": 788
+    }
+  },
+  "dispatch": {
+    "deliveries": 1800,
+    "seconds": 18.58,
+    "deliveriesPerSecond": 96.9
+  },
+  "endToEnd": [
+    {
+      "offeredMessagesPerSecond": 40,
+      "offeredDeliveriesPerSecond": 120,
+      "seconds": 20,
+      "messages": 800,
+      "secondsToFinishAfterLastSend": 0.66,
+      "latency": {
+        "count": 2400,
+        "minMs": 210,
+        "p50Ms": 965,
+        "p95Ms": 1720,
+        "p99Ms": 1828,
+        "maxMs": 1972
+      },
+      "invalidSignatures": 0
+    },
+    {
+      "offeredMessagesPerSecond": 40,
+      "offeredDeliveriesPerSecond": 120,
+      "seconds": 20,
+      "messages": 800,
+      "secondsToFinishAfterLastSend": 0.52,
+      "latency": {
+        "count": 2400,
+        "minMs": 280,
+        "p50Ms": 613,
+        "p95Ms": 763,
+        "p99Ms": 821,
+        "maxMs": 976
+      },
+      "invalidSignatures": 0
+    },
+    {
+      "offeredMessagesPerSecond": 40,
+      "offeredDeliveriesPerSecond": 120,
+      "seconds": 20,
+      "messages": 800,
+      "secondsToFinishAfterLastSend": 0.53,
+      "latency": {
+        "count": 2400,
+        "minMs": 286,
+        "p50Ms": 580,
+        "p95Ms": 732,
+        "p99Ms": 803,
+        "maxMs": 895
+      },
+      "invalidSignatures": 0
+    }
+  ]
+}
