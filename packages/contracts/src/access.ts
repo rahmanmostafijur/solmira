@@ -32,6 +32,7 @@ export const PERMISSION_CATALOG = {
   'endpoint_secrets.reveal': 'Reveal endpoint signing secrets (audited)',
   'endpoint_secrets.rotate': 'Rotate endpoint signing secrets (audited)',
   'deliveries.replay': 'Replay messages and failed deliveries',
+  'notifications.read': 'View and acknowledge notifications',
   'analytics.read': 'View dashboards and reports',
   'audit_logs.read': 'View the audit trail',
 } as const;
@@ -47,6 +48,7 @@ export const roleKeySchema = z.enum(ROLE_KEYS);
 const READ_OPERATIONS: readonly Permission[] = [
   'organizations.read',
   'analytics.read',
+  'notifications.read',
   'applications.read',
   'event_types.read',
   'endpoints.read',

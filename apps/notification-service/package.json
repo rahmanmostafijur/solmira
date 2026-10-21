@@ -2,10 +2,11 @@
   "name": "@solmira/notification-service",
   "version": "0.1.0",
   "private": true,
-  "description": "In-app and email notifications, preferences and real-time WebSocket delivery",
+  "description": "Tenant notifications about failing and disabled endpoints",
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "drizzle"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
@@ -14,22 +15,35 @@
     "typecheck": "tsc -p tsconfig.json",
     "lint": "eslint src test",
     "test": "vitest run -c ../../vitest.service.config.ts",
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "node --env-file-if-exists=.env dist/database/migrate.js"
   },
   "dependencies": {
     "@nestjs/common": "^12.1.1",
     "@nestjs/core": "^12.1.1",
     "@nestjs/platform-express": "^12.1.1",
+    "@nestjs/swagger": "^12.0.2",
+    "@solmira/contracts": "workspace:*",
     "@solmira/service-kit": "workspace:*",
+    "drizzle-orm": "^0.45.3",
+    "pg": "^8.23.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
+    "uuid": "^14.0.2",
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@swc/core": "^1.16.12",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
+    "amqplib": "^2.2.0",
     "concurrently": "^10.0.5",
+    "drizzle-kit": "^0.31.11",
     "supertest": "^7.3.0",
+    "unplugin-swc": "^2.0.0",
     "vitest": "^5.0.2"
   }
 }
