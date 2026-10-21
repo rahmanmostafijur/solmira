@@ -24,6 +24,7 @@ import type {
   RotateSecretRequest,
   RotatedSecret,
   TestSendResult,
+  UpdateApiKeyRequest,
   UpdateApplicationRequest,
   UpdateEndpointRequest,
   UpdateEventTypeRequest,
@@ -228,12 +229,24 @@ export function useTestSend(org: string, app: string, id: string) {
 
 // ---- API keys -----------------------------------------------------------------------------------
 
-export const useApiKeys = (org: string, app: string, enabled = true) =>
+export const useApiKeys = (org: string, app: string, enabled = true, includeRevoked = false) =>
   useQuery({
-    queryKey: webhookKeys.apiKeys(org, app),
-    queryFn: () => api<Page<ApiKey>>(`/applications/${app}/api-keys` + search({ pageSize: 100 })),
+    queryKey: [...webhookKeys.apiKeys(org, app), { includeRevoked }],
+    queryFn: () =>
+      api<Page<ApiKey>>(
+        `/applications/${app}/api-keys` + search({ pageSize: 100, includeRevoked }),
+      ),
     enabled,
   });
+
+export function useRenameApiKey(org: string, app: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, change }: { id: string; change: UpdateApiKeyRequest }) =>
+      api<ApiKey>(`/applications/${app}/api-keys/${id}`, { method: 'PATCH', body: change }),
+    onSuccess: () => client.invalidateQueries({ queryKey: webhookKeys.apiKeys(org, app) }),
+  });
+}
 
 export function useCreateApiKey(org: string, app: string) {
   const client = useQueryClient();

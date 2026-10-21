@@ -14,18 +14,27 @@ import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { SecretDisplay } from '@/components/ui/secret-display';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
+import { RenameApiKeyForm } from '@/components/webhooks/rename-api-key-form';
 import { describeError } from '@/lib/api/client';
-import { useApiKeys, useCreateApiKey, useRevokeApiKey } from '@/lib/webhook-queries';
+import {
+  useApiKeys,
+  useCreateApiKey,
+  useRenameApiKey,
+  useRevokeApiKey,
+} from '@/lib/webhook-queries';
 
 /** The keys a tenant's backend uses to call the ingestion API. The key itself is shown only once. */
 export function ApiKeysPanel({ organizationId, applicationId }: Ids) {
   const { can } = usePermissions();
   const notify = useToast();
-  const keys = useApiKeys(organizationId, applicationId, can('api_keys.read'));
+  const [showRevoked, setShowRevoked] = useState(false);
+  const keys = useApiKeys(organizationId, applicationId, can('api_keys.read'), showRevoked);
   const create = useCreateApiKey(organizationId, applicationId);
+  const rename = useRenameApiKey(organizationId, applicationId);
   const revoke = useRevokeApiKey(organizationId, applicationId);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<CreatedApiKey>();
+  const [renaming, setRenaming] = useState<{ id: string; name: string }>();
   const [revoking, setRevoking] = useState<{ id: string; name: string }>();
 
   return (
@@ -33,14 +42,44 @@ export function ApiKeysPanel({ organizationId, applicationId }: Ids) {
       title="API keys"
       description="Your backend sends messages with one of these."
       actions={
-        can('api_keys.create') && (
-          <Button size="sm" onClick={() => setCreating(true)}>
-            <Plus aria-hidden className="size-4" />
-            New API key
-          </Button>
-        )
+        <div className="flex flex-wrap items-center gap-3">
+          {can('api_keys.read') && (
+            <label className="flex items-center gap-2 text-sm text-ink-muted">
+              <input
+                type="checkbox"
+                checked={showRevoked}
+                onChange={(event) => setShowRevoked(event.target.checked)}
+              />
+              Show revoked keys
+            </label>
+          )}
+          {can('api_keys.create') && (
+            <Button size="sm" onClick={() => setCreating(true)}>
+              <Plus aria-hidden className="size-4" />
+              New API key
+            </Button>
+          )}
+        </div>
       }
     >
+      <Dialog
+        open={renaming !== undefined}
+        title="Rename API key"
+        description="Requests keep working: the key itself does not change."
+        onClose={() => setRenaming(undefined)}
+      >
+        {renaming && (
+          <RenameApiKeyForm
+            name={renaming.name}
+            onCancel={() => setRenaming(undefined)}
+            onSubmit={async (change) => {
+              await rename.mutateAsync({ id: renaming.id, change });
+              setRenaming(undefined);
+              notify('API key renamed');
+            }}
+          />
+        )}
+      </Dialog>
       <Dialog open={creating} title="New API key" onClose={() => setCreating(false)}>
         <ApiKeyForm
           onCancel={() => setCreating(false)}
@@ -118,10 +157,21 @@ export function ApiKeysPanel({ organizationId, applicationId }: Ids) {
                   {key.lastUsedAt ? new Date(key.lastUsedAt).toLocaleString() : 'Never'}
                 </Td>
                 <Td className="text-right">
+                  {can('api_keys.update') && !key.revokedAt && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={`Rename ${key.name}`}
+                      onClick={() => setRenaming({ id: key.id, name: key.name })}
+                    >
+                      Rename
+                    </Button>
+                  )}
                   {can('api_keys.delete') && !key.revokedAt && (
                     <Button
                       variant="ghost"
                       size="sm"
+                      aria-label={`Revoke ${key.name}`}
                       onClick={() => setRevoking({ id: key.id, name: key.name })}
                     >
                       Revoke
