@@ -37,3 +37,11 @@ apps/web/test-results/
 apps/web/playwright-report/
 apps/web/AGENTS.md
 apps/web/CLAUDE.md
+
+# Terraform: provider downloads, state, and the environment's own values (offline.tfvars is placeholders)
+infra/terraform/.terraform/
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.*
+infra/terraform/backend_override.tf
+infra/terraform/backend.hcl
+infra/terraform/production.tfvars
