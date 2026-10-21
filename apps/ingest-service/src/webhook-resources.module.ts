@@ -8,6 +8,10 @@ import { EndpointSecretsService } from './endpoints/endpoint-secrets.service.js'
 import { EndpointUrlValidator } from './endpoints/endpoint-url-validator.js';
 import { EndpointsController } from './endpoints/endpoints.controller.js';
 import { EndpointsService } from './endpoints/endpoints.service.js';
+import { InspectionController } from './inspection/inspection.controller.js';
+import { InspectionService } from './inspection/inspection.service.js';
+import { TestSendController } from './test-send/test-send.controller.js';
+import { TestSendService } from './test-send/test-send.service.js';
 import { ReplayController } from './replay/replay.controller.js';
 import { ReplayService } from './replay/replay.service.js';
 import { EventTypesController } from './event-types/event-types.controller.js';
@@ -21,6 +25,8 @@ import { EventTypesService } from './event-types/event-types.service.js';
     EndpointsController,
     ApiKeysController,
     ReplayController,
+    InspectionController,
+    TestSendController,
   ],
   providers: [
     ApplicationsService,
@@ -31,6 +37,8 @@ import { EventTypesService } from './event-types/event-types.service.js';
     ApiKeysService,
     ApiKeyAuthenticator,
     ReplayService,
+    InspectionService,
+    TestSendService,
   ],
   exports: [ApiKeyAuthenticator],
 })

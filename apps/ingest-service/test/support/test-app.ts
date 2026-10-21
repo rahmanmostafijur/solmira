@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { Writable } from 'node:stream';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import { AttemptStore, createDynamoClients, ensureAttemptTable } from '@solmira/attempt-history';
 import { permissionsForRole, type RoleKey } from '@solmira/contracts';
 import { createServiceApp, loadConfig } from '@solmira/service-kit';
 import { startTestIssuer, type TestIssuer } from '@solmira/service-kit/testing';
@@ -10,6 +11,11 @@ import request from 'supertest';
 import { inject } from 'vitest';
 import { AppModule } from '../../src/app.module.js';
 import { SERVICE_NAME, envSchema } from '../../src/config.js';
+
+// DynamoDB Local accepts any credentials, but the SDK insists on having some.
+process.env.AWS_ACCESS_KEY_ID ??= 'local';
+process.env.AWS_SECRET_ACCESS_KEY ??= 'local';
+const DYNAMODB_ENDPOINT = process.env.TEST_DYNAMODB_ENDPOINT ?? 'http://localhost:8000';
 
 export interface Actor {
   readonly organizationId: string;
@@ -38,6 +44,8 @@ export interface TestApp {
   readonly dns: FakeDns;
   /** Superuser-like connection as the schema owner, for assertions the runtime role cannot make. */
   readonly db: pg.Pool;
+  /** The attempt history the service reads, for seeding attempts. */
+  readonly attempts: AttemptStore;
   /** Everything the service logged, as text. */
   readonly logs: () => string;
   readonly http: () => ReturnType<typeof request>;
@@ -60,6 +68,10 @@ export async function createTestApp(overrides: Record<string, string> = {}): Pro
       done();
     },
   });
+  const table = 'attempts-' + randomUUID().slice(0, 8);
+  const dynamo = createDynamoClients({ region: 'us-east-1', endpoint: DYNAMODB_ENDPOINT });
+  await ensureAttemptTable(dynamo.raw, table);
+  const attempts = new AttemptStore(dynamo.documents, table, 30);
   const config = loadConfig(envSchema, {
     NODE_ENV: 'test',
     LOG_LEVEL: 'debug',
@@ -70,10 +82,12 @@ export async function createTestApp(overrides: Record<string, string> = {}): Pro
     IDENTITY_JWKS_URL: issuer.jwksUrl,
     SECRETS_ENCRYPTION_KEY: randomBytes(32).toString('base64'),
     OUTBOX_RELAY_POLL_MS: '50',
+    DYNAMODB_ENDPOINT,
+    DYNAMODB_TABLE: table,
     ...overrides,
   });
   const app = await createServiceApp(
-    AppModule.register(config, { resolver: dns.resolve, logStream }),
+    AppModule.register(config, { resolver: dns.resolve, logStream, attempts }),
     { serviceName: SERVICE_NAME, nodeEnv: 'test' },
   );
   await app.init();
@@ -84,6 +98,7 @@ export async function createTestApp(overrides: Record<string, string> = {}): Pro
     issuer,
     dns,
     db,
+    attempts,
     logs: () => captured.join(''),
     http: () => request(app.getHttpServer()),
     async actor(organizationId, role) {
