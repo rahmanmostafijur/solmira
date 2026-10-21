@@ -10,6 +10,7 @@ export * from './health.js';
 export * from './http.js';
 export * from './idempotency.js';
 export * from './messages.js';
+export * from './notifications.js';
 export * from './organizations.js';
 export * from './pagination.js';
 export * from './realtime.js';

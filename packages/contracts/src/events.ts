@@ -65,13 +65,16 @@ export interface IngestEventPayloads {
   'application.archived': { applicationId: string };
   'application.restored': { applicationId: string };
   'api_key.created': { apiKeyId: string; applicationId: string; prefix: string; scopes: string[] };
+  'api_key.updated': { apiKeyId: string; applicationId: string; fields: string[] };
   'api_key.revoked': { apiKeyId: string; applicationId: string };
   'event_type.created': { eventTypeId: string; name: string };
   'event_type.updated': { eventTypeId: string; fields: string[] };
   'event_type.archived': { eventTypeId: string };
+  'event_type.restored': { eventTypeId: string };
   'endpoint.created': { endpointId: string; applicationId: string };
   'endpoint.updated': { endpointId: string; applicationId: string; fields: string[] };
   'endpoint.archived': { endpointId: string; applicationId: string };
+  'endpoint.restored': { endpointId: string; applicationId: string };
   /** A test event was sent to one endpoint from the console. */
   'endpoint.test_sent': { endpointId: string; applicationId: string; messageId: string };
   'endpoint_secret.revealed': { endpointId: string; applicationId: string; secretId: string };

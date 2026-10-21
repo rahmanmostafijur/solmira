@@ -39,6 +39,10 @@ export const createApiKeyRequestSchema = z.object({
 });
 export type CreateApiKeyRequest = z.infer<typeof createApiKeyRequestSchema>;
 
+/** Only the name can change: scopes and expiry are fixed when the key is created. */
+export const updateApiKeyRequestSchema = z.strictObject({ name: nameSchema });
+export type UpdateApiKeyRequest = z.infer<typeof updateApiKeyRequestSchema>;
+
 export const apiKeyListQuerySchema = paginationQuerySchema.extend({
   includeRevoked: z.stringbool().default(false),
 });
