@@ -23,7 +23,7 @@ export const DEFAULT_MAX_ATTEMPTS = 5;
 export const DEFAULT_RETRY_DELAY_MS = 5_000;
 export const DEFAULT_PREFETCH = 10;
 
-const ATTEMPT_HEADER = 'x-attempts';
+export const ATTEMPT_HEADER = 'x-attempts';
 
 export function attemptOf(message: ConsumeMessage): number {
   const previous = Number(message.properties.headers?.[ATTEMPT_HEADER] ?? 0);
