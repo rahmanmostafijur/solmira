@@ -36,7 +36,7 @@ export async function migrateDatabase(
  * The dispatcher reads what it needs to send (messages, endpoints, secrets), updates deliveries and
  * the health columns of endpoints, and records the event for an endpoint it disables. Row Level Security applies to it: after claiming through claim_due_deliveries() it
  * works inside the tenant of each delivery. It gets no access to API keys, applications,
- * idempotency records or the outbox. Idempotent; does nothing if the role does not exist.
+ * idempotency records or the outbox (it may only add events), and sees only the name of event types. Idempotent; does nothing if the role does not exist.
  */
 export async function grantDispatcherAccess(pool: pg.Pool, role: string): Promise<void> {
   if (!ROLE_NAME.test(role)) throw new Error('Unsafe role name: ' + role);
@@ -51,6 +51,8 @@ export async function grantDispatcherAccess(pool: pg.Pool, role: string): Promis
       'disabled_reason, disabled_at, updated_at) on endpoints to ' +
       role,
     // The event that tells the tenant an endpoint was disabled; the relay publishes it.
+    // The event type's name travels in delivery.attempted; its schema and description do not.
+    'grant select (id, organization_id, name) on event_types to ' + role,
     'grant insert on outbox_events to ' + role,
     'grant execute on function claim_due_deliveries(integer, integer, integer, integer) to ' + role,
     'grant execute on function app_current_organization_id() to ' + role,

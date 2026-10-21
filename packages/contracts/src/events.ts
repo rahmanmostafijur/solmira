@@ -95,6 +95,26 @@ export interface IngestEventPayloads {
     endpointId: string | null;
     deliveries: number;
   };
+  /** One real send of a delivery and how it ended. Written by the dispatcher (ADR-0035). */
+  'delivery.attempted': DeliveryAttemptedPayload;
+}
+
+export type DeliveryAttemptResult = 'succeeded' | 'retrying' | 'failed';
+
+/** No URL, header, payload or response body: those stay in the database and the history. */
+export interface DeliveryAttemptedPayload {
+  deliveryId: string;
+  messageId: string;
+  endpointId: string;
+  applicationId: string;
+  eventType: string;
+  attempt: number;
+  result: DeliveryAttemptResult;
+  statusCode: number | null;
+  errorClass: string | null;
+  durationMs: number;
+  startedAt: string;
+  nextAttemptAt: string | null;
 }
 
 export type IngestEventType = keyof IngestEventPayloads;

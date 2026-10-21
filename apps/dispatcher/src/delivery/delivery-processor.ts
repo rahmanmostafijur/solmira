@@ -80,7 +80,10 @@ export class DeliveryProcessor {
 
     const outcome = this.outcomeOf(claimed, result);
     await this.writeHistory(claimed, startedAt, result, outcome);
-    await this.repository.recordOutcome(claimed, outcome);
+    await this.repository.recordOutcome(claimed, outcome, {
+      startedAt,
+      durationMs: result.durationMs,
+    });
     return { outcome: outcome.kind, sent: true, errorClass: result.errorClass };
   }
 

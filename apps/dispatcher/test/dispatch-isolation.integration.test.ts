@@ -63,16 +63,15 @@ describe('tenant isolation in the dispatcher', () => {
 
     const bare = await role.query('select count(*)::int as n from deliveries');
     expect(bare.rows[0].n).toBe(0);
-    for (const table of [
-      'api_keys',
-      'applications',
-      'idempotency_keys',
-      'outbox_events',
-      'event_types',
-    ])
+    for (const table of ['api_keys', 'applications', 'idempotency_keys', 'outbox_events'])
       await expect(role.query('select 1 from ' + table), table).rejects.toThrow(
         /permission denied/,
       );
+    // Only the name of an event type is visible; its schema and description are not.
+    await expect(role.query('select schema from event_types')).rejects.toThrow(/permission denied/);
+    await expect(role.query('select description from event_types')).rejects.toThrow(
+      /permission denied/,
+    );
     await expect(
       role.query('insert into deliveries (id) values ($1)', [randomUUID()]),
     ).rejects.toThrow(/permission denied/);

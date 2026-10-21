@@ -1,4 +1,5 @@
 export * from './access.js';
+export * from './analytics.js';
 export * from './api-keys.js';
 export * from './applications.js';
 export * from './auth.js';
@@ -10,5 +11,6 @@ export * from './idempotency.js';
 export * from './messages.js';
 export * from './organizations.js';
 export * from './pagination.js';
+export * from './realtime.js';
 export * from './replay.js';
 export * from './services.js';
