@@ -53,13 +53,18 @@ export async function createTestDispatcher(
     DISPATCH_LEASE_SECONDS: '10',
     ...overrides,
   });
+  const db = new pg.Pool({ connectionString: inject('ownerDatabaseUrl'), max: 2 });
+  // A running loop takes any due delivery, so leftovers of earlier tests must not be in its way.
+  if (config.DISPATCH_AUTOSTART)
+    await db.query(
+      `update deliveries set status = 'succeeded' where status in ('pending', 'in_progress')`,
+    );
   const app = await createServiceApp(AppModule.register(config, { resolver }), {
     serviceName: SERVICE_NAME,
     nodeEnv: 'test',
   });
   await app.init();
   const dynamo = createDynamoClients({ region: 'us-east-1', endpoint: DYNAMODB_ENDPOINT });
-  const db = new pg.Pool({ connectionString: inject('ownerDatabaseUrl'), max: 2 });
   return {
     app,
     dispatcher: app.get(DispatcherService),

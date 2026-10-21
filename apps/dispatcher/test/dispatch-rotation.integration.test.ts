@@ -36,7 +36,8 @@ describe('signing during and after a rotation window', () => {
     await t.dispatcher.drainOnce();
 
     const find = (phase: string) => receiver.requests.find((r) => r.body.includes(phase))!;
-    const signatures = (phase: string) => find(phase).headers['webhook-signature']!.split(' ');
+    const signatures = (phase: string) =>
+      String(find(phase).headers['webhook-signature']).split(' ');
     expect(signatures('during')).toHaveLength(2);
     expect(signatures('after')).toHaveLength(1);
 

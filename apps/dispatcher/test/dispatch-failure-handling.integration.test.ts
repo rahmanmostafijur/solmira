@@ -132,6 +132,7 @@ describe('failure handling', () => {
       DISPATCH_PER_ENDPOINT: '10',
     });
     try {
+      arrivals.length = 0; // before seeding: the running loop sends as soon as a delivery exists
       const fixture = await seedDelivery(t.db, {
         url: 'http://limited.test:' + ok.port,
         rateLimitPerSecond: 2,
@@ -139,7 +140,6 @@ describe('failure handling', () => {
       });
       const ids = [fixture.deliveryId];
       for (let i = 0; i < 7; i += 1) ids.push(await addDelivery(t.db, fixture));
-      arrivals.length = 0;
       const left = await waitFor(
         async () =>
           (
@@ -155,7 +155,10 @@ describe('failure handling', () => {
       const perSecond = new Map<number, number>();
       for (const at of arrivals)
         perSecond.set(Math.floor(at / 1000), (perSecond.get(Math.floor(at / 1000)) ?? 0) + 1);
-      expect(Math.max(...perSecond.values())).toBeLessThanOrEqual(2);
+      // A fixed window can let two windows meet inside one wall-clock second: at most twice the limit.
+      expect(Math.max(...perSecond.values())).toBeLessThanOrEqual(4);
+      // Eight deliveries at two a second take at least three windows from first to last.
+      expect(Math.max(...arrivals) - Math.min(...arrivals)).toBeGreaterThan(2_500);
       expect(arrivals).toHaveLength(8);
       const attempts = await t.db.query(
         'select max(attempt_count)::int as n from deliveries where id = any($1)',
