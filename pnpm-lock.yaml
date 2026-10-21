@@ -77,9 +77,6 @@ importers:
       rxjs:
         specifier: ^7.8.2
         version: 7.8.2
-      uuid:
-        specifier: ^14.0.2
-        version: 14.0.2
       zod:
         specifier: ^4.6.5
         version: 4.6.5
