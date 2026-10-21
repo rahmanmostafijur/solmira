@@ -21,6 +21,7 @@ export function sampleEvents() {
     'organization.created': { organizationId: ids.org, name: 'Acme', ownerUserId: randomUUID() },
     'organization.updated': { organizationId: ids.org, fields: ['name'] },
     'member.invited': { invitationId: ids.invitation, email: 'a@example.com', role: 'STAFF' },
+    'invitation.revoked': { invitationId: ids.invitation },
     'member.joined': { memberId: ids.member, userId: randomUUID(), role: 'STAFF' },
     'member.role_changed': {
       memberId: ids.member,

@@ -44,6 +44,7 @@ export interface IdentityEventPayloads {
   'organization.created': { organizationId: string; name: string; ownerUserId: string };
   'organization.updated': { organizationId: string; fields: string[] };
   'member.invited': { invitationId: string; email: string; role: string };
+  'invitation.revoked': { invitationId: string };
   'member.joined': { memberId: string; userId: string; role: string };
   'member.role_changed': { memberId: string; userId: string; fromRole: string; toRole: string };
   'member.status_changed': { memberId: string; userId: string; status: string };

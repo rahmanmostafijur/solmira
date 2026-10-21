@@ -151,8 +151,8 @@ export class InvitationsService {
   }
 
   async revoke(auth: TenantAuthContext, invitationId: string): Promise<void> {
-    const revoked = await this.database.scoped(this.scope(auth), (tx) =>
-      tx
+    const revoked = await this.database.scoped(this.scope(auth), async (tx) => {
+      const rows = await tx
         .update(invitations)
         .set({ revokedAt: new Date() })
         .where(
@@ -163,8 +163,18 @@ export class InvitationsService {
             isNull(invitations.revokedAt),
           ),
         )
-        .returning({ id: invitations.id }),
-    );
+        .returning({ id: invitations.id });
+      // Recorded with the change, so the audit trail shows who withdrew an invitation.
+      if (rows.length > 0) {
+        await recordEvent(
+          tx,
+          'invitation.revoked',
+          { invitationId },
+          { organizationId: auth.organizationId, actorId: auth.userId },
+        );
+      }
+      return rows;
+    });
     if (revoked.length === 0) throw new NotFoundError('Invitation not found');
   }
 
