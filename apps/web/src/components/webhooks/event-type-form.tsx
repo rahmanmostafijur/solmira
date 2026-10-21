@@ -51,7 +51,7 @@ export function EventTypeForm({
         ...(parsed && 'value' in parsed ? { schema: parsed.value } : {}),
       });
     } catch (error) {
-      applyServerError(error, form.setError);
+      applyServerError(error, form);
     }
   });
 

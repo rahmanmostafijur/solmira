@@ -5,7 +5,12 @@ import { AppError } from '@solmira/service-kit';
 export class UnknownEventTypeError extends AppError {
   constructor(name: string) {
     super('UNKNOWN_EVENT_TYPE', 'Unknown or archived event type: ' + name, 422, [
-      { path: 'eventType', message: 'No active event type has this name' },
+      {
+        path: 'eventType',
+        message:
+          `No active event type is named "${name}". Check the spelling, or create the event ` +
+          'type first (console: Event types, API: POST /api/v1/event-types)',
+      },
     ]);
   }
 }
@@ -17,9 +22,19 @@ export class PayloadInvalidError extends AppError {
   }
 }
 
+/** Sizes are bytes of the payload's JSON form (UTF-8), the same measure the limit uses. */
 export class PayloadTooLargeError extends AppError {
-  constructor(limitBytes: number) {
-    super('PAYLOAD_TOO_LARGE', 'The payload can be at most ' + limitBytes + ' bytes', 413);
+  constructor(limitBytes: number, actualBytes: number) {
+    super('PAYLOAD_TOO_LARGE', 'The payload can be at most ' + limitBytes + ' bytes', 413, [
+      {
+        path: 'payload',
+        message:
+          `The payload must be at most ${limitBytes} bytes as JSON; got ${actualBytes}. Send ` +
+          'less data, or store large content elsewhere and send a reference to it',
+        rule: 'too_big',
+        maximum: limitBytes,
+      },
+    ]);
   }
 }
 

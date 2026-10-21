@@ -36,7 +36,7 @@ export function ApplicationForm({
         ...(values.description ? { description: values.description } : {}),
       });
     } catch (error) {
-      applyServerError(error, form.setError);
+      applyServerError(error, form);
     }
   });
 

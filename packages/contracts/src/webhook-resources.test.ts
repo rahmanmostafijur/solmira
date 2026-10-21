@@ -67,7 +67,7 @@ describe('endpoints', () => {
   it('allow at most ten custom headers', () => {
     const headers = Object.fromEntries(Array.from({ length: 11 }, (_, i) => [`x-h${i}`, 'v']));
     expect(issues(createEndpointRequestSchema.safeParse({ ...base, headers }))).toContain(
-      'At most 10 custom headers',
+      'Send at most 10 custom headers; got 11',
     );
   });
 

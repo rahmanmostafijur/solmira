@@ -88,7 +88,7 @@ export class MessagesService {
     if (principal.applicationId !== applicationId) throw new NotFoundError('Application not found');
     const payloadBytes = Buffer.byteLength(JSON.stringify(input.payload), 'utf8');
     if (payloadBytes > this.config.MAX_MESSAGE_PAYLOAD_BYTES)
-      throw new PayloadTooLargeError(this.config.MAX_MESSAGE_PAYLOAD_BYTES);
+      throw new PayloadTooLargeError(this.config.MAX_MESSAGE_PAYLOAD_BYTES, payloadBytes);
     const hash = requestHash(input.eventType, input.payload);
     const scope = { organizationId: principal.organizationId, userId: null };
 

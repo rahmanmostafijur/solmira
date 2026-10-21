@@ -4,13 +4,24 @@ import { emailSchema } from './auth.js';
 
 export const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,46}[a-z0-9])?$/;
 
+const organizationNameSchema = z
+  .string()
+  .trim()
+  .min(2, 'Use at least 2 characters')
+  .max(100, 'The organization name can have at most 100 characters')
+  .meta({ examples: ['Acme Corp'] });
+
 export const createOrganizationRequestSchema = z.object({
-  name: z.string().trim().min(2, 'Use at least 2 characters').max(100),
+  name: organizationNameSchema,
   slug: z
     .string()
     .trim()
     .toLowerCase()
-    .regex(SLUG_PATTERN, 'Lowercase letters, numbers and hyphens only')
+    .regex(
+      SLUG_PATTERN,
+      'Lowercase letters, numbers and hyphens only, 1 to 48 characters, for example acme-corp',
+    )
+    .meta({ examples: ['acme-corp'] })
     .optional(),
 });
 export type CreateOrganizationRequest = z.infer<typeof createOrganizationRequestSchema>;
@@ -24,18 +35,18 @@ const timezoneSchema = z.string().refine(
       return false;
     }
   },
-  { message: 'Unknown time zone' },
+  { message: 'Unknown time zone; use an IANA name, for example Europe/Berlin' },
 );
 
 export const updateOrganizationRequestSchema = z
   .object({
-    name: z.string().trim().min(2).max(100),
+    name: organizationNameSchema,
     timezone: timezoneSchema,
     currency: z
       .string()
       .trim()
       .toUpperCase()
-      .regex(/^[A-Z]{3}$/, 'Use a 3-letter ISO 4217 code'),
+      .regex(/^[A-Z]{3}$/, 'Use a 3-letter ISO 4217 code, for example EUR'),
   })
   .partial()
   .refine((body) => Object.keys(body).length > 0, { message: 'Nothing to update' });

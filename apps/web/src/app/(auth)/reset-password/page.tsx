@@ -39,7 +39,7 @@ function ResetPasswordForm() {
       });
       setDone(true);
     } catch (error) {
-      applyServerError(error, form.setError);
+      applyServerError(error, form);
     }
   });
 

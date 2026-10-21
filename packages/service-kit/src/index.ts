@@ -22,6 +22,7 @@ export * from './infra/redis.module.js';
 export * from './logging/logger.module.js';
 export * from './platform.module.js';
 export * from './run-service.js';
+export * from './validation/field-issues.js';
 export * from './validation/zod-validation.pipe.js';
 export * from './database/pg-errors.js';
 export * from './database/query.js';

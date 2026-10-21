@@ -5,12 +5,14 @@ import {
   descriptionSchema,
   includeArchivedSchema,
   timestampSchema,
+  whenSent,
 } from './resource-fields.js';
 
 /** Endpoints: where a tenant's customers receive webhooks (ADR-0025, ADR-0028). */
 
 export const MAX_ENDPOINT_URL_LENGTH = 2048;
 export const MAX_CUSTOM_HEADERS = 10;
+export const MAX_CUSTOM_HEADER_VALUE_LENGTH = 1024;
 export const MAX_ENDPOINT_RATE_LIMIT_PER_SECOND = 1000;
 export const MAX_SUBSCRIPTIONS = 100;
 
@@ -43,18 +45,32 @@ export function reservedHeaderReason(name: string): string | undefined {
 }
 
 export const customHeadersSchema = z
-  .record(z.string(), z.string().max(1024, 'Header values can have at most 1024 characters'))
+  .record(
+    z.string(),
+    z
+      .string({ error: whenSent('Header values must be strings, for example "acme"') })
+      .max(
+        MAX_CUSTOM_HEADER_VALUE_LENGTH,
+        `Header values can have at most ${MAX_CUSTOM_HEADER_VALUE_LENGTH} characters`,
+      ),
+    { error: whenSent('Send headers as a JSON object, for example {"x-tenant-id": "acme"}') },
+  )
   .superRefine((headers, context) => {
     const names = Object.keys(headers);
     if (names.length > MAX_CUSTOM_HEADERS)
-      context.addIssue({ code: 'custom', message: `At most ${MAX_CUSTOM_HEADERS} custom headers` });
+      context.addIssue({
+        code: 'custom',
+        message: `Send at most ${MAX_CUSTOM_HEADERS} custom headers; got ${names.length}`,
+      });
     for (const name of names) {
       const reason = reservedHeaderReason(name);
       if (!HEADER_NAME.test(name))
         context.addIssue({
           code: 'custom',
           path: [name],
-          message: 'Header names use lowercase letters, digits and dashes',
+          message:
+            'Header names have 1 to 64 lowercase letters, digits and dashes, ' +
+            'for example x-tenant-id',
         });
       else if (reason) context.addIssue({ code: 'custom', path: [name], message: reason });
       if (CONTROL_CHARACTERS.test(headers[name] ?? ''))
@@ -70,7 +86,8 @@ const urlSchema = z
   .string()
   .trim()
   .min(1, 'Enter a URL')
-  .max(MAX_ENDPOINT_URL_LENGTH, `The URL can have at most ${MAX_ENDPOINT_URL_LENGTH} characters`);
+  .max(MAX_ENDPOINT_URL_LENGTH, `The URL can have at most ${MAX_ENDPOINT_URL_LENGTH} characters`)
+  .meta({ examples: ['https://example.com/webhooks'] });
 const rateLimitSchema = z.number().int().min(1).max(MAX_ENDPOINT_RATE_LIMIT_PER_SECOND);
 const subscriptionsSchema = z.array(z.uuid()).max(MAX_SUBSCRIPTIONS);
 

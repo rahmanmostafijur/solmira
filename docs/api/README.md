@@ -19,36 +19,128 @@ contract being built; they are not available yet.
 | Pagination     | Lists take `page` (default 1) and `pageSize` (default 25, max 100) and return `{ items, page, pageSize, total, totalPages }`.               |
 | Rate limits    | Excess requests answer `429` with `Retry-After`.                                                                                            |
 
-### Errors
+## Errors
 
-Every error uses one envelope:
+Every error uses one envelope. A real answer to a message sent with `Idempotency-Key: short`:
 
 ```json
 {
   "error": {
     "code": "VALIDATION_FAILED",
-    "message": "Request validation failed",
-    "details": [{ "path": "email", "message": "Enter a valid email address" }],
+    "message": "Idempotency-Key is too short",
+    "details": [
+      {
+        "path": "Idempotency-Key",
+        "message": "Idempotency-Key must be 8 to 100 characters long (letters, digits, - _ : .); got 5. Example: order-1234-created",
+        "rule": "too_short",
+        "example": "order-1234-created",
+        "minimum": 8,
+        "maximum": 100
+      }
+    ],
     "requestId": "0192f000-0000-7000-8000-000000000000"
   }
 }
 ```
 
-| Code                                      | Status  | Meaning                                                                       |
-| ----------------------------------------- | ------- | ----------------------------------------------------------------------------- |
-| `BAD_REQUEST`, `VALIDATION_FAILED`        | 400     | Malformed request or invalid fields (`details`).                              |
-| `UNAUTHENTICATED`, `TOKEN_EXPIRED`        | 401     | Missing, invalid or expired credentials.                                      |
-| `INVALID_CREDENTIALS`, `ACCOUNT_DISABLED` | 401/403 | Login failed or the account is disabled.                                      |
-| `INVALID_CURRENT_PASSWORD`                | 400     | A password change gave the wrong current password.                            |
-| `FORBIDDEN`                               | 403     | Authenticated but missing the permission.                                     |
-| `NOT_FOUND`                               | 404     | Missing, or belongs to another tenant.                                        |
-| `CONFLICT`                                | 409     | State conflict, for example a duplicate.                                      |
-| `PAYLOAD_TOO_LARGE`                       | 413     | Body over the size limit.                                                     |
-| `UNKNOWN_EVENT_TYPE`                      | 422     | The event type does not exist or is archived.                                 |
-| `PAYLOAD_INVALID`                         | 422     | The payload does not match the event type schema (`details` name the fields). |
-| `IDEMPOTENCY_CONFLICT`                    | 409     | The Idempotency-Key was used with a different request.                        |
-| `RATE_LIMITED`                            | 429     | Too many requests.                                                            |
-| `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`   | 500/503 | Failure on our side; nothing internal is leaked.                              |
+How to read it:
+
+| Field               | Meaning                                                                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `code`              | Stable machine code (table below). Branch on this, never on the message.                                                                                      |
+| `message`           | One line for people. For `VALIDATION_FAILED` it names the first problem and how many more there are; `details` has all of them.                               |
+| `details`           | Present when the problem is in specific fields; one entry per problem.                                                                                        |
+| `details[].path`    | The field: a dotted body path (`headers.x-tenant-id`, `eventTypeIds.0`), a query parameter, a path parameter or a header name. Empty for the body as a whole. |
+| `details[].message` | What is wrong and what to send instead. It names the field and, when it helps, what was received and an example.                                              |
+| `details[].rule`    | Optional machine code of the broken rule (table below).                                                                                                       |
+| `details[].example` | Optional example of a valid value.                                                                                                                            |
+| `details[].minimum` | Optional lower bound: a length for text and lists, a value for numbers.                                                                                       |
+| `details[].maximum` | Optional upper bound, measured the same way (bytes for a payload).                                                                                            |
+| `requestId`         | Quote it when contacting support; it finds the request in the logs.                                                                                           |
+
+Messages may be reworded; `code`, `path` and `rule` are stable. Query and path parameters are
+named as such, for example `GET /api/v1/event-types?pageSize=500` answers `message`
+`Query parameter pageSize is too large` with the detail
+`{ "path": "pageSize", "rule": "too_big", "message": "Query parameter pageSize must be between 1 and 100; got 500.", "minimum": 1, "maximum": 100 }`.
+Messages never repeat a long or sensitive value back: they state a length, a number or a short
+enum value at most.
+
+| Rule               | The field                                                                                              |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `required`         | is missing.                                                                                            |
+| `invalid_type`     | has the wrong JSON type, for example a string where an object is expected.                             |
+| `too_short`        | is text shorter than `minimum` characters.                                                             |
+| `too_long`         | is text longer than `maximum` characters.                                                              |
+| `too_small`        | is a number below `minimum`, or a list with fewer than `minimum` items.                                |
+| `too_big`          | is a number above `maximum`, a list with more than `maximum` items, or a payload over `maximum` bytes. |
+| `invalid_format`   | does not have the expected format: UUID, email, ISO 8601 date-time or a name pattern.                  |
+| `invalid_enum`     | is not one of the allowed values; the message lists them.                                              |
+| `unrecognized_key` | is not a field of this request; remove it.                                                             |
+| `invalid`          | breaks another rule the message explains, for example a range whose end is before its start.           |
+
+More rules may be added: treat an unknown `rule` like `invalid` and show the message. Some field
+errors raised after validation (an unknown event type, a URL the policy refuses) have no `rule`.
+
+| Code                                      | Status  | Meaning                                                                                  |
+| ----------------------------------------- | ------- | ---------------------------------------------------------------------------------------- |
+| `BAD_REQUEST`                             | 400     | Malformed request, for example a body that is not JSON.                                  |
+| `VALIDATION_FAILED`                       | 400     | Invalid fields, headers or parameters (`details`).                                       |
+| `UNAUTHENTICATED`, `TOKEN_EXPIRED`        | 401     | Missing, invalid or expired credentials.                                                 |
+| `INVALID_CREDENTIALS`, `ACCOUNT_DISABLED` | 401/403 | Login failed or the account is disabled.                                                 |
+| `INVALID_CURRENT_PASSWORD`                | 400     | A password change gave the wrong current password.                                       |
+| `FORBIDDEN`                               | 403     | Authenticated but missing the permission.                                                |
+| `NOT_FOUND`                               | 404     | Missing, or belongs to another tenant.                                                   |
+| `CONFLICT`                                | 409     | State conflict, for example a duplicate.                                                 |
+| `IDEMPOTENCY_CONFLICT`                    | 409     | The Idempotency-Key was used with a different request.                                   |
+| `PAYLOAD_TOO_LARGE`                       | 413     | Body or message payload over its limit; for a payload `details[0].maximum` is the limit. |
+| `UNKNOWN_EVENT_TYPE`                      | 422     | The event type does not exist or is archived.                                            |
+| `PAYLOAD_INVALID`                         | 422     | The payload does not match the event type schema (`details` name up to 10 fields).       |
+| `RATE_LIMITED`                            | 429     | Too many requests; wait `Retry-After` seconds.                                           |
+| `INTERNAL_ERROR`, `SERVICE_UNAVAILABLE`   | 500/503 | Failure on our side; nothing internal is leaked. Retry with backoff.                     |
+
+## Limits
+
+Defaults, with the allowed range for values a deployment can change. Request limits are defined in
+`packages/contracts` and checked by the API and the console alike.
+
+| Limit                                 | Value                                                                                    | Where it is set                                                                                                                                          |
+| ------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Idempotency-Key                       | 8 to 100 characters: letters, digits and `- _ : .`                                       | `IDEMPOTENCY_KEY_MIN_LENGTH`, `IDEMPOTENCY_KEY_MAX_LENGTH`, `packages/contracts/src/idempotency.ts`                                                      |
+| Idempotency-Key retention             | 24 hours (60 s to 30 days)                                                               | `IDEMPOTENCY_RETENTION_SECONDS`, `apps/ingest-service/src/config.ts`                                                                                     |
+| Message payload                       | 256 KiB (262144 bytes) of JSON (1024 to 1000000 bytes)                                   | `MAX_MESSAGE_PAYLOAD_BYTES`, `apps/ingest-service/src/config.ts`                                                                                         |
+| JSON request body                     | 1 MB                                                                                     | `JSON_BODY_LIMIT`, `packages/service-kit/src/bootstrap.ts`                                                                                               |
+| Request body at the local gateway     | 10 MB                                                                                    | `client_max_body_size`, `infra/docker/gateway/nginx.conf`                                                                                                |
+| Payload the dispatcher sends          | 1000000 bytes (1024 to 1000000)                                                          | `DELIVERY_MAX_PAYLOAD_BYTES`, `apps/dispatcher/src/config.ts`                                                                                            |
+| Application and API key name          | 1 to 100 characters                                                                      | `MAX_NAME_LENGTH`, `packages/contracts/src/resource-fields.ts`                                                                                           |
+| Description                           | at most 500 characters                                                                   | `MAX_DESCRIPTION_LENGTH`, `packages/contracts/src/resource-fields.ts`                                                                                    |
+| Event type name                       | 1 to 128 of `a-z 0-9 . _ -`, starting with a letter or digit; `solmira.` is reserved     | `EVENT_TYPE_NAME_PATTERN`, `packages/contracts/src/applications.ts`                                                                                      |
+| Event type JSON Schema                | 64 KiB of JSON                                                                           | `MAX_EVENT_TYPE_SCHEMA_BYTES`, `packages/contracts/src/applications.ts`                                                                                  |
+| Payload schema errors reported        | the first 10                                                                             | `apps/ingest-service/src/event-types/payload-validator.ts`                                                                                               |
+| Endpoint URL                          | at most 2048 characters; https and public addresses only in production                   | `MAX_ENDPOINT_URL_LENGTH`, `packages/contracts/src/endpoints.ts`; [ADR-0028](../adr/0028-endpoint-url-policy.md)                                         |
+| Custom headers per endpoint           | at most 10                                                                               | `MAX_CUSTOM_HEADERS`, `packages/contracts/src/endpoints.ts`                                                                                              |
+| Custom header name                    | 1 to 64 lowercase letters, digits and dashes; reserved names are refused                 | `packages/contracts/src/endpoints.ts`                                                                                                                    |
+| Custom header value                   | at most 1024 characters, no control characters                                           | `MAX_CUSTOM_HEADER_VALUE_LENGTH`, `packages/contracts/src/endpoints.ts`                                                                                  |
+| Event type subscriptions per endpoint | at most 100                                                                              | `MAX_SUBSCRIPTIONS`, `packages/contracts/src/endpoints.ts`                                                                                               |
+| Endpoint rate limit                   | optional, 1 to 1000 deliveries per second                                                | `MAX_ENDPOINT_RATE_LIMIT_PER_SECOND`, `packages/contracts/src/endpoints.ts`                                                                              |
+| Secret rotation window                | 24 hours (1 to 168)                                                                      | `DEFAULT_ROTATION_WINDOW_HOURS`, `MAX_ROTATION_WINDOW_HOURS`, `packages/contracts/src/endpoints.ts`                                                      |
+| Page size                             | 25 by default, at most 100; `page` at most 10000                                         | `DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE`, `packages/contracts/src/pagination.ts`                                                                             |
+| Bulk replay                           | at most 5000 deliveries per call                                                         | `MAX_BULK_REPLAY`, `packages/contracts/src/replay.ts`                                                                                                    |
+| Analytics range                       | 24 hours by default, at most 31 days                                                     | `DEFAULT_ANALYTICS_RANGE_HOURS`, `MAX_ANALYTICS_RANGE_DAYS`, `packages/contracts/src/analytics.ts`                                                       |
+| Organization name and slug            | name 2 to 100 characters; slug 1 to 48 of `a-z 0-9 -`                                    | `packages/contracts/src/organizations.ts`                                                                                                                |
+| Password                              | 12 to 128 characters                                                                     | `PASSWORD_MIN_LENGTH`, `PASSWORD_MAX_LENGTH`, `packages/contracts/src/auth.ts`                                                                           |
+| Email and full name                   | at most 254 and 120 characters                                                           | `packages/contracts/src/auth.ts`                                                                                                                         |
+| Ingestion rate                        | 600 requests per minute per API key (1 to 100000)                                        | `INGEST_RATE_LIMIT_PER_MINUTE`, `apps/ingest-service/src/config.ts`                                                                                      |
+| Failed sign-ins                       | 5, then locked for 15 minutes                                                            | `LOGIN_MAX_FAILURES`, `LOGIN_LOCKOUT_SECONDS`, `apps/identity-service/src/config.ts`                                                                     |
+| Password reset emails                 | 3 per hour                                                                               | `RESET_REQUESTS_PER_HOUR`, `apps/identity-service/src/auth/account-recovery.service.ts`                                                                  |
+| Requests per IP, local gateway        | 30 per second (burst 60); sign-in, registration and reset 10 per minute (burst 5)        | `infra/docker/gateway/nginx.conf`, `infra/docker/gateway/templates/solmira.conf.template`                                                                |
+| Requests per IP, AWS                  | 30000 per 5 minutes; sign-in, registration and reset 300 per 5 minutes                   | `waf_rate_limit_per_5_minutes`, `waf_auth_rate_limit_per_5_minutes`, `infra/terraform/variables.tf`                                                      |
+| Realtime feed                         | 50 connections per organization; send the `auth` frame within 5 s                        | `REALTIME_MAX_CONNECTIONS_PER_ORGANIZATION`, `apps/notification-service/src/config.ts`; `REALTIME_AUTH_TIMEOUT_MS`, `packages/contracts/src/realtime.ts` |
+| Delivery timeouts                     | connect 5 s, whole request 30 s                                                          | `DELIVERY_CONNECT_TIMEOUT_MS`, `DELIVERY_TIMEOUT_MS`, `apps/dispatcher/src/config.ts`                                                                    |
+| Retry schedule                        | 8 attempts: immediately, then after 5 s, 5 min, 30 min, 2 h, 5 h, 10 h, 10 h, each ±20 % | `RETRY_SCHEDULE_SECONDS`, `RETRY_JITTER_RATIO`, `apps/dispatcher/src/config.ts`                                                                          |
+| Endpoint auto-disable                 | after 120 hours of continuous failure                                                    | `AUTO_DISABLE_AFTER_HOURS`, `apps/dispatcher/src/config.ts`                                                                                              |
+| Stored response body per attempt      | the first 4096 bytes (0 to 65536)                                                        | `DELIVERY_RESPONSE_BODY_LIMIT_BYTES`, `apps/dispatcher/src/config.ts`                                                                                    |
+| Attempt history retention             | 30 days                                                                                  | `ATTEMPT_RETENTION_DAYS`, `apps/dispatcher/src/config.ts`                                                                                                |
+| Access token lifetime                 | 15 minutes (60 s to 1 h)                                                                 | `ACCESS_TOKEN_TTL_SECONDS`, `apps/identity-service/src/config.ts`                                                                                        |
 
 ## identity-service (built)
 

@@ -25,9 +25,17 @@ export const emailSchema = z
   .string()
   .trim()
   .toLowerCase()
-  .pipe(z.email('Enter a valid email address').max(254));
+  .pipe(
+    z
+      .email('Enter a valid email address, for example ana@example.com')
+      .max(254, 'The email address can have at most 254 characters'),
+  );
 
-const fullNameSchema = z.string().trim().min(1, 'Enter your name').max(120);
+const fullNameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Enter your name')
+  .max(120, 'The name can have at most 120 characters');
 
 export const registerRequestSchema = z.object({
   email: emailSchema,

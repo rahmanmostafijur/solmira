@@ -26,13 +26,45 @@ describe('message validation', () => {
   it('rejects a missing or malformed Idempotency-Key', async () => {
     const missing = await send(valid(), null).expect(400);
     expect(missing.body.error.details[0].path).toBe('Idempotency-Key');
-    await send(valid(), 'short').expect(400);
+    expect(missing.body.error.details[0].rule).toBe('required');
+    const short = await send(valid(), 'short').expect(400);
+    expect(short.body.error).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      message: 'Idempotency-Key is too short',
+    });
+    expect(short.body.error.details).toEqual([
+      {
+        path: 'Idempotency-Key',
+        rule: 'too_short',
+        message:
+          'Idempotency-Key must be 8 to 100 characters long (letters, digits, - _ : .); got 5. ' +
+          'Example: order-1234-created',
+        example: 'order-1234-created',
+        minimum: 8,
+        maximum: 100,
+      },
+    ]);
   });
 
-  it('rejects a malformed body', async () => {
-    await send({ eventType, payload: 'not an object' }).expect(400);
-    await send({ payload: {} }).expect(400);
-    await send({ eventType: 'Not Valid', payload: {} }).expect(400);
+  it('rejects a malformed body and names the field and the rule', async () => {
+    const notObject = await send({ eventType, payload: 'not an object' }).expect(400);
+    expect(notObject.body.error.details[0]).toMatchObject({
+      path: 'payload',
+      rule: 'invalid_type',
+      message: 'payload must be a JSON object; got a string.',
+    });
+    const missing = await send({ payload: {} }).expect(400);
+    expect(missing.body.error.message).toBe('eventType is required');
+    expect(missing.body.error.details[0]).toMatchObject({
+      rule: 'required',
+      example: 'invoice.paid',
+    });
+    const badName = await send({ eventType: 'Not Valid', payload: {} }).expect(400);
+    expect(badName.body.error.details[0]).toMatchObject({
+      path: 'eventType',
+      rule: 'invalid_format',
+    });
+    expect(badName.body.error.details[0].message).toContain('for example invoice.paid');
   });
 
   it('answers 422 UNKNOWN_EVENT_TYPE for an unknown or an archived event type', async () => {
@@ -53,6 +85,11 @@ describe('message validation', () => {
     const fits = 256 * 1024 - overhead;
     const large = await send(valid({ blob: 'x'.repeat(300 * 1024) })).expect(413);
     expect(large.body.error.code).toBe('PAYLOAD_TOO_LARGE');
+    expect(large.body.error.details[0]).toMatchObject({
+      path: 'payload',
+      rule: 'too_big',
+      maximum: 256 * 1024,
+    });
     await send(valid({ blob: 'x'.repeat(fits) })).expect(202);
     await send(valid({ blob: 'x'.repeat(fits + 1) })).expect(413);
   });
