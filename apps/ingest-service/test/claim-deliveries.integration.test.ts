@@ -11,11 +11,18 @@ interface Claimed {
 const owner = new pg.Pool({ connectionString: inject('ownerDatabaseUrl'), max: 4 });
 afterAll(() => owner.end());
 
-const claim = async (limit: number, perTenant: number, leaseSeconds = 60, db: pg.Pool = owner) =>
+const claim = async (
+  limit: number,
+  perTenant: number,
+  leaseSeconds = 60,
+  perEndpoint = 1000,
+  db: pg.Pool = owner,
+) =>
   (
-    await db.query<Claimed>('select * from claim_due_deliveries($1, $2, $3)', [
+    await db.query<Claimed>('select * from claim_due_deliveries($1, $2, $3, $4)', [
       limit,
       perTenant,
+      perEndpoint,
       leaseSeconds,
     ])
   ).rows;
@@ -111,12 +118,15 @@ describe('claim_due_deliveries', () => {
     const batches = await Promise.all(Array.from({ length: 4 }, () => claim(20, 10)));
     const ids = batches.flat().map((row) => row.delivery_id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(50);
+    // Workers that pick the same candidates skip rows the others hold; a follow-up pass collects them.
+    const rest = (await claim(100, 100)).map((row) => row.delivery_id);
+    expect(new Set([...ids, ...rest]).size).toBe(50);
+    expect(ids.length + rest.length).toBe(50);
   });
 
   it('is not callable by the public role', async () => {
     const { rows } = await owner.query(
-      `select has_function_privilege('public', 'claim_due_deliveries(integer, integer, integer)', 'execute') as callable`,
+      `select has_function_privilege('public', 'claim_due_deliveries(integer, integer, integer, integer)', 'execute') as callable`,
     );
     expect(rows[0].callable).toBe(false);
   });

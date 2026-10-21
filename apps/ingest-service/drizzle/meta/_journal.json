@@ -64,6 +64,20 @@
       "when": 1792531204976,
       "tag": "0008_in_progress_index",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792532906434,
+      "tag": "0009_endpoint_health_and_cycles",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792532910426,
+      "tag": "0010_claim_with_isolation",
+      "breakpoints": true
     }
   ]
 }

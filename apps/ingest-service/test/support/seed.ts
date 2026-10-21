@@ -69,3 +69,13 @@ export async function seedDelivery(
   );
   return deliveryId;
 }
+
+/** Another endpoint of the same organization and application. */
+export async function seedEndpoint(db: pg.Pool, seed: DeliverySeed): Promise<DeliverySeed> {
+  const endpointId = randomUUID();
+  await db.query(
+    `insert into endpoints (id, organization_id, application_id, url) values ($1, $2, $3, 'https://example.com/other')`,
+    [endpointId, seed.organizationId, seed.applicationId],
+  );
+  return { ...seed, endpointId };
+}
