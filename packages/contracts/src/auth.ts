@@ -27,10 +27,12 @@ export const emailSchema = z
   .toLowerCase()
   .pipe(z.email('Enter a valid email address').max(254));
 
+const fullNameSchema = z.string().trim().min(1, 'Enter your name').max(120);
+
 export const registerRequestSchema = z.object({
   email: emailSchema,
   password: passwordSchema,
-  fullName: z.string().trim().min(1, 'Enter your name').max(120),
+  fullName: fullNameSchema,
 });
 export type RegisterRequest = z.infer<typeof registerRequestSchema>;
 
@@ -48,6 +50,22 @@ export const resetPasswordRequestSchema = z.object({
   password: passwordSchema,
 });
 export const tokenRequestSchema = z.object({ token: z.string().min(20).max(200) });
+
+/** The signed-in user's own profile. There is no email here: changing it needs re-verification. */
+export const updateProfileRequestSchema = z.object({ fullName: fullNameSchema });
+export type UpdateProfileRequest = z.infer<typeof updateProfileRequestSchema>;
+
+export const changePasswordRequestSchema = z
+  .object({
+    // Like login, the current password gets no policy; only the new one must meet it.
+    currentPassword: z.string().min(1, 'Enter your current password').max(PASSWORD_MAX_LENGTH),
+    newPassword: passwordSchema,
+  })
+  .refine((body) => body.newPassword !== body.currentPassword, {
+    message: 'Choose a password different from your current one',
+    path: ['newPassword'],
+  });
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 
 export const userSchema = z.object({
   id: z.uuid(),

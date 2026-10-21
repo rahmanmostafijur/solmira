@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { loginRequestSchema, registerRequestSchema } from './auth.js';
+import {
+  changePasswordRequestSchema,
+  loginRequestSchema,
+  registerRequestSchema,
+  updateProfileRequestSchema,
+} from './auth.js';
 import {
   createOrganizationRequestSchema,
   updateOrganizationRequestSchema,
@@ -45,6 +50,49 @@ describe('loginRequestSchema', () => {
     expect(loginRequestSchema.safeParse({ email: 'a@b.example', password: 'old' }).success).toBe(
       true,
     );
+  });
+});
+
+describe('updateProfileRequestSchema', () => {
+  it('trims the name and applies the registration bounds', () => {
+    expect(updateProfileRequestSchema.parse({ fullName: '  Ana Lopez ' })).toEqual({
+      fullName: 'Ana Lopez',
+    });
+    expect(updateProfileRequestSchema.safeParse({ fullName: '   ' }).success).toBe(false);
+    expect(updateProfileRequestSchema.safeParse({ fullName: 'x'.repeat(121) }).success).toBe(false);
+    expect(updateProfileRequestSchema.safeParse({}).success).toBe(false);
+  });
+
+  it('does not accept an email change', () => {
+    const parsed = updateProfileRequestSchema.parse({ fullName: 'A', email: 'new@b.example' });
+
+    expect(parsed).not.toHaveProperty('email');
+  });
+});
+
+describe('changePasswordRequestSchema', () => {
+  const issuesOf = (body: unknown) => {
+    const result = changePasswordRequestSchema.safeParse(body);
+    return result.success ? [] : result.error.issues.map((issue) => issue.path.join('.'));
+  };
+
+  it('accepts any current password but holds the new one to the registration policy', () => {
+    expect(issuesOf({ currentPassword: 'old', newPassword: 'a long enough passphrase' })).toEqual(
+      [],
+    );
+    expect(issuesOf({ currentPassword: 'old', newPassword: 'short' })).toEqual(['newPassword']);
+    expect(issuesOf({ currentPassword: 'old', newPassword: 'x'.repeat(129) })).toEqual([
+      'newPassword',
+    ]);
+    expect(issuesOf({ currentPassword: '', newPassword: 'a long enough passphrase' })).toEqual([
+      'currentPassword',
+    ]);
+  });
+
+  it('rejects a new password equal to the current one, on the new password field', () => {
+    const same = 'the same passphrase twice';
+
+    expect(issuesOf({ currentPassword: same, newPassword: same })).toEqual(['newPassword']);
   });
 });
 

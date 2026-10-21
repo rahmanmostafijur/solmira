@@ -38,6 +38,8 @@ const excluded = (reason: string): AuditRule => ({ audited: false, reason });
 
 const AUTHENTICATION =
   'An authentication event of a person, not an administrative action of a tenant';
+const OWN_ACCOUNT =
+  "A person's change to their own account, which belongs to no organization's trail";
 const DATA_PLANE =
   'High-volume delivery data, not an administrative action; see the message history';
 
@@ -51,6 +53,8 @@ export const AUDIT_POLICY: Readonly<Record<IdentityEventType | IngestEventType, 
   'user.logged_out': excluded(AUTHENTICATION),
   'user.password_reset': excluded(AUTHENTICATION),
   'user.email_verified': excluded(AUTHENTICATION),
+  'user.profile_updated': excluded(OWN_ACCOUNT),
+  'user.password_changed': excluded(AUTHENTICATION),
   'session.revoked': excluded(AUTHENTICATION),
   'organization.created': audited(target('organization', 'organizationId')),
   'organization.updated': audited(target('organization', 'organizationId')),
