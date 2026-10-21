@@ -2,12 +2,13 @@
 
 import { DELIVERY_STATUSES, type DeliveryStatus } from '@solmira/contracts';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { usePermissions } from '@/components/auth/can';
 import { RequireOrganization } from '@/components/auth/require-organization';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog } from '@/components/ui/dialog';
 import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/page-header';
@@ -24,6 +25,7 @@ import { ReplayRange } from '@/components/webhooks/replay-range';
 import { SecretPanel } from '@/components/webhooks/secret-panel';
 import { describeError } from '@/lib/api/client';
 import {
+  useArchiveEndpoint,
   useEndpoint,
   useEndpointDeliveries,
   useEventTypes,
@@ -44,6 +46,9 @@ function EndpointDetail({ organizationId, applicationId, endpointId }: Ids) {
   const eventTypes = useEventTypes(organizationId);
   const update = useUpdateEndpoint(organizationId, applicationId, endpointId);
   const testSend = useTestSend(organizationId, applicationId, endpointId);
+  const archive = useArchiveEndpoint(organizationId, applicationId);
+  const router = useRouter();
+  const [archiving, setArchiving] = useState(false);
   const [editing, setEditing] = useState(false);
   const [status, setStatus] = useState<DeliveryStatus | ''>('failed');
   const [page, setPage] = useState(1);
@@ -92,6 +97,11 @@ function EndpointDetail({ organizationId, applicationId, endpointId }: Ids) {
               >
                 {data.enabled ? 'Disable' : 'Enable'}
               </Button>
+              {can('endpoints.delete') && (
+                <Button variant="ghost" onClick={() => setArchiving(true)}>
+                  Archive
+                </Button>
+              )}
             </div>
           )
         }
@@ -121,6 +131,23 @@ function EndpointDetail({ organizationId, applicationId, endpointId }: Ids) {
           }}
         />
       </Dialog>
+      <ConfirmDialog
+        open={archiving}
+        title="Archive this endpoint?"
+        description="It stops receiving deliveries. Past messages and attempts stay visible."
+        confirmLabel="Archive"
+        pending={archive.isPending}
+        onCancel={() => setArchiving(false)}
+        onConfirm={() =>
+          archive.mutate(endpointId, {
+            onSuccess: () => router.push(`/applications/${applicationId}`),
+            onError: (error) => {
+              setArchiving(false);
+              notify(describeError(error), 'error');
+            },
+          })
+        }
+      />
       <SecretPanel applicationId={applicationId} endpointId={endpointId} />
       <Panel
         title="Deliveries"

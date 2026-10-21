@@ -23,9 +23,7 @@ import type {
   RotateSecretRequest,
   RotatedSecret,
   TestSendResult,
-  UpdateApplicationRequest,
   UpdateEndpointRequest,
-  UpdateEventTypeRequest,
 } from '@solmira/contracts';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './auth/session-store';
@@ -78,15 +76,6 @@ export function useCreateApplication(org: string) {
   });
 }
 
-export function useUpdateApplication(org: string, id: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (body: UpdateApplicationRequest) =>
-      api<Application>(`/applications/${id}`, { method: 'PATCH', body }),
-    onSuccess: () => client.invalidateQueries({ queryKey: webhookKeys.applications(org) }),
-  });
-}
-
 export function useArchiveApplication(org: string) {
   const client = useQueryClient();
   return useMutation({
@@ -112,15 +101,6 @@ export function useCreateEventType(org: string) {
   return useMutation({
     mutationFn: (body: CreateEventTypeRequest) =>
       api<EventType>('/event-types', { method: 'POST', body }),
-    onSuccess: () => client.invalidateQueries({ queryKey: webhookKeys.eventTypes(org) }),
-  });
-}
-
-export function useUpdateEventType(org: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: UpdateEventTypeRequest }) =>
-      api<EventType>(`/event-types/${id}`, { method: 'PATCH', body }),
     onSuccess: () => client.invalidateQueries({ queryKey: webhookKeys.eventTypes(org) }),
   });
 }
