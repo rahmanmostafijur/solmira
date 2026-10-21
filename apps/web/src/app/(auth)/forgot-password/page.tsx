@@ -52,7 +52,7 @@ export default function ForgotPasswordPage() {
           If an account exists for {sentTo}, a reset link is on its way. It expires in 30 minutes.
         </Alert>
       ) : (
-        <form onSubmit={onSubmit} noValidate className="space-y-4">
+        <form method="post" onSubmit={onSubmit} noValidate className="space-y-4">
           {errors.root && <Alert tone="error">{errors.root.message}</Alert>}
           <TextField
             label="Work email"

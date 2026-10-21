@@ -12,12 +12,14 @@ export interface SessionState {
  * The access token lives here, in memory only: never in localStorage, where any injected script
  * could read it. A reload loses it on purpose and the refresh cookie restores it.
  */
-let state: SessionState = { status: 'loading', session: null };
+const LOADING: SessionState = { status: 'loading', session: null };
+let state: SessionState = LOADING;
 const listeners = new Set<() => void>();
 
 export const sessionStore = {
   getSnapshot: (): SessionState => state,
-  getServerSnapshot: (): SessionState => ({ status: 'loading', session: null }),
+  // React requires a stable value here; a fresh object per call is treated as an infinite loop.
+  getServerSnapshot: (): SessionState => LOADING,
   subscribe(listener: () => void): () => void {
     listeners.add(listener);
     return () => listeners.delete(listener);

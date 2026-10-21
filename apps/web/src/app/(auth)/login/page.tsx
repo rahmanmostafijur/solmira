@@ -53,7 +53,7 @@ function LoginForm() {
         </>
       }
     >
-      <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <form method="post" onSubmit={onSubmit} noValidate className="space-y-4">
         {errors.root && <Alert tone="error">{errors.root.message}</Alert>}
         <TextField
           label="Work email"
