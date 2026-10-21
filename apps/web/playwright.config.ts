@@ -54,6 +54,22 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
+      name: 'notification',
+      command: 'node --env-file=.env dist/main.js',
+      cwd: service('notification-service'),
+      env: { DATABASE_URL: databaseUrl('notification_app', 'solmira_notification') },
+      url: 'http://localhost:4003/health/ready',
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      name: 'analytics',
+      command: 'node --env-file=.env dist/main.js',
+      cwd: service('analytics-service'),
+      env: { DATABASE_URL: databaseUrl('analytics_app', 'solmira_analytics') },
+      url: 'http://localhost:4004/health/ready',
+      reuseExistingServer: !process.env.CI,
+    },
+    {
       name: 'dispatcher',
       command: 'node dist/main.js',
       cwd: service('dispatcher'),

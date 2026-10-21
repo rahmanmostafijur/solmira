@@ -89,6 +89,22 @@ test('sets up delivery in the console, delivers a signed event, then replays a f
   await expect(page.getByText('"orderId": "A-1001"')).toBeVisible();
   await expect(page.getByText('Delivered (HTTP 200)')).toBeVisible();
 
+  // New messages appear in the list by themselves through the realtime feed: while it is live the
+  // page does not poll, so a second row can only come from the feed.
+  await page.goto(`/applications/${applicationId}/messages`);
+  await expect(page.getByText('Live', { exact: true })).toBeVisible();
+  const rows = page.getByRole('link', { name: EVENT_TYPE });
+  await expect(rows).toHaveCount(1);
+  expect((await send({ orderId: 'A-1001b' })).status()).toBe(202);
+  await expect(rows).toHaveCount(2);
+
+  // The application page reports how deliveries went, from the analytics service.
+  await page.goto(`/applications/${applicationId}`);
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByRole('cell', { name: '100.0%' })).toBeVisible({ timeout: 3_000 });
+  }).toPass({ timeout: 40_000 });
+
   // The receiver starts failing; the short retry schedule of the test stack exhausts quickly.
   receiver.status = 500;
   expect((await send({ orderId: 'A-1002' })).status()).toBe(202);

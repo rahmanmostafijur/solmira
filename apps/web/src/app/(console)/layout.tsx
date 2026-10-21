@@ -2,10 +2,12 @@ import type { ReactNode } from 'react';
 import { RequireSession } from '@/components/auth/require-session';
 import { Sidebar } from '@/components/shell/sidebar';
 import { TopBar } from '@/components/shell/top-bar';
+import { LiveFeedBridge } from '@/components/webhooks/live-feed-bridge';
 
 export default function ConsoleLayout({ children }: { children: ReactNode }) {
   return (
     <RequireSession>
+      <LiveFeedBridge />
       <div className="flex min-h-dvh">
         <a
           href="#main"

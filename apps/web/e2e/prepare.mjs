@@ -9,8 +9,18 @@ const root = path.resolve(import.meta.dirname, '../../..');
 const password = process.env.SERVICE_DB_PASSWORD ?? 'solmira_service_dev_password';
 /** Compose publishes PostgreSQL on 5433 unless POSTGRES_PORT says otherwise. */
 const port = process.env.POSTGRES_PORT ?? '5433';
-const owners = { 'identity-service': 'identity_owner', 'ingest-service': 'ingest_owner' };
-const databases = { 'identity-service': 'solmira_identity', 'ingest-service': 'solmira_ingest' };
+const owners = {
+  'identity-service': 'identity_owner',
+  'ingest-service': 'ingest_owner',
+  'notification-service': 'notification_owner',
+  'analytics-service': 'analytics_owner',
+};
+const databases = {
+  'identity-service': 'solmira_identity',
+  'ingest-service': 'solmira_ingest',
+  'notification-service': 'solmira_notification',
+  'analytics-service': 'solmira_analytics',
+};
 
 function run(command, args, cwd, env = {}) {
   const result = spawnSync(command, args, {
@@ -31,11 +41,13 @@ run(
     '--filter=@solmira/identity-service',
     '--filter=@solmira/ingest-service',
     '--filter=@solmira/dispatcher',
+    '--filter=@solmira/notification-service',
+    '--filter=@solmira/analytics-service',
   ],
   root,
 );
-// Ingest migrates last: it also grants the dispatcher's narrow role access to its tables.
-for (const service of ['identity-service', 'ingest-service']) {
+// Ingest's migration also grants the dispatcher's narrow role access to the ingest tables.
+for (const service of Object.keys(owners)) {
   run('node', ['--env-file=.env', 'dist/database/migrate.js'], path.join(root, 'apps', service), {
     MIGRATION_DATABASE_URL: `postgres://${owners[service]}:${password}@localhost:${port}/${databases[service]}`,
   });

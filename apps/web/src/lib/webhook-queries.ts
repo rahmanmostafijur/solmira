@@ -3,6 +3,7 @@
 import type {
   Application,
   ApiKey,
+  ApplicationReport,
   CreateApiKeyRequest,
   CreateApplicationRequest,
   CreateEndpointRequest,
@@ -25,6 +26,8 @@ import type {
   TestSendResult,
   UpdateEndpointRequest,
 } from '@solmira/contracts';
+import { useFeedStatus } from './realtime/feed-status';
+import type { FeedStatus } from './realtime/delivery-feed';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './auth/session-store';
 
@@ -40,6 +43,7 @@ export const webhookKeys = {
   messages: (org: string, app: string) => ['org', org, 'applications', app, 'messages'] as const,
   message: (org: string, app: string, id: string) =>
     ['org', org, 'applications', app, 'messages', id] as const,
+  analytics: (org: string, app: string) => ['org', org, 'applications', app, 'analytics'] as const,
   deliveries: (org: string, app: string, endpoint: string) =>
     ['org', org, 'applications', app, 'endpoints', endpoint, 'deliveries'] as const,
 };
@@ -215,42 +219,70 @@ export function useRevokeApiKey(org: string, app: string) {
 
 // ---- messages and deliveries --------------------------------------------------------------------
 
-/** Messages can still be moving through the queue, so the list and the detail refresh on their own. */
+/**
+ * Messages can still be moving through the queue. While the realtime feed is live it tells the
+ * views when to reload; without it they poll.
+ */
 const LIVE_REFRESH_MS = 3_000;
+const pollingWithout = (feed: FeedStatus) => (feed === 'live' ? false : LIVE_REFRESH_MS);
 
-export const useMessages = (org: string, app: string, query: Partial<MessageListQuery>) =>
-  useQuery({
+export const useMessages = (org: string, app: string, query: Partial<MessageListQuery>) => {
+  const feed = useFeedStatus();
+  return useQuery({
     queryKey: [...webhookKeys.messages(org, app), query],
     queryFn: () =>
       api<Page<MessageSummary>>(`/applications/${app}/messages` + search({ ...query })),
     placeholderData: keepPreviousData,
-    refetchInterval: LIVE_REFRESH_MS,
+    refetchInterval: pollingWithout(feed),
   });
+};
 
-export const useMessage = (org: string, app: string, id: string) =>
-  useQuery({
+export const useMessage = (org: string, app: string, id: string) => {
+  const feed = useFeedStatus();
+  return useQuery({
     queryKey: webhookKeys.message(org, app, id),
     queryFn: () => api<MessageDetail>(`/applications/${app}/messages/${id}`),
     refetchInterval: (query) =>
       query.state.data?.deliveries.some((d) => d.status === 'pending' || d.status === 'in_progress')
-        ? LIVE_REFRESH_MS
+        ? pollingWithout(feed)
         : false,
   });
+};
 
 export const useEndpointDeliveries = (
   org: string,
   app: string,
   endpoint: string,
   query: Partial<DeliveryListQuery>,
-) =>
-  useQuery({
+) => {
+  const feed = useFeedStatus();
+  return useQuery({
     queryKey: [...webhookKeys.deliveries(org, app, endpoint), query],
     queryFn: () =>
       api<Page<DeliverySummary>>(
         `/applications/${app}/endpoints/${endpoint}/deliveries` + search({ ...query }),
       ),
     placeholderData: keepPreviousData,
-    refetchInterval: LIVE_REFRESH_MS,
+    refetchInterval: pollingWithout(feed),
+  });
+};
+
+// ---- analytics ----------------------------------------------------------------------------------
+
+const HOUR_MS = 3_600_000;
+
+/** Delivery health of one application over the last `hours`, refreshed when deliveries happen. */
+export const useApplicationAnalytics = (org: string, app: string, hours = 24) =>
+  useQuery({
+    queryKey: [...webhookKeys.analytics(org, app), { hours }],
+    queryFn: () => {
+      const to = new Date();
+      const from = new Date(to.getTime() - hours * HOUR_MS);
+      return api<ApplicationReport>(
+        `/analytics/applications/${app}` +
+          search({ from: from.toISOString(), to: to.toISOString() }),
+      );
+    },
   });
 
 export function useReplayMessage(org: string, app: string, messageId: string) {

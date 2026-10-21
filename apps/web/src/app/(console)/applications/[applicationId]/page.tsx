@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { SecretDisplay } from '@/components/ui/secret-display';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
 import { ApiKeysPanel } from '@/components/webhooks/api-keys-panel';
+import { DeliveryHealthPanel } from '@/components/webhooks/delivery-health-panel';
 import { EndpointForm } from '@/components/webhooks/endpoint-form';
 import { describeError } from '@/lib/api/client';
 import {
@@ -139,6 +140,9 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
           </Table>
         )}
       </Panel>
+      {can('analytics.read') && (
+        <DeliveryHealthPanel organizationId={organizationId} applicationId={id} />
+      )}
       <ApiKeysPanel organizationId={organizationId} applicationId={id} />
     </div>
   );
