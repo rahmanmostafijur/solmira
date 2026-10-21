@@ -15,12 +15,26 @@ export interface IssuedAccessToken {
 export class AccessTokenIssuer {
   private readonly signingKey: Promise<CryptoKey>;
   private readonly publicJwk: Promise<JWK>;
+  private readonly previousJwks: Promise<JWK[]>;
 
   constructor(@Inject(IDENTITY_CONFIG) private readonly config: IdentityConfig) {
     this.signingKey = importPKCS8(config.JWT_PRIVATE_KEY, ACCESS_TOKEN_ALGORITHM);
     this.publicJwk = importSPKI(config.JWT_PUBLIC_KEY, ACCESS_TOKEN_ALGORITHM, {
       extractable: true,
     }).then((key) => exportJWK(key));
+    // Earlier keys stay published so tokens signed with them verify until they expire. A key that
+    // cannot be read is a configuration error found at start, not on the first sign-in.
+    this.previousJwks = Promise.all(
+      config.JWT_PREVIOUS_PUBLIC_KEYS.map(async ({ kid, publicKey }) => ({
+        ...(await exportJWK(
+          await importSPKI(publicKey, ACCESS_TOKEN_ALGORITHM, { extractable: true }),
+        )),
+        kid,
+        alg: ACCESS_TOKEN_ALGORITHM,
+        use: 'sig',
+      })),
+    );
+    this.previousJwks.catch(() => undefined);
   }
 
   async issue(input: {
@@ -63,7 +77,10 @@ export class AccessTokenIssuer {
   async jwks(): Promise<{ keys: JWK[] }> {
     const jwk = await this.publicJwk;
     return {
-      keys: [{ ...jwk, kid: this.config.JWT_KEY_ID, alg: ACCESS_TOKEN_ALGORITHM, use: 'sig' }],
+      keys: [
+        { ...jwk, kid: this.config.JWT_KEY_ID, alg: ACCESS_TOKEN_ALGORITHM, use: 'sig' },
+        ...(await this.previousJwks),
+      ],
     };
   }
 }
