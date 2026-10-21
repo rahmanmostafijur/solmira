@@ -15,12 +15,15 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   createEndpointRequestSchema,
   endpointListQuerySchema,
+  rotateSecretRequestSchema,
   updateEndpointRequestSchema,
   type CreateEndpointRequest,
   type CreatedEndpoint,
   type Endpoint,
   type EndpointListQuery,
   type RevealedSecret,
+  type RotateSecretRequest,
+  type RotatedSecret,
   type UpdateEndpointRequest,
 } from '@solmira/contracts';
 import {
@@ -109,5 +112,21 @@ export class EndpointsController {
     @Param('endpointId', uuidParam) endpointId: string,
   ): Promise<RevealedSecret> {
     return this.secrets.reveal(auth, applicationId, endpointId);
+  }
+
+  @Post(':endpointId/secret/rotate')
+  @RequirePermission('endpoint_secrets.rotate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Rotate the signing secret; the old one signs too until the window ends',
+  })
+  @ApiZodBody(rotateSecretRequestSchema)
+  rotate(
+    @CurrentAuth() auth: TenantAuthContext,
+    @Param('applicationId', uuidParam) applicationId: string,
+    @Param('endpointId', uuidParam) endpointId: string,
+    @Body(new ZodValidationPipe(rotateSecretRequestSchema)) body: RotateSecretRequest,
+  ): Promise<RotatedSecret> {
+    return this.secrets.rotate(auth, applicationId, endpointId, body.windowHours);
   }
 }

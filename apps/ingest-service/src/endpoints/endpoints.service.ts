@@ -140,7 +140,18 @@ export class EndpointsService {
             ? { rateLimitPerSecond: input.rateLimitPerSecond }
             : {}),
           ...(input.headers !== undefined ? { headers: input.headers } : {}),
-          ...(enabling ? { enabled: true, disabledReason: null, disabledAt: null } : {}),
+          ...(enabling
+            ? {
+                enabled: true,
+                disabledReason: null,
+                disabledAt: null,
+                // A fresh start: the owner fixed the receiver (ADR-0033).
+                consecutiveFailures: 0,
+                firstFailureAt: null,
+                circuitOpenUntil: null,
+                circuitTrips: 0,
+              }
+            : {}),
           ...(disabling
             ? { enabled: false, disabledReason: 'manual', disabledAt: new Date() }
             : {}),
