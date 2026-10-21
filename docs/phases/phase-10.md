@@ -52,6 +52,10 @@ for s in service-kit identity-service ingest-service dispatcher notification-ser
 pnpm --filter @solmira/web test:e2e
 ```
 
+Local result of the final run: 44 turbo tasks passed; integration suites 12, 68, 150, 17, 11, 10 and 26
+tests passed; the browser test passed with audit-service in the stack. CI runs the same; the GitHub CLI is
+not authenticated here, so CI has not been observed.
+
 ## Known limitations
 
 - Audit records show actor ids, not names; names live in identity-service.
