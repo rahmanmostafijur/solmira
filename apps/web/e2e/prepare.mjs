@@ -14,12 +14,14 @@ const owners = {
   'ingest-service': 'ingest_owner',
   'notification-service': 'notification_owner',
   'analytics-service': 'analytics_owner',
+  'audit-service': 'audit_owner',
 };
 const databases = {
   'identity-service': 'solmira_identity',
   'ingest-service': 'solmira_ingest',
   'notification-service': 'solmira_notification',
   'analytics-service': 'solmira_analytics',
+  'audit-service': 'solmira_audit',
 };
 
 function run(command, args, cwd, env = {}) {
@@ -43,6 +45,7 @@ run(
     '--filter=@solmira/dispatcher',
     '--filter=@solmira/notification-service',
     '--filter=@solmira/analytics-service',
+    '--filter=@solmira/audit-service',
   ],
   root,
 );

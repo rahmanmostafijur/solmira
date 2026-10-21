@@ -70,6 +70,17 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
     },
     {
+      name: 'audit',
+      command: 'node --env-file=.env dist/main.js',
+      cwd: service('audit-service'),
+      env: {
+        DATABASE_URL: databaseUrl('audit_app', 'solmira_audit'),
+        REDIS_URL: 'redis://localhost:6379',
+      },
+      url: 'http://localhost:4005/health/ready',
+      reuseExistingServer: !process.env.CI,
+    },
+    {
       name: 'dispatcher',
       command: 'node dist/main.js',
       cwd: service('dispatcher'),

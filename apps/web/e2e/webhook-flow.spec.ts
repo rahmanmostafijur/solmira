@@ -100,8 +100,13 @@ test('sets up delivery in the console, delivers a signed event, then replays a f
 
   // The application page reports how deliveries went, from the analytics service.
   await page.goto(`/applications/${applicationId}`);
+  // Reload only once the page has settled: refresh tokens are single-use, so reloading while the
+  // first page's sign-in is still in flight would look like token reuse and end the session.
+  const health = page.getByRole('heading', { name: 'Delivery health' });
+  await expect(health).toBeVisible();
   await expect(async () => {
     await page.reload();
+    await expect(health).toBeVisible();
     await expect(page.getByRole('cell', { name: '100.0%' })).toBeVisible({ timeout: 3_000 });
   }).toPass({ timeout: 40_000 });
 
@@ -122,8 +127,29 @@ test('sets up delivery in the console, delivers a signed event, then replays a f
   // The test-send button on the endpoint reaches the receiver too.
   const before = receiver.received.length;
   await page.goto(`/applications/${applicationId}`);
-  await page.getByRole('link', { name: receiver.url }).click();
+  await page.getByRole('link', { name: receiver.url }).first().click();
   await page.getByRole('button', { name: 'Send test event' }).click();
   await expect.poll(() => receiver.received.length).toBeGreaterThan(before);
   expect(receiver.received.at(-1)!.body).toContain('solmira.test');
+
+  // Everything done above through the console is in the organization's audit log.
+  await page.goto('/settings/audit-log');
+  const auditLog = page.getByRole('heading', { name: 'Audit log' });
+  await expect(auditLog).toBeVisible();
+  await expect(async () => {
+    await page.reload();
+    await expect(auditLog).toBeVisible();
+    for (const action of [
+      'Event type created',
+      'Application created',
+      'Api key created',
+      'Endpoint created',
+      'Endpoint test sent',
+      'Delivery replayed',
+    ]) {
+      await expect(
+        page.getByRole('table', { name: 'Audit log' }).getByText(action, { exact: true }).first(),
+      ).toBeVisible({ timeout: 2_000 });
+    }
+  }).toPass({ timeout: 40_000 });
 });

@@ -121,6 +121,7 @@ jobs:
           cp apps/ingest-service/.env.example apps/ingest-service/.env
           cp apps/notification-service/.env.example apps/notification-service/.env
           cp apps/analytics-service/.env.example apps/analytics-service/.env
+          cp apps/audit-service/.env.example apps/audit-service/.env
           cp apps/web/.env.example apps/web/.env
           pnpm --filter @solmira/identity-service keys:generate
       - run: docker compose up -d --wait gateway

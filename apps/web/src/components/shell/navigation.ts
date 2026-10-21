@@ -4,6 +4,7 @@ import {
   AppWindow,
   Building2,
   LayoutDashboard,
+  ScrollText,
   Tags,
   ShieldCheck,
   SlidersHorizontal,
@@ -67,6 +68,13 @@ export const NAVIGATION: readonly NavSection[] = [
         label: 'Members',
         icon: Users,
         permission: 'users.read',
+        requiresOrganization: true,
+      },
+      {
+        href: '/settings/audit-log',
+        label: 'Audit log',
+        icon: ScrollText,
+        permission: 'audit_logs.read',
         requiresOrganization: true,
       },
       {
