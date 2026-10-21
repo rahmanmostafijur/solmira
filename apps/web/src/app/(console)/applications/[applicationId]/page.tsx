@@ -10,14 +10,14 @@ import { RequireOrganization } from '@/components/auth/require-organization';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { Alert, EmptyState, Panel } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/page-header';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { SecretDisplay } from '@/components/ui/secret-display';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
 import { ApiKeysPanel } from '@/components/webhooks/api-keys-panel';
 import { DeliveryHealthPanel } from '@/components/webhooks/delivery-health-panel';
 import { EndpointForm } from '@/components/webhooks/endpoint-form';
-import { describeError } from '@/lib/api/client';
 import {
   useApplication,
   useCreateEndpoint,
@@ -34,8 +34,9 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<CreatedEndpoint>();
 
-  if (application.isPending) return <LoadingRows label="Loading application" />;
-  if (application.isError) return <Alert tone="error">{describeError(application.error)}</Alert>;
+  if (application.isPending)
+    return <QueryLoading query={application} label="Loading application" />;
+  if (application.isError) return <QueryError query={application} />;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -92,10 +93,10 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
         }
       >
         {endpoints.isPending ? (
-          <LoadingRows label="Loading endpoints" />
+          <QueryLoading query={endpoints} label="Loading endpoints" />
         ) : endpoints.isError ? (
           <div className="p-5">
-            <Alert tone="error">{describeError(endpoints.error)}</Alert>
+            <QueryError query={endpoints} />
           </div>
         ) : endpoints.data.items.length === 0 ? (
           <EmptyState

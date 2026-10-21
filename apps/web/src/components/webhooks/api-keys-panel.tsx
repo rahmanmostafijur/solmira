@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog } from '@/components/ui/dialog';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { Alert, EmptyState, Panel } from '@/components/ui/feedback';
 import { TextField } from '@/components/ui/field';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { SecretDisplay } from '@/components/ui/secret-display';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
@@ -85,10 +86,10 @@ export function ApiKeysPanel({ organizationId, applicationId }: Ids) {
       {!can('api_keys.read') ? (
         <p className="p-5 text-sm text-ink-muted">Your role cannot view API keys.</p>
       ) : keys.isPending ? (
-        <LoadingRows label="Loading API keys" />
+        <QueryLoading query={keys} label="Loading API keys" />
       ) : keys.isError ? (
         <div className="p-5">
-          <Alert tone="error">{describeError(keys.error)}</Alert>
+          <QueryError query={keys} />
         </div>
       ) : keys.data.items.length === 0 ? (
         <EmptyState title="No API keys yet" description="Create one to start sending messages." />

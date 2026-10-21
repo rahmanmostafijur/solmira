@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog } from '@/components/ui/dialog';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { EmptyState, Panel } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/page-header';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import { EventTypeForm } from '@/components/webhooks/event-type-form';
@@ -81,10 +82,10 @@ function EventTypes({ organizationId }: { organizationId: string }) {
         }
       >
         {eventTypes.isPending ? (
-          <LoadingRows label="Loading event types" />
+          <QueryLoading query={eventTypes} label="Loading event types" />
         ) : eventTypes.isError ? (
           <div className="p-5">
-            <Alert tone="error">{describeError(eventTypes.error)}</Alert>
+            <QueryError query={eventTypes} />
           </div>
         ) : eventTypes.data.items.length === 0 ? (
           <EmptyState

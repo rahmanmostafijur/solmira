@@ -5,8 +5,8 @@ import { Check } from 'lucide-react';
 import { Fragment } from 'react';
 import { usePermissions } from '@/components/auth/can';
 import { permissionGroups } from '@/components/access/permission-groups';
-import { Alert, LoadingRows, Panel } from '@/components/ui/feedback';
-import { describeError } from '@/lib/api/client';
+import { Alert, Panel } from '@/components/ui/feedback';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { useRoles } from '@/lib/queries';
 
 export default function RolesPage() {
@@ -16,8 +16,8 @@ export default function RolesPage() {
 
   if (!organization) return null;
   if (!allowed) return <Alert tone="info">Your role cannot view role definitions.</Alert>;
-  if (roles.isPending) return <LoadingRows label="Loading roles" />;
-  if (roles.isError) return <Alert tone="error">{describeError(roles.error)}</Alert>;
+  if (roles.isPending) return <QueryLoading query={roles} label="Loading roles" />;
+  if (roles.isError) return <QueryError query={roles} />;
 
   return (
     <Panel

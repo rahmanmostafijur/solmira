@@ -8,10 +8,10 @@ import { z } from 'zod';
 import { useAuth } from '@/components/auth/auth-provider';
 import { usePermissions } from '@/components/auth/can';
 import { Button } from '@/components/ui/button';
-import { Alert, LoadingRows, Panel } from '@/components/ui/feedback';
+import { Alert, Panel } from '@/components/ui/feedback';
 import { SelectField, TextField } from '@/components/ui/field';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { useToast } from '@/components/ui/toast';
-import { describeError } from '@/lib/api/client';
 import { applyServerError } from '@/lib/forms';
 import { useOrganization, useUpdateOrganization } from '@/lib/queries';
 
@@ -116,7 +116,7 @@ export default function GeneralSettingsPage() {
   const { organization } = usePermissions();
   const query = useOrganization(organization!.id);
 
-  if (query.isPending) return <LoadingRows label="Loading settings" />;
-  if (query.isError) return <Alert tone="error">{describeError(query.error)}</Alert>;
+  if (query.isPending) return <QueryLoading query={query} label="Loading settings" />;
+  if (query.isError) return <QueryError query={query} />;
   return <SettingsForm organization={query.data} />;
 }

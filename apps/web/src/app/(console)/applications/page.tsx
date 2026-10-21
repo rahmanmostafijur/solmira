@@ -8,9 +8,10 @@ import { RequireOrganization } from '@/components/auth/require-organization';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { EmptyState, Panel } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/page-header';
 import { Pagination } from '@/components/ui/pagination';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import { ApplicationForm } from '@/components/webhooks/application-form';
@@ -71,10 +72,10 @@ function ApplicationsList({ organizationId }: { organizationId: string }) {
         }
       >
         {applications.isPending ? (
-          <LoadingRows label="Loading applications" />
+          <QueryLoading query={applications} label="Loading applications" />
         ) : applications.isError ? (
           <div className="p-5">
-            <Alert tone="error">{describeError(applications.error)}</Alert>
+            <QueryError query={applications} />
           </div>
         ) : applications.data.items.length === 0 ? (
           <EmptyState

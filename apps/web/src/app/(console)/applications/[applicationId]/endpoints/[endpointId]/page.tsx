@@ -10,9 +10,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Dialog } from '@/components/ui/dialog';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { Alert, EmptyState, Panel } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/page-header';
 import { Pagination } from '@/components/ui/pagination';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import {
@@ -58,8 +59,8 @@ function EndpointDetail({ organizationId, applicationId, endpointId }: Ids) {
     ...(status ? { status } : {}),
   });
 
-  if (endpoint.isPending) return <LoadingRows label="Loading endpoint" />;
-  if (endpoint.isError) return <Alert tone="error">{describeError(endpoint.error)}</Alert>;
+  if (endpoint.isPending) return <QueryLoading query={endpoint} label="Loading endpoint" />;
+  if (endpoint.isError) return <QueryError query={endpoint} />;
   const { data } = endpoint;
 
   return (
@@ -171,10 +172,10 @@ function EndpointDetail({ organizationId, applicationId, endpointId }: Ids) {
         }
       >
         {deliveries.isPending ? (
-          <LoadingRows label="Loading deliveries" />
+          <QueryLoading query={deliveries} label="Loading deliveries" />
         ) : deliveries.isError ? (
           <div className="p-5">
-            <Alert tone="error">{describeError(deliveries.error)}</Alert>
+            <QueryError query={deliveries} />
           </div>
         ) : deliveries.data.items.length === 0 ? (
           <EmptyState title="No deliveries match" />

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, createApiClient, describeError, toApiError } from './client';
+import { ApiError, createApiClient, describeError, isTransientError, toApiError } from './client';
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -135,6 +135,62 @@ describe('createApiClient', () => {
       details: [{ path: 'email', message: 'Bad' }],
     });
   });
+
+  it('keeps the Retry-After of a throttled answer', async () => {
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: { code: 'RATE_LIMITED', message: 'Slow down' } }), {
+          status: 429,
+          headers: { 'Content-Type': 'application/json', 'Retry-After': '120' },
+        }),
+    );
+    const api = createApiClient({
+      getAccessToken: () => 't',
+      refreshAccessToken: async () => null,
+      fetch: fetchMock,
+    });
+
+    await expect(api('/me/password', { method: 'POST', body: {} })).rejects.toMatchObject({
+      status: 429,
+      code: 'RATE_LIMITED',
+      retryAfterSeconds: 120,
+    });
+  });
+
+  it('reports the gateway answer for a restarting service as SERVICE_UNAVAILABLE', async () => {
+    const fetchMock = vi.fn(async () =>
+      json(503, {
+        error: { code: 'SERVICE_UNAVAILABLE', message: 'The service is temporarily unavailable' },
+      }),
+    );
+    const api = createApiClient({
+      getAccessToken: () => 't',
+      refreshAccessToken: async () => null,
+      fetch: fetchMock,
+    });
+
+    await expect(api('/applications')).rejects.toMatchObject({
+      status: 503,
+      code: 'SERVICE_UNAVAILABLE',
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('isTransientError', () => {
+  it('is true for a restarting service and for a request that never got an answer', () => {
+    expect(isTransientError(new ApiError(503, 'SERVICE_UNAVAILABLE', 'x'))).toBe(true);
+    expect(isTransientError(new ApiError(502, 'UNEXPECTED_RESPONSE', 'x'))).toBe(true);
+    expect(isTransientError(new ApiError(504, 'UNEXPECTED_RESPONSE', 'x'))).toBe(true);
+    expect(isTransientError(new TypeError('Failed to fetch'))).toBe(true);
+  });
+
+  it('is false for answers that a retry would not change', () => {
+    expect(isTransientError(new ApiError(500, 'INTERNAL_ERROR', 'x'))).toBe(false);
+    expect(isTransientError(new ApiError(400, 'VALIDATION_FAILED', 'x'))).toBe(false);
+    expect(isTransientError(new ApiError(429, 'RATE_LIMITED', 'x'))).toBe(false);
+    expect(isTransientError(new DOMException('aborted', 'AbortError'))).toBe(false);
+  });
 });
 
 describe('describeError', () => {
@@ -146,6 +202,30 @@ describe('describeError', () => {
     expect(describeError(new ApiError(409, 'CONFLICT', 'Already a member'))).toBe(
       'Already a member',
     );
+  });
+
+  it('says a service is restarting for the gateway answers of a restart', () => {
+    const restarting = /A Solmira service is restarting\. Try again in a few seconds\./;
+    expect(describeError(new ApiError(503, 'SERVICE_UNAVAILABLE', 'unavailable'))).toMatch(
+      restarting,
+    );
+    expect(describeError(new ApiError(502, 'UNEXPECTED_RESPONSE', 'bad gateway'))).toMatch(
+      restarting,
+    );
+    expect(describeError(new ApiError(504, 'UNEXPECTED_RESPONSE', 'timeout'))).toMatch(restarting);
+    expect(describeError(new TypeError('Failed to fetch'))).toMatch(/restarting/);
+    expect(describeError(new ApiError(500, 'INTERNAL_ERROR', 'boom'))).toBe(
+      'Something went wrong on our side. Please try again.',
+    );
+  });
+
+  it('says how long to wait when the server sent Retry-After', () => {
+    const limited = (seconds?: number) =>
+      new ApiError(429, 'RATE_LIMITED', 'Too many', [], undefined, seconds);
+    expect(describeError(limited(30))).toBe('Too many attempts. Try again in 30 seconds.');
+    expect(describeError(limited(900))).toBe('Too many attempts. Try again in 15 minutes.');
+    expect(describeError(limited(61))).toBe('Too many attempts. Try again in 2 minutes.');
+    expect(describeError(limited())).toBe('Too many attempts. Wait a few minutes and try again.');
   });
 
   it('shows what to send for a validation error, not only its summary', () => {
