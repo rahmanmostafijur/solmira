@@ -90,6 +90,8 @@ describe('toAuditRecord', () => {
       'message.created',
       'delivery.attempted',
       'user.logged_in',
+      'user.profile_updated',
+      'user.password_changed',
       'session.revoked',
     ]) {
       expect(toAuditRecord(envelope(type, {}))).toBeNull();
