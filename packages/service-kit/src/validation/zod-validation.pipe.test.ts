@@ -47,14 +47,16 @@ describe('ZodValidationPipe', () => {
       new ZodValidationPipe(schema).transform({ name: 'a', pageSize: '50' }, { type: 'query' }),
     );
     expect(error.message).toBe('Query parameter pageSize is too large');
-    expect(error.details[0]?.message).toBe('Query parameter pageSize must be at most 10; got 50.');
+    expect(error.details?.[0]?.message).toBe(
+      'Query parameter pageSize must be at most 10; got 50.',
+    );
   });
 
   it('names a path parameter after the route segment', () => {
     const error = rejection(() =>
       new ZodValidationPipe(z.uuid()).transform('nope', { type: 'param', data: 'applicationId' }),
     );
-    expect(error.details[0]).toMatchObject({ path: 'applicationId', rule: 'invalid_format' });
+    expect(error.details?.[0]).toMatchObject({ path: 'applicationId', rule: 'invalid_format' });
     expect(error.message).toBe('Path parameter applicationId has an invalid format');
   });
 });

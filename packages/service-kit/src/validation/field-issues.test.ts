@@ -10,7 +10,8 @@ function failure(schema: z.ZodType, value: unknown, target: ValidationTarget = b
   try {
     parseRequestPart(schema, value, target);
   } catch (error) {
-    if (error instanceof ValidationError) return { message: error.message, details: error.details };
+    if (error instanceof ValidationError)
+      return { message: error.message, details: error.details ?? [] };
     throw error;
   }
   throw new Error('expected a validation error');
