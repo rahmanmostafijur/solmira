@@ -31,8 +31,9 @@ flowchart LR
 ```
 
 Built: gateway, web (authentication and organization pages), identity-service, ingest-service
-(management API, ingestion, fan-out), the dispatcher and its DynamoDB attempt history. Planned: the
-three consumers' logic (Phases 7, 9, 10) and the failure-handling features of Phase 7.
+(management API, ingestion, fan-out, replay, rotation), the dispatcher with endpoint isolation and its
+DynamoDB attempt history, and notification-service (alerts). Planned: the console (Phase 8), the
+realtime feed and analytics (Phase 9) and the audit consumer (Phase 10).
 
 ## 2. Repository structure
 
@@ -74,7 +75,7 @@ service and one database; everything else communicates through events
 | **analytics-service**    | pre-aggregated delivery statistics                                                            | Expensive reads must not share a database with the delivery path.                   |
 | **audit-service**        | audit log                                                                                     | Append-only, long retention.                                                        |
 
-## 4. Core flow (built through delivery and retries; replay and circuit breaking are Phase 7)
+## 4. Core flow (built end to end)
 
 ```mermaid
 sequenceDiagram
@@ -100,7 +101,10 @@ sequenceDiagram
 Delivery state and `next_attempt_at` live in PostgreSQL and are claimed with
 `FOR UPDATE SKIP LOCKED`, at most a few per organization per pass so one tenant's backlog cannot
 fill a batch ([ADR-0031](docs/adr/0031-dispatcher-design.md)). RabbitMQ carries fan-out;
-"DLQ" is an explicit `failed` state plus a replay path (Phase 7). A claim carries a lease, so work
+"DLQ" is an explicit `failed` state plus replay. Isolation is decided at claim time: saturated endpoints and
+endpoints with an open circuit are not claimed, a breaker per endpoint trips after repeated failures,
+and a long failure streak disables the endpoint and notifies its owner once
+([ADR-0033](docs/adr/0033-isolation-failure-handling-replay.md)). A claim carries a lease, so work
 held by a dead worker is retried. Each HTTP attempt is recorded in DynamoDB
 ([ADR-0032](docs/adr/0032-attempt-history-dynamodb.md)); PostgreSQL holds the current state.
 
