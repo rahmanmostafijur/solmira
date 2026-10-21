@@ -52,6 +52,7 @@ describe('webhook resource permissions', () => {
       'endpoint_secrets.reveal',
       'endpoint_secrets.rotate',
       'api_keys.create',
+      'api_keys.update',
       'api_keys.delete',
       'applications.delete',
     ] as const) {

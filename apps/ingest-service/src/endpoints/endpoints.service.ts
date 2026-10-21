@@ -13,7 +13,7 @@ import {
   type SecretCipher,
   type TenantAuthContext,
 } from '@solmira/service-kit';
-import { and, count, desc, eq, isNull, type SQL } from 'drizzle-orm';
+import { and, count, desc, eq, isNotNull, isNull, type SQL } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { findApplication } from '../applications/applications.service.js';
 import { Database } from '../database/database.module.js';
@@ -186,6 +186,41 @@ export class EndpointsService {
         .set({ archivedAt: new Date(), updatedAt: new Date() })
         .where(and(eq(endpoints.organizationId, auth.organizationId), eq(endpoints.id, id)));
       await recordEvent(tx, auth, 'endpoint.archived', { endpointId: id, applicationId });
+    });
+  }
+
+  /**
+   * Idempotent restore. The URL passes the URL policy again, as at creation: the policy or the
+   * host's addresses may have changed while the endpoint was archived. The enabled flag, the
+   * subscriptions and the delivery history stay as they were; failed deliveries stay failed.
+   */
+  async restore(auth: TenantAuthContext, applicationId: string, id: string): Promise<Endpoint> {
+    const archived = await this.database.forTenant(auth, async (tx) => {
+      await findApplication(tx, auth, applicationId);
+      return findEndpoint(tx, auth, applicationId, id);
+    });
+    if (!archived.archivedAt) return this.get(auth, applicationId, id);
+    // Checked before the transaction: resolving the host is a network call.
+    await this.urls.assertAllowed(archived.url);
+    return this.database.forTenant(auth, async (tx) => {
+      await findApplication(tx, auth, applicationId);
+      // Only an archived row is updated, so a concurrent restore is recorded once.
+      const [restored] = await tx
+        .update(endpoints)
+        .set({ archivedAt: null, updatedAt: new Date() })
+        .where(
+          and(
+            eq(endpoints.organizationId, auth.organizationId),
+            eq(endpoints.id, id),
+            isNotNull(endpoints.archivedAt),
+          ),
+        )
+        .returning();
+      if (restored)
+        await recordEvent(tx, auth, 'endpoint.restored', { endpointId: id, applicationId });
+      const row = restored ?? (await findEndpoint(tx, auth, applicationId, id));
+      const subscriptions = await subscriptionsOf(tx, [id]);
+      return toEndpoint(row, subscriptions.get(id) ?? []);
     });
   }
 }

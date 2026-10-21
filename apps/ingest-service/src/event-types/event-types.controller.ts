@@ -10,7 +10,7 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   createEventTypeRequestSchema,
   eventTypeListQuerySchema,
@@ -83,5 +83,16 @@ export class EventTypesController {
     @Param('eventTypeId', uuidParam) eventTypeId: string,
   ): Promise<EventType> {
     return this.eventTypes.archive(auth, eventTypeId);
+  }
+
+  @Post(':eventTypeId/restore')
+  @RequirePermission('event_types.delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Restore an archived event type (idempotent)' })
+  restore(
+    @CurrentAuth() auth: TenantAuthContext,
+    @Param('eventTypeId', uuidParam) eventTypeId: string,
+  ): Promise<EventType> {
+    return this.eventTypes.restore(auth, eventTypeId);
   }
 }

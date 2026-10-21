@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { EventEnvelope } from '@solmira/contracts';
+import type { EventEnvelope, ReadAllNotificationsResult } from '@solmira/contracts';
 import { NotFoundError, offsetOf, pageOf, type TenantAuthContext } from '@solmira/service-kit';
 import { and, count, desc, eq, isNull } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
@@ -117,6 +117,20 @@ export class NotificationsService {
         .where(and(eq(notifications.organizationId, auth.organizationId), eq(notifications.id, id)))
         .returning();
       return toView(row!);
+    });
+  }
+
+  /** Idempotent: notifications read before keep their first read time and are not counted. */
+  markAllRead(auth: TenantAuthContext): Promise<ReadAllNotificationsResult> {
+    return this.database.forTenant(auth, async (tx) => {
+      const rows = await tx
+        .update(notifications)
+        .set({ readAt: new Date() })
+        .where(
+          and(eq(notifications.organizationId, auth.organizationId), isNull(notifications.readAt)),
+        )
+        .returning({ id: notifications.id });
+      return { updated: rows.length };
     });
   }
 }

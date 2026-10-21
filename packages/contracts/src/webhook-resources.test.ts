@@ -7,6 +7,7 @@ import {
   replayEndpointRequestSchema,
   replayMessageRequestSchema,
   rotateSecretRequestSchema,
+  updateApiKeyRequestSchema,
   updateApplicationRequestSchema,
   updateEndpointRequestSchema,
 } from './index.js';
@@ -93,6 +94,16 @@ describe('API keys', () => {
       createApiKeyRequestSchema.safeParse({ name: 'ci', expiresAt: '2020-01-01T00:00:00Z' })
         .success,
     ).toBe(false);
+  });
+
+  it('rename only: a trimmed name is required and scopes or expiry are refused', () => {
+    expect(updateApiKeyRequestSchema.parse({ name: '  deploy bot ' })).toEqual({
+      name: 'deploy bot',
+    });
+    expect(updateApiKeyRequestSchema.safeParse({}).success).toBe(false);
+    expect(updateApiKeyRequestSchema.safeParse({ name: ' ' }).success).toBe(false);
+    for (const extra of [{ scopes: ['messages:read'] }, { expiresAt: '2099-01-01T00:00:00Z' }])
+      expect(updateApiKeyRequestSchema.safeParse({ name: 'ci', ...extra }).success).toBe(false);
   });
 });
 

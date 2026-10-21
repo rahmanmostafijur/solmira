@@ -1,6 +1,6 @@
 import { Controller, Get, HttpCode, HttpStatus, Inject, Param, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { paginationQuerySchema } from '@solmira/contracts';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { paginationQuerySchema, type ReadAllNotificationsResult } from '@solmira/contracts';
 import {
   CurrentAuth,
   RequirePermission,
@@ -26,6 +26,14 @@ export class NotificationsController {
     @Query(new ZodValidationPipe(listQuerySchema)) query: z.infer<typeof listQuerySchema>,
   ) {
     return this.notifications.list(auth, query);
+  }
+
+  @Post('read-all')
+  @RequirePermission('notifications.read')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Mark every unread notification of the organization read' })
+  markAllRead(@CurrentAuth() auth: TenantAuthContext): Promise<ReadAllNotificationsResult> {
+    return this.notifications.markAllRead(auth);
   }
 
   @Post(':notificationId/read')

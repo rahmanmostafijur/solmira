@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Inject,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -14,9 +15,12 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
   apiKeyListQuerySchema,
   createApiKeyRequestSchema,
+  updateApiKeyRequestSchema,
+  type ApiKey,
   type ApiKeyListQuery,
   type CreateApiKeyRequest,
   type CreatedApiKey,
+  type UpdateApiKeyRequest,
 } from '@solmira/contracts';
 import {
   ApiZodBody,
@@ -54,6 +58,19 @@ export class ApiKeysController {
     @Query(new ZodValidationPipe(apiKeyListQuerySchema)) query: ApiKeyListQuery,
   ) {
     return this.apiKeys.list(auth, applicationId, query);
+  }
+
+  @Patch(':apiKeyId')
+  @RequirePermission('api_keys.update')
+  @ApiOperation({ summary: 'Rename an API key; its scopes and expiry never change' })
+  @ApiZodBody(updateApiKeyRequestSchema)
+  update(
+    @CurrentAuth() auth: TenantAuthContext,
+    @Param('applicationId', uuidParam) applicationId: string,
+    @Param('apiKeyId', uuidParam) apiKeyId: string,
+    @Body(new ZodValidationPipe(updateApiKeyRequestSchema)) body: UpdateApiKeyRequest,
+  ): Promise<ApiKey> {
+    return this.apiKeys.update(auth, applicationId, apiKeyId, body);
   }
 
   @Delete(':apiKeyId')

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApiKey, createApplication } from './support/resources.js';
 import { createTestApp, newOrganizationId, type Actor, type TestApp } from './support/test-app.js';
@@ -50,12 +51,92 @@ describe('API keys', () => {
     expect(revoked.body.items[0].revokedAt).not.toBeNull();
   });
 
-  it('limits who can create, read and revoke keys', async () => {
+  it('renames a key, keeps everything else, and records the change without the key', async () => {
+    const app = await createApplication(t, admin, 'Rename');
+    const created = await createApiKey(t, admin, app.id, {
+      name: 'ci',
+      scopes: ['messages:write', 'messages:read'],
+    });
+    const path = '/api/v1/applications/' + app.id + '/api-keys/' + created.id;
+
+    const renamed = await t
+      .http()
+      .patch(path)
+      .set(admin.auth)
+      .send({ name: '  deploy bot ' })
+      .expect(200);
+    expect(renamed.body).toMatchObject({
+      id: created.id,
+      name: 'deploy bot',
+      prefix: created.prefix,
+      scopes: ['messages:write', 'messages:read'],
+      revokedAt: null,
+    });
+    expect(renamed.body.key).toBeUndefined();
+
+    const { rows } = await t.db.query(
+      `select actor_id, payload, payload::text as text from outbox_events
+        where type = 'api_key.updated' and payload->>'apiKeyId' = $1`,
+      [created.id],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].actor_id).toBe(admin.userId);
+    expect(rows[0].payload).toEqual({
+      apiKeyId: created.id,
+      applicationId: app.id,
+      fields: ['name'],
+    });
+    expect(rows[0].text).not.toContain(created.key);
+  });
+
+  it('refuses to rename a revoked key, and accepts a new name only', async () => {
+    const app = await createApplication(t, admin, 'Rename rules');
+    const created = await createApiKey(t, admin, app.id);
+    const path = '/api/v1/applications/' + app.id + '/api-keys/' + created.id;
+
+    await t
+      .http()
+      .patch(path)
+      .set(admin.auth)
+      .send({ name: 'ci', scopes: ['messages:read'] })
+      .expect(400);
+    await t.http().patch(path).set(admin.auth).send({}).expect(400);
+    const unchanged = await t.db.query('select name, scopes from api_keys where id = $1', [
+      created.id,
+    ]);
+    expect(unchanged.rows[0]).toEqual({ name: 'ci', scopes: ['messages:write'] });
+
+    await t.http().delete(path).set(admin.auth).expect(204);
+    const refused = await t.http().patch(path).set(admin.auth).send({ name: 'late' }).expect(409);
+    expect(refused.body.error.code).toBe('CONFLICT');
+    await t
+      .http()
+      .patch('/api/v1/applications/' + app.id + '/api-keys/' + randomUUID())
+      .set(admin.auth)
+      .send({ name: 'ghost' })
+      .expect(404);
+  });
+
+  it('limits who can create, read, rename and revoke keys', async () => {
     const app = await createApplication(t, admin, 'Key roles');
     const base = '/api/v1/applications/' + app.id + '/api-keys';
     await t.http().post(base).set(manager.auth).send({ name: 'x' }).expect(403);
     await t.http().get(base).set(viewer.auth).expect(403);
     await t.http().get(base).set(manager.auth).expect(200);
+
+    const key = await createApiKey(t, admin, app.id);
+    for (const actor of [manager, viewer])
+      await t
+        .http()
+        .patch(base + '/' + key.id)
+        .set(actor.auth)
+        .send({ name: 'x' })
+        .expect(403);
+    await t
+      .http()
+      .patch(base + '/' + key.id)
+      .send({ name: 'x' })
+      .expect(401);
   });
 
   it('rejects unknown scopes and past expiry times', async () => {

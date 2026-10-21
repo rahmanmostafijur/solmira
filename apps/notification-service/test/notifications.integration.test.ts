@@ -116,6 +116,43 @@ describe('endpoint alerts', () => {
     await t.http().get('/api/v1/notifications').expect(401);
   });
 
+  it('marks every unread notification of the organization read, and no other', async () => {
+    const team = newOrganizationId();
+    const member = await t.actor(team, 'STAFF');
+    const stranger = await t.actor(newOrganizationId(), 'OWNER');
+    for (let i = 0; i < 3; i += 1) await t.publish('endpoint.auto_disabled', team, disabledEvent());
+    await t.publish('endpoint.auto_disabled', stranger.organizationId, disabledEvent());
+    await until(async () => (await notificationsOf(member)).length >= 3);
+    await until(async () => (await notificationsOf(stranger)).length >= 1);
+    const [early] = await notificationsOf(member);
+    const readEarly = await t
+      .http()
+      .post('/api/v1/notifications/' + early!.id + '/read')
+      .set(member.auth)
+      .expect(200);
+
+    const readAll = () =>
+      t.http().post('/api/v1/notifications/read-all').set(member.auth).expect(200);
+    expect((await readAll()).body).toEqual({ updated: 2 });
+    expect((await readAll()).body).toEqual({ updated: 0 });
+
+    const items = await notificationsOf(member);
+    expect(items.every((n) => n.readAt !== null)).toBe(true);
+    expect(items.find((n) => n.id === early!.id)!.readAt).toBe(readEarly.body.readAt);
+    expect((await notificationsOf(stranger)).map((n) => n.readAt)).toEqual([null]);
+  });
+
+  it('requires the permission to acknowledge notifications for read-all', async () => {
+    const team = newOrganizationId();
+    const token = await t.token({ organizationId: team, permissions: ['analytics.read'] });
+    await t
+      .http()
+      .post('/api/v1/notifications/read-all')
+      .set({ Authorization: 'Bearer ' + token })
+      .expect(403);
+    await t.http().post('/api/v1/notifications/read-all').expect(401);
+  });
+
   it('sends a malformed event to the dead-letter queue instead of notifying', async () => {
     const before = (await notificationsOf(viewer)).length;
     await t.publish('endpoint.auto_disabled', null, disabledEvent());

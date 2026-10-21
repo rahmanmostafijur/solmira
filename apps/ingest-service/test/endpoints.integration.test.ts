@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApplication, createEndpoint, createEventType } from './support/resources.js';
+import { seedDelivery } from './support/seed.js';
 import { createTestApp, newOrganizationId, type Actor, type TestApp } from './support/test-app.js';
 
 describe('endpoints', () => {
@@ -74,6 +75,116 @@ describe('endpoints', () => {
     await t.http().patch(base).set(manager.auth).send({ enabled: true }).expect(404);
     const archived = await t.http().get(base).set(manager.auth).expect(200);
     expect(archived.body.archivedAt).not.toBeNull();
+  });
+
+  it('restores idempotently, keeping the URL, the enabled flag and failed deliveries', async () => {
+    const app = await createApplication(t, admin, 'Restores');
+    const eventType = await createEventType(t, admin, 'invoice.voided');
+    const endpoint = await createEndpoint(t, admin, app.id, {
+      url: 'https://hooks.example.com/restored',
+      enabled: false,
+      eventTypeIds: [eventType.id],
+    });
+    const base = '/api/v1/applications/' + app.id + '/endpoints/' + endpoint.id;
+    const failed = await seedDelivery(
+      t.db,
+      {
+        organizationId: admin.organizationId,
+        applicationId: app.id,
+        endpointId: endpoint.id,
+        eventTypeId: eventType.id,
+      },
+      { status: 'failed', attemptCount: 3 },
+    );
+    await t.http().delete(base).set(manager.auth).expect(204);
+
+    const restore = () =>
+      t
+        .http()
+        .post(base + '/restore')
+        .set(manager.auth)
+        .expect(200);
+    const first = await restore();
+    expect(first.body).toMatchObject({
+      url: 'https://hooks.example.com/restored',
+      enabled: false,
+      disabledReason: 'manual',
+      eventTypeIds: [eventType.id],
+      archivedAt: null,
+    });
+    const second = await restore();
+    expect(second.body.updatedAt).toBe(first.body.updatedAt);
+    await t.http().patch(base).set(manager.auth).send({ description: 'Back' }).expect(200);
+
+    const delivery = await t.db.query(
+      'select status, attempt_count from deliveries where id = $1',
+      [failed],
+    );
+    expect(delivery.rows[0]).toEqual({ status: 'failed', attempt_count: 3 });
+    const { rows } = await t.db.query(
+      `select actor_id, payload from outbox_events
+        where type = 'endpoint.restored' and payload->>'endpointId' = $1`,
+      [endpoint.id],
+    );
+    expect(rows).toEqual([
+      { actor_id: manager.userId, payload: { endpointId: endpoint.id, applicationId: app.id } },
+    ]);
+  });
+
+  it('checks the URL policy again on restore and stays archived when it fails', async () => {
+    const app = await createApplication(t, admin, 'Rebinding');
+    t.dns.set('rebinding.example.com', '93.184.216.34');
+    const endpoint = await createEndpoint(t, admin, app.id, {
+      url: 'https://rebinding.example.com/hook',
+    });
+    const base = '/api/v1/applications/' + app.id + '/endpoints/' + endpoint.id;
+    await t.http().delete(base).set(admin.auth).expect(204);
+
+    t.dns.set('rebinding.example.com', '10.0.0.7');
+    const refused = await t
+      .http()
+      .post(base + '/restore')
+      .set(admin.auth)
+      .expect(400);
+    expect(refused.body.error.details[0].path).toBe('url');
+    const still = await t.http().get(base).set(admin.auth).expect(200);
+    expect(still.body.archivedAt).not.toBeNull();
+    const events = await t.db.query(
+      `select count(*)::int as n from outbox_events
+        where type = 'endpoint.restored' and payload->>'endpointId' = $1`,
+      [endpoint.id],
+    );
+    expect(events.rows[0].n).toBe(0);
+  });
+
+  it('restores only for roles that can archive, and not into an archived application', async () => {
+    const app = await createApplication(t, admin, 'Restore roles');
+    const endpoint = await createEndpoint(t, admin, app.id);
+    const base = '/api/v1/applications/' + app.id + '/endpoints/' + endpoint.id;
+    await t.http().delete(base).set(admin.auth).expect(204);
+
+    const staff = await t.actor(admin.organizationId, 'STAFF');
+    await t
+      .http()
+      .post(base + '/restore')
+      .set(staff.auth)
+      .expect(403);
+    await t
+      .http()
+      .post(base + '/restore')
+      .expect(401);
+    await t
+      .http()
+      .post('/api/v1/applications/' + app.id + '/archive')
+      .set(admin.auth)
+      .expect(200);
+    await t
+      .http()
+      .post(base + '/restore')
+      .set(admin.auth)
+      .expect(404);
+    const still = await t.http().get(base).set(admin.auth).expect(200);
+    expect(still.body.archivedAt).not.toBeNull();
   });
 
   it('rejects archived and unknown subscriptions with a field error', async () => {

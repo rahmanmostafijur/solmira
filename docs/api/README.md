@@ -228,10 +228,21 @@ Both replay calls answer `{ replayed, more }` and are idempotent: deliveries tha
 are not touched. A disabled endpoint must be enabled first (`409`); enabling an endpoint resets its
 failure history. Replayed requests carry the same `webhook-id` as the first delivery.
 
+### Lifecycle (built, Phase 13)
+
+| Call                                              | Needs                | Effect                                                                                                                                                                                                                                                                                                 |
+| ------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /event-types/{id}/restore`                  | `event_types.delete` | Restores an archived event type and answers it. Idempotent: a live one is answered unchanged and nothing is recorded. The name stays reserved while archived, so a restore never conflicts.                                                                                                            |
+| `POST /applications/{app}/endpoints/{id}/restore` | `endpoints.delete`   | Restores an archived endpoint and answers it. The URL is checked against the URL policy again (`400` on `url` if it no longer passes, and the endpoint stays archived). Enabled flag, URL and subscriptions are kept; failed deliveries stay failed. `404` if the application is archived. Idempotent. |
+| `PATCH /applications/{app}/api-keys/{id}`         | `api_keys.update`    | Renames a key: the body is `{ name }` only, any other field is a `400`. Scopes and expiry never change. A revoked key answers `409`.                                                                                                                                                                   |
+
 ### Notifications (built, Phase 7)
 
-`GET /notifications` (`unreadOnly`, pagination) and `POST /notifications/{id}/read` on
-notification-service. An endpoint that fails continuously for five days (configurable) is disabled and
+`GET /notifications` (`unreadOnly`, pagination), `POST /notifications/{id}/read` and
+`POST /notifications/read-all` on notification-service, all with `notifications.read`. Notifications
+belong to the organization, so reading one reads it for every member; `read-all` marks every unread
+notification of the organization read and answers `{ updated }`, the number it marked (`0` when there
+were none). An endpoint that fails continuously for five days (configurable) is disabled and
 the organization gets one notification.
 
 ### Inspection and test send (built, Phase 8)
@@ -293,8 +304,8 @@ changed or removed through the API or by the runtime database role.
 
 Audited actions: organization created and updated; members invited, joined, role changed, status
 changed and removed; invitations revoked; applications created, updated, archived and restored; API keys
-created and revoked; event types created, updated and archived; endpoints created, updated, archived,
-tested and automatically disabled; endpoint secrets revealed and rotated; deliveries replayed. Sign-ins
+created, renamed and revoked; event types created, updated, archived and restored; endpoints created,
+updated, archived, restored, tested and automatically disabled; endpoint secrets revealed and rotated; deliveries replayed. Sign-ins
 and the delivery data plane are not part of the trail.
 
 ## What a receiver gets (built, Phase 6)

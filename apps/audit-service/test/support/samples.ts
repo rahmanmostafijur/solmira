@@ -43,10 +43,12 @@ export function sampleEvents() {
       prefix: 'slm_abcd1234',
       scopes: ['messages:write'],
     },
+    'api_key.updated': { apiKeyId: ids.apiKey, applicationId: ids.application, fields: ['name'] },
     'api_key.revoked': { apiKeyId: ids.apiKey, applicationId: ids.application },
     'event_type.created': { eventTypeId: ids.eventType, name: 'order.created' },
     'event_type.updated': { eventTypeId: ids.eventType, fields: ['description'] },
     'event_type.archived': { eventTypeId: ids.eventType },
+    'event_type.restored': { eventTypeId: ids.eventType },
     'endpoint.created': { endpointId: ids.endpoint, applicationId: ids.application },
     'endpoint.updated': {
       endpointId: ids.endpoint,
@@ -54,6 +56,7 @@ export function sampleEvents() {
       fields: ['url'],
     },
     'endpoint.archived': { endpointId: ids.endpoint, applicationId: ids.application },
+    'endpoint.restored': { endpointId: ids.endpoint, applicationId: ids.application },
     'endpoint.test_sent': {
       endpointId: ids.endpoint,
       applicationId: ids.application,

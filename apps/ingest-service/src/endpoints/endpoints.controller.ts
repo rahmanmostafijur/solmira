@@ -102,6 +102,18 @@ export class EndpointsController {
     return this.endpoints.archive(auth, applicationId, endpointId);
   }
 
+  @Post(':endpointId/restore')
+  @RequirePermission('endpoints.delete')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Restore an archived endpoint (idempotent); its URL is checked again' })
+  restore(
+    @CurrentAuth() auth: TenantAuthContext,
+    @Param('applicationId', uuidParam) applicationId: string,
+    @Param('endpointId', uuidParam) endpointId: string,
+  ): Promise<Endpoint> {
+    return this.endpoints.restore(auth, applicationId, endpointId);
+  }
+
   @Post(':endpointId/secret/reveal')
   @RequirePermission('endpoint_secrets.reveal')
   @HttpCode(HttpStatus.OK)
