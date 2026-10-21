@@ -26,6 +26,8 @@ export interface Processed {
 }
 
 const HISTORY_RETRY_DELAY_MS = 100;
+/** How long a delivery waits when its secret cannot be decrypted right now. */
+const SECRET_RETRY_DELAY_MS = 30_000;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -51,7 +53,14 @@ export class DeliveryProcessor {
     const refusal = context ? this.refusalFor(context) : 'delivery_data_missing';
     if (!context || refusal) return this.giveUp(claimed, refusal ?? 'delivery_data_missing');
 
-    const secrets = this.decryptSecrets(claimed, context);
+    const secrets = await this.decryptSecrets(claimed, context);
+    if (secrets === null) {
+      await this.repository.defer(
+        claimed,
+        new Date(this.clock().getTime() + SECRET_RETRY_DELAY_MS),
+      );
+      return { outcome: 'deferred', sent: false, errorClass: null };
+    }
     if (secrets.length === 0) return this.giveUp(claimed, 'signing_secret_missing');
 
     const decision = await this.limiter.tryAcquire(claimed.endpointId, context.rateLimitPerSecond);
@@ -93,12 +102,27 @@ export class DeliveryProcessor {
     return bytes > this.options.maxPayloadBytes ? 'payload_too_large' : null;
   }
 
-  private decryptSecrets(claimed: ClaimedDelivery, context: DeliveryContext): string[] {
+  private async decryptSecrets(
+    claimed: ClaimedDelivery,
+    context: DeliveryContext,
+  ): Promise<string[] | null> {
     const where = secretContext(claimed.organizationId, claimed.endpointId);
     // The active secret signs first; during a rotation the previous one signs as well.
-    return [...context.secrets]
-      .sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1))
-      .map((secret) => this.cipher.decrypt(secret, where));
+    const ordered = [...context.secrets].sort((a, b) =>
+      a.status === b.status ? 0 : a.status === 'active' ? -1 : 1,
+    );
+    try {
+      return await Promise.all(ordered.map((secret) => this.cipher.decrypt(secret, where)));
+    } catch (error) {
+      // The key service is unreachable or throttling, or a secret cannot be opened. Nothing was
+      // sent, so the delivery waits and no attempt is counted; the failure is logged (never the
+      // secret) and an alarm watches for it.
+      this.logger.error(
+        { err: error, deliveryId: claimed.deliveryId, endpointId: claimed.endpointId },
+        'Could not decrypt the signing secret; the delivery is deferred',
+      );
+      return null;
+    }
   }
 
   private outcomeOf(claimed: ClaimedDelivery, result: SendResult): Outcome {

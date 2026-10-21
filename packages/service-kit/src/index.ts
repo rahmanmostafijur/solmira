@@ -39,3 +39,7 @@ export * from './messaging/topology.js';
 export type { Redis } from 'ioredis';
 export * from './crypto/secret-cipher.js';
 export * from './crypto/secret-context.js';
+export * from './crypto/aws-key-management.js';
+export * from './crypto/caching-secret-cipher.js';
+export * from './crypto/kms-secret-cipher.js';
+export * from './crypto/secret-cipher-config.js';

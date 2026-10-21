@@ -1,7 +1,7 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { AttemptStore, createDynamoClients } from '@solmira/attempt-history';
 import {
-  LocalSecretCipher,
+  createSecretCipher,
   resolveAddresses,
   type AddressResolver,
   type DestinationStream,
@@ -44,9 +44,7 @@ export class IngestCoreModule {
         { provide: ADDRESS_RESOLVER, useValue: adapters.resolver ?? resolveAddresses },
         {
           provide: SECRET_CIPHER,
-          useValue:
-            adapters.cipher ??
-            new LocalSecretCipher(config.SECRETS_ENCRYPTION_KEY, config.SECRETS_ENCRYPTION_KEY_ID),
+          useValue: adapters.cipher ?? createSecretCipher(config),
         },
       ],
       exports: [INGEST_CONFIG, ADDRESS_RESOLVER, SECRET_CIPHER, ATTEMPT_STORE],

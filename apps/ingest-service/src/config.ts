@@ -4,6 +4,8 @@ import {
   postgresEnvSchema,
   rabbitmqEnvSchema,
   redisEnvSchema,
+  secretCipherEnvShape,
+  secretCipherProblems,
 } from '@solmira/service-kit';
 import {
   DEFAULT_IDEMPOTENCY_RETENTION_SECONDS,
@@ -12,8 +14,6 @@ import {
 import { z } from 'zod';
 
 export const SERVICE_NAME = 'ingest-service';
-
-const KEY_ENCRYPTION_KEY_BYTES = 32;
 
 export const envSchema = baseEnvSchema
   .extend({
@@ -29,18 +29,8 @@ export const envSchema = baseEnvSchema
     JWT_AUDIENCE: z.string().min(1).default('solmira-api'),
     ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
 
-    /**
-     * Key-encryption key for signing secrets (ADR-0026): 32 random bytes, base64. In AWS this is
-     * replaced by KMS; locally it comes from the environment.
-     */
-    SECRETS_ENCRYPTION_KEY: z
-      .string()
-      .refine(
-        (value) => Buffer.from(value, 'base64').length === KEY_ENCRYPTION_KEY_BYTES,
-        'Must be 32 bytes, base64 encoded (openssl rand -base64 32)',
-      ),
-    /** Names the key that wrapped a secret, so keys can be rotated later. */
-    SECRETS_ENCRYPTION_KEY_ID: z.string().min(1).max(64).default('local-1'),
+    /** Where signing secrets are encrypted: a local key in development, KMS in AWS (ADR-0026, ADR-0038). */
+    ...secretCipherEnvShape,
 
     /** Largest accepted message payload, in bytes of its JSON form. The body limit is 1 MB. */
     MAX_MESSAGE_PAYLOAD_BYTES: z.coerce
@@ -75,6 +65,11 @@ export const envSchema = baseEnvSchema
   .refine((env) => !(env.NODE_ENV === 'production' && env.ALLOW_PRIVATE_ENDPOINT_TARGETS), {
     path: ['ALLOW_PRIVATE_ENDPOINT_TARGETS'],
     message: 'Must not be enabled in production',
+  })
+  .superRefine((env, context) => {
+    for (const [path, message] of secretCipherProblems(env)) {
+      context.addIssue({ code: 'custom', path: [path], message });
+    }
   });
 
 export type IngestConfig = z.infer<typeof envSchema>;

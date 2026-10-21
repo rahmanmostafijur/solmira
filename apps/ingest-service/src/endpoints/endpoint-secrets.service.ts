@@ -42,7 +42,7 @@ export class EndpointSecretsService {
         applicationId,
         secretId: secret.id,
       });
-      return { secret: this.cipher.decrypt(secret, secretContext(auth.organizationId, id)) };
+      return { secret: await this.cipher.decrypt(secret, secretContext(auth.organizationId, id)) };
     });
   }
 
@@ -51,13 +51,14 @@ export class EndpointSecretsService {
    * secret (returned once). Any older previous secret expires now, so at most two secrets are valid
    * and the dispatcher signs with both until the window closes (ADR-0033).
    */
-  rotate(
+  async rotate(
     auth: TenantAuthContext,
     applicationId: string,
     id: string,
     windowHours: number,
   ): Promise<RotatedSecret> {
     const newSecret = generateSigningSecret();
+    const encrypted = await this.cipher.encrypt(newSecret, secretContext(auth.organizationId, id));
     return this.database.forTenant(auth, async (tx) => {
       await findEndpoint(tx, auth, applicationId, id, { live: true });
       const validUntil = new Date(Date.now() + windowHours * 3_600_000);
@@ -88,7 +89,7 @@ export class EndpointSecretsService {
         organizationId: auth.organizationId,
         endpointId: id,
         status: 'active',
-        ...this.cipher.encrypt(newSecret, secretContext(auth.organizationId, id)),
+        ...encrypted,
       });
       await recordEvent(tx, auth, 'endpoint_secret.rotated', {
         endpointId: id,

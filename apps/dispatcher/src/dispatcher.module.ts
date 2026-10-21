@@ -8,7 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   HealthRegistry,
-  LocalSecretCipher,
+  createSecretCipher,
   PG_POOL,
   REDIS,
   type Redis,
@@ -92,10 +92,7 @@ export class DispatcherModule {
         { provide: ADDRESS_RESOLVER, useValue: adapters.resolver ?? resolveAddresses },
         {
           provide: SECRET_CIPHER,
-          useValue: new LocalSecretCipher(
-            config.SECRETS_ENCRYPTION_KEY,
-            config.SECRETS_ENCRYPTION_KEY_ID,
-          ),
+          useValue: createSecretCipher(config),
         },
         {
           provide: ATTEMPT_STORE,
