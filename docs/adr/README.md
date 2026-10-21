@@ -48,6 +48,7 @@ describe.
 | 0037 | [Serialized claims](0037-serialized-claims.md)                                                                              | Accepted           | 2026-10-21 |
 | 0038 | [AWS deployment on ECS Fargate, written as Terraform and never applied](0038-aws-deployment.md)                             | Accepted           | 2026-10-21 |
 | 0039 | [Observability: metrics from logs, OpenTelemetry traces, alarms as code](0039-observability.md)                             | Accepted           | 2026-10-21 |
+| 0040 | [Record the delivery state before the attempt history](0040-state-before-history.md)                                        | Accepted           | 2026-10-22 |
 
 ## Process
 

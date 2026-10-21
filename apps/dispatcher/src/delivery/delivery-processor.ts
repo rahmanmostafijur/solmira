@@ -116,11 +116,14 @@ export class DeliveryProcessor {
     });
 
     const outcome = this.outcomeOf(claimed, result);
-    await this.writeHistory(claimed, startedAt, result, outcome);
-    await this.repository.recordOutcome(claimed, outcome, {
+    // State first (ADR-0040): the delivery stops being "sending" as soon as the receiver answers,
+    // and the window in which a crash causes a repeat send is as short as it can be. The history
+    // is derived; a crash between the two leaves a gap there, never in the delivery.
+    const applied = await this.repository.recordOutcome(claimed, outcome, {
       startedAt,
       durationMs: result.durationMs,
     });
+    if (applied) await this.writeHistory(claimed, startedAt, result, outcome);
     this.metrics.count('Attempts', 1, { Result: RESULT_OF[outcome.kind] });
     this.metrics.observe('AttemptDuration', result.durationMs, 'Milliseconds');
     return { outcome: outcome.kind, sent: true, errorClass: result.errorClass };

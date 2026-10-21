@@ -48,4 +48,35 @@ describe('when the attempt history is unavailable', () => {
     );
     expect(history).toEqual([]); // the lost record is a gap in derived data, not in the delivery
   });
+
+  // Regression: the console showed "sending" for a delivery the receiver had already accepted,
+  // because the state waited for the history write (and its retries) to finish (ADR-0040).
+  it('records the outcome before the history write finishes', async () => {
+    const store = t.app.get<AttemptStore>(ATTEMPT_STORE);
+    const original = store.record.bind(store);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    let statusDuringWrite: unknown;
+    const fixture = await seedDelivery(t.db, { url: 'http://hooks.test:' + receiver.port });
+    store.record = async (record) => {
+      statusDuringWrite = (
+        await t.db.query('select status from deliveries where id = $1', [fixture.deliveryId])
+      ).rows[0]?.status;
+      await held;
+      return original(record);
+    };
+
+    const drained = t.dispatcher.drainOnce();
+    await expect.poll(() => statusDuringWrite).toBe('succeeded');
+    release();
+    await drained;
+    store.record = original;
+
+    const history = await t.attempts.listForDelivery(
+      fixture.organizationId,
+      fixture.messageId,
+      fixture.endpointId,
+    );
+    expect(history).toHaveLength(1);
+  });
 });

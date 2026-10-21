@@ -98,7 +98,6 @@ describe('sending safely', () => {
 
   it('refuses disabled and archived endpoints and oversized payloads without sending', async () => {
     behaviour = 'ok';
-    const before = receiver.requests.length;
     const url = 'http://hooks.test:' + receiver.port;
     const disabled = await seedDelivery(lenient.db, { url, enabled: false });
     const archived = await seedDelivery(lenient.db, { url, archived: true });
@@ -114,7 +113,9 @@ describe('sending safely', () => {
         last_error_class: reason,
         attempt_count: 1,
       });
-    expect(receiver.requests.length).toBe(before);
+    // Only these messages count: retries of the earlier tests may fall due during this drain.
+    const ids = new Set([disabled, archived, large].map((f) => 'msg_' + f.messageId));
+    expect(receiver.requests.filter((r) => ids.has(String(r.headers['webhook-id'])))).toEqual([]);
   });
 
   it('signs with the active and the previous secret during a rotation window', async () => {

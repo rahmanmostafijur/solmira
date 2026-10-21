@@ -27,8 +27,9 @@ and replay follow in Phase 7.
 - **At-least-once.** The attempt number is `attempt_count + 1` at claim time, and `attempt_count`
   only advances when the outcome is recorded. A worker that dies after sending and before recording
   therefore repeats the same attempt number with the same `webhook-id`.
-- **Order of effects per attempt:** send the request, write the attempt to the history (DynamoDB,
-  ADR-0032), then update the delivery in PostgreSQL. History is derived data and its write is
+- **Order of effects per attempt:** send the request, update the delivery in PostgreSQL, then
+  write the attempt to the history (DynamoDB, ADR-0032). (Amended by ADR-0040; the history was first
+  written before the state.) History is derived data and its write is
   idempotent; PostgreSQL is the source of truth for state.
 - **Retries.** Success is any `2xx`. Everything else (other statuses, timeouts, connection and TLS
   errors, blocked targets, redirects) schedules the next attempt from a configurable schedule, by
