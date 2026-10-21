@@ -12,10 +12,11 @@ const MAX_CACHED_SCHEMAS = 500;
 
 /** Where an invalid payload went wrong, as field issues a tenant can act on. */
 function issuesOf(validate: ValidateFunction): FieldIssue[] {
-  return (validate.errors ?? []).slice(0, 10).map((error) => ({
-    path: ['payload', ...error.instancePath.split('/').filter(Boolean)].join('.'),
-    message: error.message ?? 'is invalid',
-  }));
+  return (validate.errors ?? []).slice(0, 10).map((error) => {
+    const path = ['payload', ...error.instancePath.split('/').filter(Boolean)].join('.');
+    // Ajv words the rule ("must be string"); the path makes it a sentence about one field.
+    return { path, message: `${path} ${error.message ?? 'is invalid'}` };
+  });
 }
 
 /**

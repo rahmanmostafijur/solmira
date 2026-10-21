@@ -12,7 +12,7 @@ describe('PayloadValidator', () => {
     const validator = new PayloadValidator();
     expect(validator.validate('t1', 1, schema, { id: 'a', email: 'a@b.co' })).toEqual([]);
     const issues = validator.validate('t1', 1, schema, { id: 5 });
-    expect(issues).toEqual([{ path: 'payload.id', message: 'must be string' }]);
+    expect(issues).toEqual([{ path: 'payload.id', message: 'payload.id must be string' }]);
     expect(validator.validate('t1', 1, schema, { id: 'a', email: 'nope' })[0]?.path).toBe(
       'payload.email',
     );
