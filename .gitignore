@@ -31,6 +31,8 @@ Thumbs.db
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+# Placeholders for the offline plan (CI); nothing real is in it.
+!infra/terraform/offline.tfvars
 
 # Playwright output, and agent notes that `next dev` writes into the web app on startup
 apps/web/test-results/
