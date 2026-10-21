@@ -80,6 +80,7 @@ describe('recovering from worker failures', () => {
       endpointId: fixture.endpointId,
       messageId: fixture.messageId,
       attempt: 3,
+      cycleBase: 0,
     };
     expect(await repository.recordOutcome(claimed, { kind: 'succeeded', statusCode: 200 })).toBe(
       true,

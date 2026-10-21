@@ -5,3 +5,4 @@ export const HTTP_SENDER = Symbol('HTTP_SENDER');
 export const ATTEMPT_STORE = Symbol('ATTEMPT_STORE');
 export const SECRET_CIPHER = Symbol('SECRET_CIPHER');
 export const ADDRESS_RESOLVER = Symbol('ADDRESS_RESOLVER');
+export const ENDPOINT_RATE_LIMITER = Symbol('ENDPOINT_RATE_LIMITER');

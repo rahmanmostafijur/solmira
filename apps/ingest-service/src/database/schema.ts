@@ -88,6 +88,11 @@ export const endpoints = pgTable(
     enabled: boolean('enabled').notNull().default(true),
     disabledReason: text('disabled_reason'),
     disabledAt: timestamptz('disabled_at'),
+    /** Health tracked by the dispatcher (ADR-0033): the failure streak and the circuit breaker. */
+    consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+    firstFailureAt: timestamptz('first_failure_at'),
+    circuitOpenUntil: timestamptz('circuit_open_until'),
+    circuitTrips: integer('circuit_trips').notNull().default(0),
     rateLimitPerSecond: integer('rate_limit_per_second'),
     /** Custom request headers: lowercase name to value. Validated before it is stored. */
     headers: jsonb('headers').notNull().default({}),
@@ -295,6 +300,8 @@ export const deliveries = pgTable(
     lastAttemptAt: timestamptz('last_attempt_at'),
     lastStatusCode: integer('last_status_code'),
     lastErrorClass: text('last_error_class'),
+    /** `attempt_count` when the current cycle began; replay starts a new cycle (ADR-0033). */
+    cycleBase: integer('cycle_base').notNull().default(0),
     completedAt: timestamptz('completed_at'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -314,6 +321,9 @@ export const deliveries = pgTable(
     }),
     index('deliveries_due_idx')
       .on(table.nextAttemptAt)
+      .where(sql`${table.status} = 'pending'`),
+    index('deliveries_tenant_due_idx')
+      .on(table.organizationId, table.nextAttemptAt)
       .where(sql`${table.status} = 'pending'`),
     index('deliveries_in_progress_idx')
       .on(table.lockedUntil)

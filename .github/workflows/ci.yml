@@ -84,12 +84,14 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run build --filter=@solmira/identity-service... --filter=@solmira/ingest-service... --filter=@solmira/dispatcher...
+      - run: pnpm turbo run build --filter=@solmira/identity-service... --filter=@solmira/ingest-service... --filter=@solmira/dispatcher... --filter=@solmira/notification-service...
       - run: pnpm --filter @solmira/service-kit test:integration
       - name: Identity, authorization and tenant-isolation suites
         run: pnpm --filter @solmira/identity-service test:integration
       - name: Ingest service suites
         run: pnpm --filter @solmira/ingest-service test:integration
+      - name: Notification service suites
+        run: pnpm --filter @solmira/notification-service test:integration
       - name: Dispatcher suites
         run: pnpm --filter @solmira/dispatcher test:integration
 

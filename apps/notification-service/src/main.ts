@@ -11,7 +11,7 @@ await runService(async () => {
     nodeEnv: config.NODE_ENV,
     docs: {
       title: 'Solmira Notifications API',
-      description: 'Notification history, read state and delivery preferences.',
+      description: 'In-app notifications about failing and disabled endpoints.',
     },
   });
 });

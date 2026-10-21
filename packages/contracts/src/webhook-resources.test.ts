@@ -4,6 +4,9 @@ import {
   createApplicationRequestSchema,
   createEndpointRequestSchema,
   createEventTypeRequestSchema,
+  replayEndpointRequestSchema,
+  replayMessageRequestSchema,
+  rotateSecretRequestSchema,
   updateApplicationRequestSchema,
   updateEndpointRequestSchema,
 } from './index.js';
@@ -90,5 +93,28 @@ describe('API keys', () => {
       createApiKeyRequestSchema.safeParse({ name: 'ci', expiresAt: '2020-01-01T00:00:00Z' })
         .success,
     ).toBe(false);
+  });
+});
+
+describe('replay and rotation requests', () => {
+  it('require a forward range and bound the batch size', () => {
+    const range = { from: '2026-10-01T00:00:00Z', to: '2026-10-02T00:00:00Z' };
+    expect(replayEndpointRequestSchema.parse(range).limit).toBe(5000);
+    expect(
+      replayEndpointRequestSchema.safeParse({ ...range, from: range.to, to: range.from }).success,
+    ).toBe(false);
+    expect(replayEndpointRequestSchema.safeParse({ ...range, limit: 5001 }).success).toBe(false);
+    expect(replayEndpointRequestSchema.safeParse({ ...range, limit: 0 }).success).toBe(false);
+    expect(replayEndpointRequestSchema.safeParse({ from: 'yesterday', to: range.to }).success).toBe(
+      false,
+    );
+  });
+
+  it('let a message replay name one endpoint, and default the rotation window to a day', () => {
+    expect(replayMessageRequestSchema.safeParse({}).success).toBe(true);
+    expect(replayMessageRequestSchema.safeParse({ endpointId: 'nope' }).success).toBe(false);
+    expect(rotateSecretRequestSchema.parse({}).windowHours).toBe(24);
+    expect(rotateSecretRequestSchema.safeParse({ windowHours: 0 }).success).toBe(false);
+    expect(rotateSecretRequestSchema.safeParse({ windowHours: 24 * 8 }).success).toBe(false);
   });
 });

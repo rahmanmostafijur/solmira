@@ -117,6 +117,24 @@ message (`id`, `applicationId`, `eventType`, `createdAt`). Delivery to endpoints
 A rejected request does not consume its Idempotency-Key, so it can be corrected and sent again with
 the same key. JSON Schema formats such as `email` and `date-time` are checked.
 
+### Replay and secret rotation (built, Phase 7)
+
+| Call                                                                            | Needs                     | Effect                                                                                                                                                             |
+| ------------------------------------------------------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `POST /applications/{app}/messages/{id}/replay` with `{ "endpointId"? }`        | `deliveries.replay`       | Sends the message again to its endpoints as a new retry cycle (finished deliveries only).                                                                          |
+| `POST /applications/{app}/endpoints/{id}/replay` with `{ from, to, limit? }`    | `deliveries.replay`       | Replays the endpoint's failed deliveries for messages created in `[from, to)`, at most `limit` (default and maximum 5000) per call; `more: true` means call again. |
+| `POST /applications/{app}/endpoints/{id}/secret/rotate` with `{ windowHours? }` | `endpoint_secrets.rotate` | The current secret keeps signing for `windowHours` (default 24) next to the new one, which is returned once.                                                       |
+
+Both replay calls answer `{ replayed, more }` and are idempotent: deliveries that are already waiting
+are not touched. A disabled endpoint must be enabled first (`409`); enabling an endpoint resets its
+failure history. Replayed requests carry the same `webhook-id` as the first delivery.
+
+### Notifications (built, Phase 7)
+
+`GET /notifications` (`unreadOnly`, pagination) and `POST /notifications/{id}/read` on
+notification-service. An endpoint that fails continuously for five days (configurable) is disabled and
+the organization gets one notification.
+
 Messages and deliveries (Phases 5 to 7, Planned): list and inspect messages and their attempts, replay one
 message, and replay all failed messages of an endpoint within a time range.
 

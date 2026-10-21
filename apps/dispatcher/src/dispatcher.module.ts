@@ -10,6 +10,8 @@ import {
   HealthRegistry,
   LocalSecretCipher,
   PG_POOL,
+  REDIS,
+  type Redis,
   assertRowLevelSecurityEnforced,
   resolveAddresses,
   type AddressResolver,
@@ -18,6 +20,7 @@ import {
 import { DescribeTableCommand } from '@aws-sdk/client-dynamodb';
 import type pg from 'pg';
 import type { DispatcherConfig } from './config.js';
+import { EndpointRateLimiter } from './delivery/endpoint-rate-limiter.js';
 import { DeliveryRepository } from './database/delivery-repository.js';
 import { DeliveryProcessor } from './delivery/delivery-processor.js';
 import { HttpSender } from './delivery/http-sender.js';
@@ -28,6 +31,7 @@ import {
   DELIVERY_PROCESSOR,
   DELIVERY_REPOSITORY,
   DISPATCHER_CONFIG,
+  ENDPOINT_RATE_LIMITER,
   HTTP_SENDER,
   SECRET_CIPHER,
 } from './dispatcher.tokens.js';
@@ -118,25 +122,50 @@ export class DispatcherModule {
         {
           provide: DELIVERY_REPOSITORY,
           inject: [PG_POOL],
-          useFactory: (pool: pg.Pool) => new DeliveryRepository(pool),
+          useFactory: (pool: pg.Pool) =>
+            new DeliveryRepository(pool, {
+              circuitFailureThreshold: config.CIRCUIT_FAILURE_THRESHOLD,
+              circuitCooldownBaseSeconds: config.CIRCUIT_COOLDOWN_BASE_SECONDS,
+              circuitCooldownMaxSeconds: config.CIRCUIT_COOLDOWN_MAX_SECONDS,
+              autoDisableAfterHours: config.AUTO_DISABLE_AFTER_HOURS,
+            }),
+        },
+        {
+          provide: ENDPOINT_RATE_LIMITER,
+          inject: [{ token: REDIS, optional: true }],
+          useFactory: (redis: Redis | undefined) => new EndpointRateLimiter(redis),
         },
         {
           provide: DELIVERY_PROCESSOR,
-          inject: [DELIVERY_REPOSITORY, HTTP_SENDER, ATTEMPT_STORE, SECRET_CIPHER],
+          inject: [
+            DELIVERY_REPOSITORY,
+            HTTP_SENDER,
+            ATTEMPT_STORE,
+            SECRET_CIPHER,
+            ENDPOINT_RATE_LIMITER,
+          ],
           useFactory: (
             repository: DeliveryRepository,
             sender: HttpSender,
             attempts: AttemptStore,
             cipher: SecretCipher,
+            limiter: EndpointRateLimiter,
           ) =>
-            new DeliveryProcessor(repository, sender, attempts, cipher, {
-              retry: {
-                schedule: config.RETRY_SCHEDULE_SECONDS,
-                jitterRatio: config.RETRY_JITTER_RATIO,
+            new DeliveryProcessor(
+              repository,
+              sender,
+              attempts,
+              cipher,
+              {
+                retry: {
+                  schedule: config.RETRY_SCHEDULE_SECONDS,
+                  jitterRatio: config.RETRY_JITTER_RATIO,
+                },
+                maxPayloadBytes: config.DELIVERY_MAX_PAYLOAD_BYTES,
+                historyWriteTries: HISTORY_WRITE_TRIES,
               },
-              maxPayloadBytes: config.DELIVERY_MAX_PAYLOAD_BYTES,
-              historyWriteTries: HISTORY_WRITE_TRIES,
-            }),
+              limiter,
+            ),
         },
         DispatcherHealth,
         DispatcherService,

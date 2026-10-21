@@ -20,8 +20,8 @@ when all of them pass and CI is green. Progress is logged in
 | 4     | Applications, API keys, event types, endpoints       | Done        |
 | 5     | Message ingestion, outbox relay, fan-out             | Done        |
 | 6     | Dispatcher                                           | Done        |
-| 7     | Failure handling, isolation, replay, secret rotation | In progress |
-| 8     | Console                                              | Planned     |
+| 7     | Failure handling, isolation, replay, secret rotation | Done        |
+| 8     | Console                                              | In progress |
 | 9     | Realtime delivery feed and analytics                 | Planned     |
 | 10    | Audit and receiver verification library              | Planned     |
 | 11    | Testing depth: load and chaos                        | Planned     |
