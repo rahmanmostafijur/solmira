@@ -1,3 +1,4 @@
+import { startTracing } from '@solmira/telemetry';
 import { VersioningType, type DynamicModule, type Type } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
@@ -60,6 +61,8 @@ export async function bootstrapService(
   rootModule: DynamicModule | Type,
   options: BootstrapOptions,
 ): Promise<NestExpressApplication> {
+  // Before anything else is created, so every span of the service belongs to the exporter.
+  startTracing(options.serviceName, options.nodeEnv);
   const app = await createServiceApp(rootModule, options);
   await app.listen(options.port, '0.0.0.0');
   app.get(Logger).log(`${options.serviceName} listening on port ${options.port}`, 'Bootstrap');

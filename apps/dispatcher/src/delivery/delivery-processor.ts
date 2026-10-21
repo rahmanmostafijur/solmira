@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { MetricsRegistry, secretContext, type SecretCipher } from '@solmira/service-kit';
+import { MetricsRegistry, secretContext, withSpan, type SecretCipher } from '@solmira/service-kit';
 import type {
   ClaimedDelivery,
   DeliveryContext,
@@ -53,7 +53,27 @@ export class DeliveryProcessor {
     }),
   ) {}
 
-  async process(claimed: ClaimedDelivery): Promise<Processed> {
+  /** One delivery attempt as a span: ids and the outcome, never the URL, payload or response. */
+  process(claimed: ClaimedDelivery): Promise<Processed> {
+    return withSpan(
+      'delivery.attempt',
+      {
+        'organization.id': claimed.organizationId,
+        'endpoint.id': claimed.endpointId,
+        'message.id': claimed.messageId,
+        'delivery.id': claimed.deliveryId,
+        'delivery.attempt': claimed.attempt,
+      },
+      async (span) => {
+        const processed = await this.processDelivery(claimed);
+        span.setAttribute('delivery.outcome', processed.outcome);
+        if (processed.errorClass) span.setAttribute('delivery.error_class', processed.errorClass);
+        return processed;
+      },
+    );
+  }
+
+  private async processDelivery(claimed: ClaimedDelivery): Promise<Processed> {
     const context = await this.repository.loadContext(claimed);
     const refusal = context ? this.refusalFor(context) : 'delivery_data_missing';
     if (!context || refusal) return this.giveUp(claimed, refusal ?? 'delivery_data_missing');

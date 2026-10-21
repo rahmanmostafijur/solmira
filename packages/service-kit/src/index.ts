@@ -46,3 +46,6 @@ export * from './crypto/secret-cipher-config.js';
 export * from './metrics/emf.js';
 export * from './metrics/metrics.module.js';
 export * from './metrics/registry.js';
+export { activeTraceIds, withSpan } from '@solmira/telemetry';
+export * from './tracing/tracing.interceptor.js';
+export { shutdownTracing, startTracing, tracingEnvSchema } from '@solmira/telemetry';

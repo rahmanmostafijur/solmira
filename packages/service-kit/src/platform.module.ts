@@ -7,6 +7,7 @@ import { RabbitMqModule } from './infra/rabbitmq.module.js';
 import { RedisModule } from './infra/redis.module.js';
 import { createLoggerModule } from './logging/logger.module.js';
 import { MetricsModule } from './metrics/metrics.module.js';
+import { TracingModule } from './tracing/tracing.interceptor.js';
 
 export interface PlatformOptions {
   readonly serviceName: string;
@@ -54,6 +55,7 @@ export class PlatformModule {
           serviceName,
           ...(options.metrics?.write ? { write: options.metrics.write } : {}),
         }),
+        TracingModule,
         HealthModule.forRoot(serviceName),
         ...(options.postgres
           ? [PostgresModule.forRoot({ ...options.postgres, applicationName: serviceName })]

@@ -38,6 +38,7 @@
     "@nestjs/platform-express": "^12.1.1",
     "@nestjs/swagger": "^12.0.2",
     "@solmira/contracts": "workspace:*",
+    "@solmira/telemetry": "workspace:*",
     "amqplib": "^2.2.0",
     "cookie-parser": "^1.4.7",
     "drizzle-orm": "^0.45.3",

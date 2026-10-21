@@ -1,3 +1,4 @@
+import { SpanKind, withSpan } from '@solmira/telemetry';
 import { eventEnvelopeSchema, type EventEnvelope } from '@solmira/contracts';
 import type { ConfirmChannel, ConsumeMessage } from 'amqplib';
 import { retryQueueOf } from './topology.js';
@@ -56,7 +57,20 @@ export async function processMessage(
   }
 
   try {
-    await definition.handler(envelope, { attempt });
+    // A span per processed event; the correlation id ties it to the request that started the flow.
+    await withSpan(
+      'event.consume',
+      {
+        'messaging.destination.name': definition.queue,
+        'messaging.attempt': attempt,
+        'event.type': envelope.type,
+        'event.id': envelope.eventId,
+        'correlation.id': envelope.correlationId,
+        'organization.id': envelope.organizationId ?? '',
+      },
+      () => definition.handler(envelope, { attempt }),
+      SpanKind.CONSUMER,
+    );
     channel.ack(message);
     return 'processed';
   } catch (error) {

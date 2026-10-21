@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { CreateMessageRequest, Message } from '@solmira/contracts';
-import { MetricsRegistry, NotFoundError } from '@solmira/service-kit';
+import { MetricsRegistry, NotFoundError, withSpan } from '@solmira/service-kit';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { ApiKeyPrincipal } from '../api-keys/api-key-authenticator.js';
@@ -62,7 +62,11 @@ export class MessagesService {
     input: CreateMessageRequest,
   ): Promise<IngestResult> {
     try {
-      const result = await this.store(principal, applicationId, idempotencyKey, input);
+      const result = await withSpan(
+        'message.ingest',
+        { 'organization.id': principal.organizationId, 'application.id': applicationId },
+        () => this.store(principal, applicationId, idempotencyKey, input),
+      );
       this.metrics.count(result.replayed ? 'MessagesReplayed' : 'MessagesAccepted');
       return result;
     } catch (error) {
