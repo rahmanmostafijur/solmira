@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { AUDITED_EVENT_TYPES } from '@solmira/contracts';
-import pg from 'pg';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { sampleEvents } from './support/samples.js';
 import { createTestApp, newOrganizationId, type Actor, type TestApp } from './support/test-app.js';
 
