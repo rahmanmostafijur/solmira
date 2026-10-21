@@ -32,6 +32,9 @@
     },
     "packages/webhooks": {
       "entry": ["src/index.ts", "src/**/*.test.ts", "examples/**/*.ts"]
+    },
+    "tests/resilience": {
+      "entry": ["chaos/**/*.chaos.test.ts", "load/run.ts", "load/sweep.ts", "scripts/*.mjs"]
     }
   }
 }

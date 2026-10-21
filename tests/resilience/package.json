@@ -1,0 +1,29 @@
+{
+  "name": "@solmira/resilience",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chaos tests and the load test: the real services as processes, real infrastructure, measured results",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json",
+    "lint": "eslint src chaos load",
+    "prepare:stack": "node scripts/prepare.mjs",
+    "chaos": "node scripts/prepare.mjs && vitest run -c vitest.chaos.config.ts",
+    "load": "node scripts/prepare.mjs && tsc -p tsconfig.build.json && node dist/load/run.js",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "load:sweep": "node scripts/prepare.mjs && tsc -p tsconfig.build.json && node dist/load/sweep.js"
+  },
+  "dependencies": {
+    "@solmira/contracts": "workspace:*",
+    "@solmira/ingest-service": "workspace:*",
+    "@solmira/service-kit": "workspace:*",
+    "@solmira/webhooks": "workspace:*",
+    "pg": "^8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
+    "vitest": "^5.0.2"
+  }
+}
