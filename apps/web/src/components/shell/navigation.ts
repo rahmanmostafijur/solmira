@@ -1,8 +1,10 @@
 import type { Permission } from '@solmira/contracts';
 import {
   Activity,
+  AppWindow,
   Building2,
   LayoutDashboard,
+  Tags,
   ShieldCheck,
   SlidersHorizontal,
   Users,
@@ -29,6 +31,25 @@ export const NAVIGATION: readonly NavSection[] = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/organizations', label: 'Organizations', icon: Building2 },
+    ],
+  },
+  {
+    title: 'Webhooks',
+    items: [
+      {
+        href: '/applications',
+        label: 'Applications',
+        icon: AppWindow,
+        permission: 'applications.read',
+        requiresOrganization: true,
+      },
+      {
+        href: '/event-types',
+        label: 'Event types',
+        icon: Tags,
+        permission: 'event_types.read',
+        requiresOrganization: true,
+      },
     ],
   },
   {

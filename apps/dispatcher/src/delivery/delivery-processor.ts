@@ -6,7 +6,7 @@ import type {
   DeliveryRepository,
   Outcome,
 } from '../database/delivery-repository.js';
-import type { AttemptStore } from '../history/attempt-store.js';
+import type { AttemptStore } from '@solmira/attempt-history';
 import type { EndpointRateLimiter } from './endpoint-rate-limiter.js';
 import { buildDeliveryRequest } from './delivery-request.js';
 import type { HttpSender, SendResult } from './http-sender.js';

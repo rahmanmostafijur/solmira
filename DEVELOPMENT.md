@@ -108,6 +108,19 @@ pnpm --filter @solmira/dispatcher test:integration         # needs DynamoDB Loca
 The ingest suite works the same way (`solmira_ingest_test`) and verifies tokens through a real JWKS
 endpoint served by the test harness.
 
+### End-to-end browser test
+
+`pnpm --filter @solmira/web test:e2e` drives the console in Chromium through the gateway against the
+real stack: it signs up, creates an event type, application, API key and endpoint, sends an event
+through the ingestion API, checks the delivery's signature at a receiver of its own, makes the receiver
+fail, inspects the failed attempts and replays them, and uses the test-send button. Before it runs,
+`e2e/prepare.mjs` builds identity, ingest and the dispatcher and applies their migrations; Playwright
+then starts the three services and the web app (the dispatcher with a short retry schedule and
+loopback targets allowed). It needs `pnpm infra:up`, a one-time `playwright install chromium`, and the
+`.env` files of identity and ingest. If PostgreSQL is published on another port, set `POSTGRES_PORT`
+for the command (the same variable compose reads). Port 3000 and 4001, 4002 and 4006 must be free, or
+a running instance is reused.
+
 The identity integration suites provision their own throwaway database (`solmira_identity_test`)
 with separate owner and runtime roles, so they run exactly as deployed: the application talks to
 PostgreSQL as a role that Row Level Security applies to. Email is captured in memory; everything

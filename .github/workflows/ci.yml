@@ -95,6 +95,40 @@ jobs:
       - name: Dispatcher suites
         run: pnpm --filter @solmira/dispatcher test:integration
 
+  e2e:
+    name: End-to-end browser test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # The compose file creates the service databases and roles; the services themselves run on
+      # the runner, started by Playwright, and the browser enters through the gateway.
+      - name: Start infrastructure
+        run: docker compose up -d --wait postgres redis rabbitmq dynamodb mailpit
+      - name: Service environment files
+        run: |
+          cp apps/identity-service/.env.example apps/identity-service/.env
+          cp apps/ingest-service/.env.example apps/ingest-service/.env
+          cp apps/web/.env.example apps/web/.env
+          pnpm --filter @solmira/identity-service keys:generate
+      - run: docker compose up -d --wait gateway
+      - run: pnpm --filter @solmira/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @solmira/web test:e2e
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 7
+
   audit:
     name: Dependency audit
     runs-on: ubuntu-latest

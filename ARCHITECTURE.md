@@ -32,7 +32,8 @@ flowchart LR
 
 Built: gateway, web (authentication and organization pages), identity-service, ingest-service
 (management API, ingestion, fan-out, replay, rotation), the dispatcher with endpoint isolation and its
-DynamoDB attempt history, and notification-service (alerts). Planned: the console (Phase 8), the
+DynamoDB attempt history, notification-service (alerts), and the console (applications, endpoints,
+event types, API keys, message inspector with attempt timeline, replay, test send). Planned: the
 realtime feed and analytics (Phase 9) and the audit consumer (Phase 10).
 
 ## 2. Repository structure

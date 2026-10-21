@@ -42,6 +42,7 @@ describe.
 | 0031 | [Dispatcher design: claiming, leases, retries and the delivery request](0031-dispatcher-design.md)                          | Accepted           | 2026-10-21 |
 | 0032 | [Delivery attempt history in DynamoDB](0032-attempt-history-dynamodb.md)                                                    | Accepted           | 2026-10-21 |
 | 0033 | [Endpoint isolation, circuit breaking, auto-disable, replay and secret rotation](0033-isolation-failure-handling-replay.md) | Accepted           | 2026-10-21 |
+| 0034 | [Message inspection and test send](0034-inspection-and-test-send.md)                                                        | Accepted           | 2026-10-21 |
 
 ## Process
 

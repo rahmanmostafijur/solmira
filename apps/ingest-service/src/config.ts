@@ -64,6 +64,11 @@ export const envSchema = baseEnvSchema
     OUTBOX_RELAY_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
     OUTBOX_RELAY_POLL_MS: z.coerce.number().int().min(10).max(60_000).default(500),
 
+    /** Attempt history (ADR-0032), read for the message inspector. DynamoDB Local in development. */
+    DYNAMODB_TABLE: z.string().min(3).default('solmira-delivery-attempts'),
+    DYNAMODB_ENDPOINT: z.url().optional(),
+    AWS_REGION: z.string().min(1).default('us-east-1'),
+
     /** Development and tests only: lets endpoints target http and non-public addresses. */
     ALLOW_PRIVATE_ENDPOINT_TARGETS: z.stringbool().default(false),
   })

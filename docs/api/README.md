@@ -12,7 +12,7 @@ contract being built; they are not available yet.
 | Base path      | `/api/v1`                                                                                                                                   |
 | Format         | JSON request and response bodies; times are ISO-8601 UTC; ids are UUIDv7.                                                                   |
 | Console auth   | `Authorization: Bearer <access token>` (15-minute JWT from `POST /auth/login`). The tenant is taken from the token, never from the request. |
-| Ingestion auth | **Planned (Phase 5):** `Authorization: Bearer <API key>`. A key belongs to one application.                                                 |
+| Ingestion auth | `Authorization: Bearer <API key>`. A key belongs to one application.                                                                        |
 | Request ids    | The gateway sets `X-Request-Id` and propagates `X-Correlation-Id`; both appear in error bodies and logs.                                    |
 | Tenancy        | A resource of another organization answers `404`, not `403`.                                                                                |
 | Idempotency    | Write endpoints that document it accept `Idempotency-Key` (8-100 characters of letters, digits and `- _ : .`).                              |
@@ -135,8 +135,17 @@ failure history. Replayed requests carry the same `webhook-id` as the first deli
 notification-service. An endpoint that fails continuously for five days (configurable) is disabled and
 the organization gets one notification.
 
-Messages and deliveries (Phases 5 to 7, Planned): list and inspect messages and their attempts, replay one
-message, and replay all failed messages of an endpoint within a time range.
+### Inspection and test send (built, Phase 8)
+
+| Call                                                                   | Needs              | Effect                                                                                                                                                      |
+| ---------------------------------------------------------------------- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /applications/{app}/messages` (`eventType`, `from`, `to`, paging) | `messages.read`    | Messages, newest first, each with delivery counts by status.                                                                                                |
+| `GET /applications/{app}/messages/{id}`                                | `messages.read`    | The payload, every delivery, and the attempt timeline from the history store. `attemptsAvailable: false` means the history is unreachable; state is intact. |
+| `GET /applications/{app}/endpoints/{id}/deliveries` (`status`, paging) | `messages.read`    | An endpoint's deliveries, newest first, filterable by status.                                                                                               |
+| `POST /applications/{app}/endpoints/{id}/test`                         | `endpoints.update` | Sends a `solmira.test` event to this endpoint only. Answers `{ messageId, deliveryId }`.                                                                    |
+
+The `solmira.` event-type prefix is reserved for the platform (ADR-0034). Stored response bodies in
+the timeline are truncated at the dispatcher's limit and marked `responseBodyTruncated`.
 
 ## What a receiver gets (built, Phase 6)
 

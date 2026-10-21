@@ -17,7 +17,6 @@ import {
   type AddressResolver,
   type SecretCipher,
 } from '@solmira/service-kit';
-import { DescribeTableCommand } from '@aws-sdk/client-dynamodb';
 import type pg from 'pg';
 import type { DispatcherConfig } from './config.js';
 import { EndpointRateLimiter } from './delivery/endpoint-rate-limiter.js';
@@ -35,8 +34,12 @@ import {
   HTTP_SENDER,
   SECRET_CIPHER,
 } from './dispatcher.tokens.js';
-import { AttemptStore, ensureAttemptTable } from './history/attempt-store.js';
-import { createDynamoClients } from './history/dynamodb.js';
+import {
+  AttemptStore,
+  assertAttemptTable,
+  createDynamoClients,
+  ensureAttemptTable,
+} from '@solmira/attempt-history';
 
 /** Replaceable collaborators, so tests can fake DNS without touching the network. */
 export interface DispatcherAdapters {
@@ -62,13 +65,9 @@ class DispatcherHealth implements OnModuleInit {
       ...(this.config.DYNAMODB_ENDPOINT ? { endpoint: this.config.DYNAMODB_ENDPOINT } : {}),
     });
     // History is derived data and delivery continues without it, so this never fails readiness.
-    this.health.register(
-      'dynamodb',
-      async () => {
-        await raw.send(new DescribeTableCommand({ TableName: this.config.DYNAMODB_TABLE }));
-      },
-      { critical: false },
-    );
+    this.health.register('dynamodb', () => assertAttemptTable(raw, this.config.DYNAMODB_TABLE), {
+      critical: false,
+    });
     if (!this.config.DYNAMODB_CREATE_TABLE) return;
     try {
       await ensureAttemptTable(raw, this.config.DYNAMODB_TABLE);

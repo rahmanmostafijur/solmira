@@ -7,8 +7,8 @@ import { inject } from 'vitest';
 import { AppModule } from '../../src/app.module.js';
 import { SERVICE_NAME, envSchema } from '../../src/config.js';
 import { DispatcherService } from '../../src/dispatcher.service.js';
-import { AttemptStore } from '../../src/history/attempt-store.js';
-import { createDynamoClients } from '../../src/history/dynamodb.js';
+import { AttemptStore } from '@solmira/attempt-history';
+import { createDynamoClients } from '@solmira/attempt-history';
 import { TEST_KEY } from './seed.js';
 
 // DynamoDB Local accepts any credentials, but the SDK insists on having some.

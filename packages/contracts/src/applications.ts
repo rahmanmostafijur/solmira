@@ -68,7 +68,10 @@ export const eventTypeSchema = z.object({
 export type EventType = z.infer<typeof eventTypeSchema>;
 
 export const createEventTypeRequestSchema = z.object({
-  name: eventTypeNameSchema,
+  name: eventTypeNameSchema.refine(
+    (name) => !name.startsWith('solmira.'),
+    'Names starting with solmira. are reserved for the platform',
+  ),
   description: descriptionSchema.optional(),
   schema: jsonSchemaDocument.optional(),
 });
