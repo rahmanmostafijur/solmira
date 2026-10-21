@@ -33,6 +33,7 @@ pnpm --filter @solmira/identity-service db:migrate      # runs as identity_owner
 pnpm --filter @solmira/ingest-service db:migrate        # runs as ingest_owner
 pnpm --filter @solmira/notification-service db:migrate  # alerts; the realtime feed needs no tables
 pnpm --filter @solmira/analytics-service db:migrate     # delivery attempts for the statistics
+pnpm --filter @solmira/audit-service db:migrate         # the append-only audit trail
 ```
 
 The dispatcher (`apps/dispatcher`) needs the same `SECRETS_ENCRYPTION_KEY` as ingest-service and
@@ -107,6 +108,7 @@ pnpm --filter @solmira/ingest-service test:integration     # ingestion, fan-out,
 pnpm --filter @solmira/dispatcher test:integration         # needs DynamoDB Local on :8000
 pnpm --filter @solmira/notification-service test:integration  # alerts and the realtime feed (real WebSocket)
 pnpm --filter @solmira/analytics-service test:integration     # statistics against fixtures with known answers
+pnpm --filter @solmira/audit-service test:integration         # audit records, isolation, append-only
 ```
 
 The ingest suite works the same way (`solmira_ingest_test`) and verifies tokens through a real JWKS

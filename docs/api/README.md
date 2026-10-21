@@ -180,7 +180,29 @@ Each row has `attempts` (real sends; a refusal that sent nothing is not one), `s
 `attemptsPerDelivery` and `latencyMs` with `p50`, `p95` and `p99` (milliseconds, linearly interpolated
 over the duration of every attempt). With no attempts the rates and percentiles are `null`, not zero.
 
+## audit-service (built, Phase 10)
+
+| Call                                                                                    | Needs             | Effect                                                              |
+| --------------------------------------------------------------------------------------- | ----------------- | ------------------------------------------------------------------- |
+| `GET /audit-logs` (`action`, `actorId`, `targetType`, `targetId`, `from`, `to`, paging) | `audit_logs.read` | The organization's administrative actions, newest first (ADR-0036). |
+
+Each record has `id`, `action` (an event type such as `endpoint_secret.revealed`), `actorType` (`user` or
+`system`), `actorId` (null for the platform), `targetType` (`organization`, `member`, `invitation`,
+`application`, `api_key`, `event_type`, `endpoint` or `message`), `targetId`, `occurredAt`,
+`correlationId` and `details` (ids and field names from the event, never secrets). Records cannot be
+changed or removed through the API or by the runtime database role.
+
+Audited actions: organization created and updated; members invited, joined, role changed, status
+changed and removed; invitations revoked; applications created, updated, archived and restored; API keys
+created and revoked; event types created, updated and archived; endpoints created, updated, archived,
+tested and automatically disabled; endpoint secrets revealed and rotated; deliveries replayed. Sign-ins
+and the delivery data plane are not part of the trail.
+
 ## What a receiver gets (built, Phase 6)
+
+To verify what you receive use [`@solmira/webhooks`](../../packages/webhooks/README.md): it has the
+reference vector, examples for `node:http`, Next.js and Express, and the verification recipe for other
+languages.
 
 An HTTP `POST` with the message payload as the body and the
 [Standard Webhooks](https://www.standardwebhooks.com/) headers:
