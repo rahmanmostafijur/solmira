@@ -121,6 +121,11 @@ export class AttemptStore {
   }
 }
 
+/** Throws unless the table exists and answers: the readiness check of anything that uses the history. */
+export async function assertAttemptTable(client: DynamoDBClient, table: string): Promise<void> {
+  await client.send(new DescribeTableCommand({ TableName: table }));
+}
+
 /** Creates the table and its TTL for development and tests; in AWS Terraform owns the table. */
 export async function ensureAttemptTable(client: DynamoDBClient, table: string): Promise<void> {
   try {

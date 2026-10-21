@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ATTEMPT_STORE } from '../src/dispatcher.tokens.js';
-import type { AttemptStore } from '../src/history/attempt-store.js';
+import type { AttemptStore } from '@solmira/attempt-history';
 import { seedDelivery } from './support/seed.js';
 import { startServer, type TestServer } from './support/test-server.js';
 import { createTestDispatcher, type TestDispatcher } from './support/test-app.js';

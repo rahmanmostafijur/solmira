@@ -33,6 +33,7 @@ export const PERMISSION_CATALOG = {
   'endpoint_secrets.rotate': 'Rotate endpoint signing secrets (audited)',
   'deliveries.replay': 'Replay messages and failed deliveries',
   'notifications.read': 'View and acknowledge notifications',
+  'messages.read': 'Inspect messages, deliveries and attempts',
   'analytics.read': 'View dashboards and reports',
   'audit_logs.read': 'View the audit trail',
 } as const;
@@ -49,6 +50,7 @@ const READ_OPERATIONS: readonly Permission[] = [
   'organizations.read',
   'analytics.read',
   'notifications.read',
+  'messages.read',
   'applications.read',
   'event_types.read',
   'endpoints.read',

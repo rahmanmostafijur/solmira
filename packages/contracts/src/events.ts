@@ -71,6 +71,8 @@ export interface IngestEventPayloads {
   'endpoint.created': { endpointId: string; applicationId: string };
   'endpoint.updated': { endpointId: string; applicationId: string; fields: string[] };
   'endpoint.archived': { endpointId: string; applicationId: string };
+  /** A test event was sent to one endpoint from the console. */
+  'endpoint.test_sent': { endpointId: string; applicationId: string; messageId: string };
   'endpoint_secret.revealed': { endpointId: string; applicationId: string; secretId: string };
   'endpoint_secret.rotated': {
     endpointId: string;
