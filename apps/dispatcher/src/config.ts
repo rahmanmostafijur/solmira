@@ -46,6 +46,8 @@ export const envSchema = baseEnvSchema
     DISPATCH_CONCURRENCY: z.coerce.number().int().min(1).max(500).default(20),
     /** Tests turn the loop off and drive the dispatcher by hand. */
     DISPATCH_AUTOSTART: z.stringbool().default(true),
+    /** Deliveries one endpoint may have in flight across all workers (ADR-0033). */
+    DISPATCH_PER_ENDPOINT: z.coerce.number().int().min(1).max(100).default(5),
     DISPATCH_POLL_MS: z.coerce.number().int().min(10).max(60_000).default(500),
     /** How long a claim is held; a delivery of a dead worker is retried after this. */
     DISPATCH_LEASE_SECONDS: z.coerce.number().int().min(5).max(3600).default(120),
@@ -62,6 +64,20 @@ export const envSchema = baseEnvSchema
     ),
     /** Each delay is multiplied by a random factor within plus or minus this ratio. */
     RETRY_JITTER_RATIO: z.coerce.number().min(0).max(0.5).default(0.2),
+
+    /** Failures in a row that open an endpoint's circuit, and its cool-down (doubles per trip). */
+    CIRCUIT_FAILURE_THRESHOLD: z.coerce.number().int().min(1).max(1000).default(5),
+    CIRCUIT_COOLDOWN_BASE_SECONDS: z.coerce.number().int().min(1).max(3600).default(30),
+    CIRCUIT_COOLDOWN_MAX_SECONDS: z.coerce.number().int().min(1).max(86_400).default(600),
+    /** An endpoint that has failed continuously for this long is disabled and its owner told. */
+    AUTO_DISABLE_AFTER_HOURS: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(24 * 30)
+      .default(120),
+    /** Per-endpoint rate limits need Redis; without it they are not applied. */
+    REDIS_URL: z.url().optional(),
 
     DYNAMODB_TABLE: z.string().min(3).default('solmira-delivery-attempts'),
     /** DynamoDB Local in development; unset in AWS. */

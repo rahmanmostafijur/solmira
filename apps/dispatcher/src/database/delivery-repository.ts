@@ -1,5 +1,10 @@
 import type { EncryptedSecret } from '@solmira/service-kit';
 import type pg from 'pg';
+import {
+  recordEndpointFailure,
+  recordEndpointSuccess,
+  type HealthPolicy,
+} from './endpoint-health.js';
 
 export interface ClaimedDelivery {
   readonly deliveryId: string;
@@ -8,6 +13,8 @@ export interface ClaimedDelivery {
   readonly messageId: string;
   /** The number this try will have: recorded attempts plus one. */
   readonly attempt: number;
+  /** Attempts before the current cycle (a replay starts a new one); retries count from here. */
+  readonly cycleBase: number;
 }
 
 export interface StoredSecret extends EncryptedSecret {
@@ -16,6 +23,8 @@ export interface StoredSecret extends EncryptedSecret {
 
 /** Everything needed to send one delivery, loaded inside the delivery's tenant. */
 export interface DeliveryContext {
+  readonly endpointId: string;
+  readonly rateLimitPerSecond: number | null;
   readonly url: string;
   readonly headers: Record<string, string>;
   readonly enabled: boolean;
@@ -23,6 +32,14 @@ export interface DeliveryContext {
   readonly payload: unknown;
   readonly secrets: readonly StoredSecret[];
 }
+
+/** Outcomes that say nothing about the endpoint's health: nothing was sent. */
+const NOT_AN_ENDPOINT_FAILURE = new Set([
+  'endpoint_unavailable',
+  'payload_too_large',
+  'delivery_data_missing',
+  'signing_secret_missing',
+]);
 
 export type Outcome =
   | { readonly kind: 'succeeded'; readonly statusCode: number }
@@ -46,9 +63,11 @@ interface ClaimRow {
   endpoint_id: string;
   message_id: string;
   attempt: number;
+  cycle_base: number;
 }
 
 interface ContextRow {
+  rate_limit_per_second: number | null;
   url: string;
   headers: Record<string, string>;
   enabled: boolean;
@@ -66,12 +85,20 @@ interface ContextRow {
  * this role exactly as it does to the ingest service.
  */
 export class DeliveryRepository {
-  constructor(private readonly pool: pg.Pool) {}
+  constructor(
+    private readonly pool: pg.Pool,
+    private readonly health: HealthPolicy,
+  ) {}
 
-  async claim(limit: number, perTenant: number, leaseSeconds: number): Promise<ClaimedDelivery[]> {
+  async claim(
+    limit: number,
+    perTenant: number,
+    perEndpoint: number,
+    leaseSeconds: number,
+  ): Promise<ClaimedDelivery[]> {
     const { rows } = await this.pool.query<ClaimRow>(
-      'select * from claim_due_deliveries($1, $2, $3)',
-      [limit, perTenant, leaseSeconds],
+      'select * from claim_due_deliveries($1, $2, $3, $4)',
+      [limit, perTenant, perEndpoint, leaseSeconds],
     );
     return rows.map((row) => ({
       deliveryId: row.delivery_id,
@@ -79,6 +106,7 @@ export class DeliveryRepository {
       endpointId: row.endpoint_id,
       messageId: row.message_id,
       attempt: row.attempt,
+      cycleBase: row.cycle_base,
     }));
   }
 
@@ -86,7 +114,7 @@ export class DeliveryRepository {
   loadContext(claimed: ClaimedDelivery): Promise<DeliveryContext | null> {
     return this.inTenant(claimed.organizationId, async (db) => {
       const { rows } = await db.query<ContextRow>(
-        `select e.url, e.headers, e.enabled, e.archived_at, m.payload,
+        `select e.url, e.headers, e.enabled, e.rate_limit_per_second, e.archived_at, m.payload,
                 s.status as secret_status, s.ciphertext, s.wrapped_data_key, s.key_id
            from deliveries d
            join messages m on m.organization_id = d.organization_id and m.id = d.message_id
@@ -102,6 +130,8 @@ export class DeliveryRepository {
       const first = rows[0];
       if (!first) return null;
       return {
+        endpointId: claimed.endpointId,
+        rateLimitPerSecond: first.rate_limit_per_second,
         url: first.url,
         headers: first.headers,
         enabled: first.enabled,
@@ -150,7 +180,28 @@ export class DeliveryRepository {
           outcome.kind === 'succeeded' ? null : outcome.errorClass,
         ],
       );
-      return (result.rowCount ?? 0) > 0;
+      const applied = (result.rowCount ?? 0) > 0;
+      // A stale worker's late result must not move the endpoint's health either.
+      if (!applied) return false;
+      if (outcome.kind === 'succeeded') await recordEndpointSuccess(db, claimed.endpointId);
+      else if (!NOT_AN_ENDPOINT_FAILURE.has(outcome.errorClass))
+        await recordEndpointFailure(db, claimed.endpointId, this.health);
+      return true;
+    });
+  }
+
+  /**
+   * Puts a delivery back without counting an attempt, for example when the endpoint's rate limit is
+   * used up. It becomes due again at `at`.
+   */
+  defer(claimed: ClaimedDelivery, at: Date): Promise<void> {
+    return this.inTenant(claimed.organizationId, async (db) => {
+      await db.query(
+        `update deliveries
+            set status = 'pending', next_attempt_at = $3, locked_until = null, updated_at = now()
+          where id = $1 and organization_id = $2 and status = 'in_progress'`,
+        [claimed.deliveryId, claimed.organizationId, at],
+      );
     });
   }
 

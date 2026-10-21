@@ -69,6 +69,7 @@ export class DispatcherService implements OnApplicationBootstrap, OnApplicationS
     return this.repository.claim(
       Math.min(capacity, this.config.DISPATCH_BATCH_SIZE),
       this.config.DISPATCH_PER_TENANT_BATCH,
+      this.config.DISPATCH_PER_ENDPOINT,
       this.config.DISPATCH_LEASE_SECONDS,
     );
   }

@@ -7,6 +7,7 @@ import type {
   Outcome,
 } from '../database/delivery-repository.js';
 import type { AttemptStore } from '../history/attempt-store.js';
+import type { EndpointRateLimiter } from './endpoint-rate-limiter.js';
 import { buildDeliveryRequest } from './delivery-request.js';
 import type { HttpSender, SendResult } from './http-sender.js';
 import { nextAttempt, type RetryPolicy } from './retry-schedule.js';
@@ -19,7 +20,7 @@ export interface ProcessorOptions {
 }
 
 export interface Processed {
-  readonly outcome: Outcome['kind'];
+  readonly outcome: Outcome['kind'] | 'deferred';
   readonly sent: boolean;
   readonly errorClass: string | null;
 }
@@ -41,6 +42,7 @@ export class DeliveryProcessor {
     private readonly attempts: AttemptStore,
     private readonly cipher: SecretCipher,
     private readonly options: ProcessorOptions,
+    private readonly limiter: EndpointRateLimiter,
     private readonly clock: () => Date = () => new Date(),
   ) {}
 
@@ -51,6 +53,16 @@ export class DeliveryProcessor {
 
     const secrets = this.decryptSecrets(claimed, context);
     if (secrets.length === 0) return this.giveUp(claimed, 'signing_secret_missing');
+
+    const decision = await this.limiter.tryAcquire(claimed.endpointId, context.rateLimitPerSecond);
+    if (!decision.allowed) {
+      // Over the endpoint's rate limit: wait for the next window, no attempt is counted.
+      await this.repository.defer(
+        claimed,
+        new Date(this.clock().getTime() + decision.retryAfterMs),
+      );
+      return { outcome: 'deferred', sent: false, errorClass: null };
+    }
 
     const startedAt = this.clock();
     const request = buildDeliveryRequest({
@@ -90,7 +102,7 @@ export class DeliveryProcessor {
     if (result.ok && result.statusCode !== null)
       return { kind: 'succeeded', statusCode: result.statusCode };
     const errorClass = result.errorClass ?? 'network';
-    const next = nextAttempt(this.options.retry, claimed.attempt, this.clock());
+    const next = nextAttempt(this.options.retry, claimed.attempt - claimed.cycleBase, this.clock());
     return next.exhausted
       ? { kind: 'failed', statusCode: result.statusCode, errorClass }
       : { kind: 'retry', at: next.at, statusCode: result.statusCode, errorClass };
