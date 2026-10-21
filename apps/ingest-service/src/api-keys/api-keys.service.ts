@@ -4,12 +4,19 @@ import type {
   ApiKeyListQuery,
   CreateApiKeyRequest,
   CreatedApiKey,
+  UpdateApiKeyRequest,
 } from '@solmira/contracts';
-import { NotFoundError, offsetOf, pageOf, type TenantAuthContext } from '@solmira/service-kit';
+import {
+  ConflictError,
+  NotFoundError,
+  offsetOf,
+  pageOf,
+  type TenantAuthContext,
+} from '@solmira/service-kit';
 import { and, count, desc, eq, isNull, type SQL } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { findApplication } from '../applications/applications.service.js';
-import { Database } from '../database/database.module.js';
+import { Database, type IngestTransaction } from '../database/database.module.js';
 import { apiKeys } from '../database/schema.js';
 import { recordEvent } from '../outbox/outbox.js';
 import { generateApiKey } from './api-key-material.js';
@@ -28,6 +35,27 @@ export function toApiKey(row: ApiKeyRow): ApiKey {
     expiresAt: row.expiresAt?.toISOString() ?? null,
     revokedAt: row.revokedAt?.toISOString() ?? null,
   };
+}
+
+/** The key of this application and organization, or 404. Revoked keys are found too. */
+async function findApiKey(
+  tx: IngestTransaction,
+  auth: TenantAuthContext,
+  applicationId: string,
+  id: string,
+): Promise<ApiKeyRow> {
+  const [row] = await tx
+    .select()
+    .from(apiKeys)
+    .where(
+      and(
+        eq(apiKeys.organizationId, auth.organizationId),
+        eq(apiKeys.applicationId, applicationId),
+        eq(apiKeys.id, id),
+      ),
+    );
+  if (!row) throw new NotFoundError('API key not found');
+  return row;
 }
 
 @Injectable()
@@ -90,20 +118,35 @@ export class ApiKeysService {
     });
   }
 
+  /** Renames a key; nothing else about it can change. A revoked key stays as it was revoked. */
+  update(
+    auth: TenantAuthContext,
+    applicationId: string,
+    id: string,
+    input: UpdateApiKeyRequest,
+  ): Promise<ApiKey> {
+    return this.database.forTenant(auth, async (tx) => {
+      const current = await findApiKey(tx, auth, applicationId, id);
+      if (current.revokedAt)
+        throw new ConflictError('The API key is revoked and cannot be renamed');
+      const [row] = await tx
+        .update(apiKeys)
+        .set({ name: input.name })
+        .where(and(eq(apiKeys.organizationId, auth.organizationId), eq(apiKeys.id, id)))
+        .returning();
+      await recordEvent(tx, auth, 'api_key.updated', {
+        apiKeyId: id,
+        applicationId,
+        fields: ['name'],
+      });
+      return toApiKey(row!);
+    });
+  }
+
   /** Idempotent: revoking a revoked key keeps the original revocation time. */
   revoke(auth: TenantAuthContext, applicationId: string, id: string): Promise<void> {
     return this.database.forTenant(auth, async (tx) => {
-      const [row] = await tx
-        .select()
-        .from(apiKeys)
-        .where(
-          and(
-            eq(apiKeys.organizationId, auth.organizationId),
-            eq(apiKeys.applicationId, applicationId),
-            eq(apiKeys.id, id),
-          ),
-        );
-      if (!row) throw new NotFoundError('API key not found');
+      const row = await findApiKey(tx, auth, applicationId, id);
       if (row.revokedAt) return;
       await tx
         .update(apiKeys)
