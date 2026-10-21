@@ -31,3 +31,9 @@ Thumbs.db
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+
+# Playwright output, and agent notes that `next dev` writes into the web app on startup
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/AGENTS.md
+apps/web/CLAUDE.md
