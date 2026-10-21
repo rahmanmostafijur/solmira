@@ -95,6 +95,28 @@ export interface IngestEventPayloads {
     endpointId: string | null;
     deliveries: number;
   };
+  /** One real send of a delivery and how it ended. Written by the dispatcher (ADR-0035). */
+  'delivery.attempted': DeliveryAttemptedPayload;
 }
+
+export const DELIVERY_ATTEMPT_RESULTS = ['succeeded', 'retrying', 'failed'] as const;
+export type DeliveryAttemptResult = (typeof DELIVERY_ATTEMPT_RESULTS)[number];
+
+/** No URL, header, payload or response body: those stay in the database and the history. */
+export const deliveryAttemptedPayloadSchema = z.object({
+  deliveryId: z.uuid(),
+  messageId: z.uuid(),
+  endpointId: z.uuid(),
+  applicationId: z.uuid(),
+  eventType: z.string().min(1),
+  attempt: z.number().int().min(1),
+  result: z.enum(DELIVERY_ATTEMPT_RESULTS),
+  statusCode: z.number().int().nullable(),
+  errorClass: z.string().nullable(),
+  durationMs: z.number().int().min(0),
+  startedAt: z.iso.datetime(),
+  nextAttemptAt: z.iso.datetime().nullable(),
+});
+export type DeliveryAttemptedPayload = z.infer<typeof deliveryAttemptedPayloadSchema>;
 
 export type IngestEventType = keyof IngestEventPayloads;

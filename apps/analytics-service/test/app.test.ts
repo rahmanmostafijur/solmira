@@ -42,6 +42,7 @@ describe(SERVICE_NAME, () => {
       'postgres',
       'rabbitmq',
       'redis',
+      'row-level-security',
     ]);
   });
 });

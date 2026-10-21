@@ -84,7 +84,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm turbo run build --filter=@solmira/identity-service... --filter=@solmira/ingest-service... --filter=@solmira/dispatcher... --filter=@solmira/notification-service...
+      - run: pnpm turbo run build --filter=@solmira/identity-service... --filter=@solmira/ingest-service... --filter=@solmira/dispatcher... --filter=@solmira/notification-service... --filter=@solmira/analytics-service...
       - run: pnpm --filter @solmira/service-kit test:integration
       - name: Identity, authorization and tenant-isolation suites
         run: pnpm --filter @solmira/identity-service test:integration
@@ -94,6 +94,8 @@ jobs:
         run: pnpm --filter @solmira/notification-service test:integration
       - name: Dispatcher suites
         run: pnpm --filter @solmira/dispatcher test:integration
+      - name: Analytics suites
+        run: pnpm --filter @solmira/analytics-service test:integration
 
   e2e:
     name: End-to-end browser test
@@ -115,6 +117,8 @@ jobs:
         run: |
           cp apps/identity-service/.env.example apps/identity-service/.env
           cp apps/ingest-service/.env.example apps/ingest-service/.env
+          cp apps/notification-service/.env.example apps/notification-service/.env
+          cp apps/analytics-service/.env.example apps/analytics-service/.env
           cp apps/web/.env.example apps/web/.env
           pnpm --filter @solmira/identity-service keys:generate
       - run: docker compose up -d --wait gateway

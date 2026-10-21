@@ -1,0 +1,1 @@
+export const ANALYTICS_CONFIG = Symbol('ANALYTICS_CONFIG');

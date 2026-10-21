@@ -1,5 +1,6 @@
 import type { EncryptedSecret } from '@solmira/service-kit';
 import type pg from 'pg';
+import { recordAttemptEvent } from './attempt-event.js';
 import {
   recordEndpointFailure,
   recordEndpointSuccess,
@@ -40,6 +41,12 @@ const NOT_AN_ENDPOINT_FAILURE = new Set([
   'delivery_data_missing',
   'signing_secret_missing',
 ]);
+
+/** When a real send started and how long it took; absent when nothing was sent. */
+export interface SentAttempt {
+  readonly startedAt: Date;
+  readonly durationMs: number;
+}
 
 export type Outcome =
   | { readonly kind: 'succeeded'; readonly statusCode: number }
@@ -157,7 +164,7 @@ export class DeliveryRepository {
    * Records the result of attempt `claimed.attempt`. Idempotent and monotonic: a stale worker that
    * finishes after another worker already recorded this attempt (or a later one) changes nothing.
    */
-  recordOutcome(claimed: ClaimedDelivery, outcome: Outcome): Promise<boolean> {
+  recordOutcome(claimed: ClaimedDelivery, outcome: Outcome, sent?: SentAttempt): Promise<boolean> {
     const status =
       outcome.kind === 'succeeded' ? 'succeeded' : outcome.kind === 'retry' ? 'pending' : 'failed';
     return this.inTenant(claimed.organizationId, async (db) => {
@@ -183,6 +190,8 @@ export class DeliveryRepository {
       const applied = (result.rowCount ?? 0) > 0;
       // A stale worker's late result must not move the endpoint's health either.
       if (!applied) return false;
+      // Same transaction as the state change: the event exists exactly when the outcome does.
+      if (sent) await recordAttemptEvent(db, claimed, outcome, sent);
       if (outcome.kind === 'succeeded') await recordEndpointSuccess(db, claimed.endpointId);
       else if (!NOT_AN_ENDPOINT_FAILURE.has(outcome.errorClass))
         await recordEndpointFailure(db, claimed.endpointId, this.health);

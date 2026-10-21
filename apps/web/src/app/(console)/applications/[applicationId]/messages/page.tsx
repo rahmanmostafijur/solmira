@@ -4,15 +4,18 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { RequireOrganization } from '@/components/auth/require-organization';
+import { Badge } from '@/components/ui/badge';
 import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/page-header';
 import { Pagination } from '@/components/ui/pagination';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
 import { summarizeDeliveries } from '@/components/webhooks/delivery-status';
 import { describeError } from '@/lib/api/client';
+import { useFeedStatus } from '@/lib/realtime/feed-status';
 import { useMessages } from '@/lib/webhook-queries';
 
 function Messages({ organizationId, id }: { organizationId: string; id: string }) {
+  const feed = useFeedStatus();
   const [page, setPage] = useState(1);
   const [eventType, setEventType] = useState('');
   const messages = useMessages(organizationId, id, {
@@ -26,6 +29,11 @@ function Messages({ organizationId, id }: { organizationId: string; id: string }
       <PageHeader
         title="Messages"
         description="Everything sent to this application, newest first. Open one to see its payload and every delivery attempt."
+        actions={
+          <Badge tone={feed === 'live' ? 'success' : 'neutral'}>
+            {feed === 'live' ? 'Live' : 'Refreshing every few seconds'}
+          </Badge>
+        }
       />
       <Panel
         actions={

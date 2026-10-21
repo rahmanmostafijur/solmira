@@ -22,6 +22,7 @@
     "@nestjs/core": "^12.1.1",
     "@nestjs/platform-express": "^12.1.1",
     "@solmira/attempt-history": "workspace:*",
+    "@solmira/contracts": "workspace:*",
     "@solmira/service-kit": "workspace:*",
     "@solmira/webhooks": "workspace:*",
     "pg": "^8.23.0",

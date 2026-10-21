@@ -11,7 +11,7 @@ await runService(async () => {
     nodeEnv: config.NODE_ENV,
     docs: {
       title: 'Solmira Analytics API',
-      description: 'Dashboard metrics, trends and operational reporting.',
+      description: 'Delivery success rate, attempts per delivery and latency percentiles.',
     },
   });
 });

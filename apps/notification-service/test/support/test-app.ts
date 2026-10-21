@@ -1,7 +1,12 @@
 import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { permissionsForRole, type RoleKey } from '@solmira/contracts';
+import {
+  REALTIME_PATH,
+  permissionsForRole,
+  type Permission,
+  type RoleKey,
+} from '@solmira/contracts';
 import { createServiceApp, loadConfig } from '@solmira/service-kit';
 import { startTestIssuer, type TestIssuer } from '@solmira/service-kit/testing';
 import amqp from 'amqplib';
@@ -19,11 +24,24 @@ export interface Actor {
   readonly auth: { Authorization: string };
 }
 
+export interface TokenOptions {
+  readonly organizationId: string | null;
+  readonly role?: RoleKey;
+  readonly permissions?: readonly Permission[];
+  readonly sessionId?: string;
+  readonly expiresInSeconds?: number;
+  readonly key?: 'trusted' | 'untrusted';
+}
+
 export interface TestApp {
   readonly app: NestExpressApplication;
   readonly db: pg.Pool;
   readonly http: () => ReturnType<typeof request>;
   actor(organizationId: string, role: RoleKey): Promise<Actor>;
+  /** A signed access token with full control over its claims, for the realtime tests. */
+  token(options: TokenOptions): Promise<string>;
+  /** Starts listening on a free port and returns the WebSocket URL of the delivery feed. */
+  listen(): Promise<string>;
   /** Publishes an integration event the way the outbox relay would. */
   publish(
     type: string,
@@ -36,7 +54,7 @@ export interface TestApp {
 
 export const newOrganizationId = () => randomUUID();
 
-export async function createTestApp(): Promise<TestApp> {
+export async function createTestApp(env: Record<string, string> = {}): Promise<TestApp> {
   const issuer: TestIssuer = await startTestIssuer();
   const config = loadConfig(envSchema, {
     NODE_ENV: 'test',
@@ -45,6 +63,7 @@ export async function createTestApp(): Promise<TestApp> {
     REDIS_URL: process.env.TEST_REDIS_URL ?? 'redis://localhost:6379',
     RABBITMQ_URL: RABBITMQ,
     IDENTITY_JWKS_URL: issuer.jwksUrl,
+    ...env,
   });
   const app = await createServiceApp(AppModule.register(config), {
     serviceName: SERVICE_NAME,
@@ -80,6 +99,23 @@ export async function createTestApp(): Promise<TestApp> {
         permissions: permissionsForRole(role),
       });
       return { organizationId, auth: { Authorization: 'Bearer ' + token } };
+    },
+    async token(options) {
+      const role = options.role ?? 'VIEWER';
+      return issuer.sign(
+        {
+          userId: randomUUID(),
+          sessionId: options.sessionId ?? randomUUID(),
+          ...(options.organizationId ? { organizationId: options.organizationId, role } : {}),
+          permissions: options.permissions ?? permissionsForRole(role),
+        },
+        { expiresInSeconds: options.expiresInSeconds, key: options.key },
+      );
+    },
+    async listen() {
+      await app.listen(0, '127.0.0.1');
+      const { port } = app.getHttpServer().address() as { port: number };
+      return `ws://127.0.0.1:${port}${REALTIME_PATH}`;
     },
     async publish(type, organizationId, payload, eventId = randomUUID()) {
       const envelope = {
