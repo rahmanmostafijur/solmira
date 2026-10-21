@@ -23,6 +23,7 @@ import {
 } from '@/components/webhooks/delivery-status';
 import { EndpointForm } from '@/components/webhooks/endpoint-form';
 import { ReplayRange } from '@/components/webhooks/replay-range';
+import { RestoreEndpointButton } from '@/components/webhooks/restore-endpoint-button';
 import { SecretPanel } from '@/components/webhooks/secret-panel';
 import { describeError } from '@/lib/api/client';
 import {
@@ -69,7 +70,8 @@ function EndpointDetail({ organizationId, applicationId, endpointId }: Ids) {
         title={data.url}
         description={data.description ?? undefined}
         actions={
-          can('endpoints.update') && (
+          can('endpoints.update') &&
+          !data.archivedAt && (
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="secondary"
@@ -107,7 +109,25 @@ function EndpointDetail({ organizationId, applicationId, endpointId }: Ids) {
           )
         }
       />
-      {!data.enabled && (
+      {data.archivedAt && (
+        <Alert tone="warning" title="This endpoint is archived">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              It receives no deliveries. Restoring it keeps its URL, subscriptions and enabled flag;
+              failed deliveries stay failed.
+            </span>
+            {can('endpoints.delete') && (
+              <RestoreEndpointButton
+                organizationId={organizationId}
+                applicationId={applicationId}
+                endpointId={endpointId}
+                variant="secondary"
+              />
+            )}
+          </div>
+        </Alert>
+      )}
+      {!data.enabled && !data.archivedAt && (
         <Alert tone="warning" title="This endpoint is disabled">
           {data.disabledReason ?? 'Deliveries are paused.'} Enable it to resume; failed deliveries
           can be replayed afterwards.
@@ -149,7 +169,7 @@ function EndpointDetail({ organizationId, applicationId, endpointId }: Ids) {
           })
         }
       />
-      <SecretPanel applicationId={applicationId} endpointId={endpointId} />
+      {!data.archivedAt && <SecretPanel applicationId={applicationId} endpointId={endpointId} />}
       <Panel
         title="Deliveries"
         actions={
@@ -220,7 +240,7 @@ function EndpointDetail({ organizationId, applicationId, endpointId }: Ids) {
           </>
         )}
       </Panel>
-      {can('deliveries.replay') && (
+      {can('deliveries.replay') && !data.archivedAt && (
         <ReplayRange
           organizationId={organizationId}
           applicationId={applicationId}

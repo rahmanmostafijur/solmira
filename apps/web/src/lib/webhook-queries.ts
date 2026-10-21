@@ -185,6 +185,18 @@ export function useArchiveEndpoint(org: string, app: string) {
   });
 }
 
+export function useRestoreEndpoint(org: string, app: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<Endpoint>(`/applications/${app}/endpoints/${id}/restore`, { method: 'POST' }),
+    onSuccess: (endpoint) => {
+      client.setQueryData(webhookKeys.endpoint(org, app, endpoint.id), endpoint);
+      void client.invalidateQueries({ queryKey: webhookKeys.endpoints(org, app) });
+    },
+  });
+}
+
 export function useRevealSecret(app: string, id: string) {
   return useMutation({
     mutationFn: () =>

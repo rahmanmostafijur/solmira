@@ -20,6 +20,7 @@ import { ApiKeysPanel } from '@/components/webhooks/api-keys-panel';
 import { ApplicationForm } from '@/components/webhooks/application-form';
 import { DeliveryHealthPanel } from '@/components/webhooks/delivery-health-panel';
 import { EndpointForm } from '@/components/webhooks/endpoint-form';
+import { RestoreEndpointButton } from '@/components/webhooks/restore-endpoint-button';
 import {
   useApplication,
   useCreateEndpoint,
@@ -31,7 +32,8 @@ import {
 function ApplicationDetail({ organizationId, id }: { organizationId: string; id: string }) {
   const { can } = usePermissions();
   const application = useApplication(organizationId, id);
-  const endpoints = useEndpoints(organizationId, id);
+  const [showArchived, setShowArchived] = useState(false);
+  const endpoints = useEndpoints(organizationId, id, showArchived);
   const eventTypes = useEventTypes(organizationId);
   const create = useCreateEndpoint(organizationId, id);
   const update = useUpdateApplication(organizationId, id);
@@ -113,12 +115,22 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
         title="Endpoints"
         description="Where messages are delivered."
         actions={
-          can('endpoints.create') && (
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus aria-hidden className="size-4" />
-              New endpoint
-            </Button>
-          )
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-ink-muted">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(event) => setShowArchived(event.target.checked)}
+              />
+              Show archived
+            </label>
+            {can('endpoints.create') && (
+              <Button size="sm" onClick={() => setCreating(true)}>
+                <Plus aria-hidden className="size-4" />
+                New endpoint
+              </Button>
+            )}
+          </div>
         }
       >
         {endpoints.isPending ? (
@@ -139,6 +151,7 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
                 <Th>URL</Th>
                 <Th>Status</Th>
                 <Th>Events</Th>
+                {showArchived && <Th className="text-right">Actions</Th>}
               </Tr>
             </THead>
             <TBody>
@@ -153,7 +166,9 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
                     </Link>
                   </Td>
                   <Td>
-                    {endpoint.enabled ? (
+                    {endpoint.archivedAt ? (
+                      <Badge tone="neutral">Archived</Badge>
+                    ) : endpoint.enabled ? (
                       <Badge tone="success">Enabled</Badge>
                     ) : (
                       <Badge tone="warning">Disabled</Badge>
@@ -164,6 +179,18 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
                       ? 'All'
                       : `${endpoint.eventTypeIds.length} selected`}
                   </Td>
+                  {showArchived && (
+                    <Td className="text-right">
+                      {endpoint.archivedAt && can('endpoints.delete') && (
+                        <RestoreEndpointButton
+                          organizationId={organizationId}
+                          applicationId={id}
+                          endpointId={endpoint.id}
+                          label={`Restore ${endpoint.url}`}
+                        />
+                      )}
+                    </Td>
+                  )}
                 </Tr>
               ))}
             </TBody>
