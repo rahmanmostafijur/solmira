@@ -1,0 +1,55 @@
+{
+  "environment": {
+    "measuredAt": "2026-10-21T06:41:16.901Z",
+    "commit": "efd0c92",
+    "dirty": true,
+    "node": "v24.13.0",
+    "os": "Windows_NT 10.0.19045 (x64)",
+    "cpu": "AMD Ryzen 5 2400G with Radeon Vega Graphics     x 8",
+    "memoryGiB": 13.9,
+    "topology": "Everything on one machine: the load generator, the receivers, the ingest service, the dispatcher, PostgreSQL, Redis, RabbitMQ and DynamoDB Local (the last four in Docker)."
+  },
+  "settings": {
+    "ingestMessages": 3000,
+    "ingestConcurrency": 50,
+    "endpoints": 3,
+    "apiKeys": 4,
+    "steadyRatePerSecond": 40,
+    "steadySeconds": 30
+  },
+  "ingestion": {
+    "sent": 3000,
+    "accepted": 3000,
+    "rejected": 0,
+    "seconds": 21.9,
+    "acceptedPerSecond": 137,
+    "responseTime": {
+      "count": 3000,
+      "minMs": 152,
+      "p50Ms": 357,
+      "p95Ms": 431,
+      "p99Ms": 476,
+      "maxMs": 524
+    }
+  },
+  "dispatch": {
+    "deliveries": 9000,
+    "seconds": 87.35,
+    "deliveriesPerSecond": 103
+  },
+  "endToEnd": {
+    "offeredMessagesPerSecond": 40,
+    "offeredDeliveriesPerSecond": 120,
+    "seconds": 30,
+    "messages": 1200,
+    "latency": {
+      "count": 3600,
+      "minMs": 256,
+      "p50Ms": 6017.5,
+      "p95Ms": 9127,
+      "p99Ms": 9335,
+      "maxMs": 9449
+    },
+    "invalidSignatures": 0
+  }
+}

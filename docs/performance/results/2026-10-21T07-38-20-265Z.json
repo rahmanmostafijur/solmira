@@ -1,0 +1,128 @@
+{
+  "environment": {
+    "measuredAt": "2026-10-21T07:38:20.265Z",
+    "commit": "efd0c92",
+    "dirty": true,
+    "node": "v24.13.0",
+    "os": "Windows_NT 10.0.19045 (x64)",
+    "cpu": "AMD Ryzen 5 2400G with Radeon Vega Graphics     x 8",
+    "memoryGiB": 13.9,
+    "topology": "Everything on one machine: the load generator, the receivers, the ingest service, the dispatcher, PostgreSQL, Redis, RabbitMQ and DynamoDB Local (the last four in Docker)."
+  },
+  "settings": {
+    "dispatcherEnv": {
+      "DISPATCH_PER_ENDPOINT": "20",
+      "DISPATCH_CONCURRENCY": "50",
+      "DATABASE_POOL_MAX": "20",
+      "DISPATCH_BATCH_SIZE": "50"
+    },
+    "ingestMessages": 3000,
+    "ingestConcurrency": 50,
+    "endpoints": 3,
+    "apiKeys": 4,
+    "steadyRatesPerSecond": [20, 40, 60, 80, 100],
+    "steadySeconds": 20
+  },
+  "ingestion": {
+    "sent": 3000,
+    "accepted": 3000,
+    "rejected": 0,
+    "seconds": 24.96,
+    "acceptedPerSecond": 120.2,
+    "responseTime": {
+      "count": 3000,
+      "minMs": 203,
+      "p50Ms": 410,
+      "p95Ms": 499.1,
+      "p99Ms": 624,
+      "maxMs": 738
+    }
+  },
+  "dispatch": {
+    "deliveries": 9000,
+    "seconds": 59.58,
+    "deliveriesPerSecond": 151.1
+  },
+  "endToEnd": [
+    {
+      "offeredMessagesPerSecond": 20,
+      "offeredDeliveriesPerSecond": 60,
+      "seconds": 20,
+      "messages": 400,
+      "secondsToFinishAfterLastSend": 0.66,
+      "latency": {
+        "count": 1200,
+        "minMs": 199,
+        "p50Ms": 451,
+        "p95Ms": 640,
+        "p99Ms": 695,
+        "maxMs": 719
+      },
+      "invalidSignatures": 0
+    },
+    {
+      "offeredMessagesPerSecond": 40,
+      "offeredDeliveriesPerSecond": 120,
+      "seconds": 20,
+      "messages": 800,
+      "secondsToFinishAfterLastSend": 31.01,
+      "latency": {
+        "count": 2400,
+        "minMs": 310,
+        "p50Ms": 739.5,
+        "p95Ms": 31877,
+        "p99Ms": 31963,
+        "maxMs": 32118
+      },
+      "invalidSignatures": 0
+    },
+    {
+      "offeredMessagesPerSecond": 60,
+      "offeredDeliveriesPerSecond": 180,
+      "seconds": 20,
+      "messages": 1200,
+      "secondsToFinishAfterLastSend": 7.82,
+      "latency": {
+        "count": 3600,
+        "minMs": 267,
+        "p50Ms": 4032,
+        "p95Ms": 9174,
+        "p99Ms": 9271,
+        "maxMs": 9382
+      },
+      "invalidSignatures": 0
+    },
+    {
+      "offeredMessagesPerSecond": 80,
+      "offeredDeliveriesPerSecond": 240,
+      "seconds": 20,
+      "messages": 1600,
+      "secondsToFinishAfterLastSend": 18.44,
+      "latency": {
+        "count": 4800,
+        "minMs": 128,
+        "p50Ms": 13198.5,
+        "p95Ms": 18446.2,
+        "p99Ms": 18782.1,
+        "maxMs": 18929
+      },
+      "invalidSignatures": 0
+    },
+    {
+      "offeredMessagesPerSecond": 100,
+      "offeredDeliveriesPerSecond": 300,
+      "seconds": 20,
+      "messages": 2000,
+      "secondsToFinishAfterLastSend": 30.97,
+      "latency": {
+        "count": 6000,
+        "minMs": 525,
+        "p50Ms": 22848.5,
+        "p95Ms": 30960.5,
+        "p99Ms": 31550,
+        "maxMs": 31738
+      },
+      "invalidSignatures": 0
+    }
+  ]
+}

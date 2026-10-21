@@ -24,7 +24,7 @@ when all of them pass and CI is green. Progress is logged in
 | 8     | Console                                              | Done    |
 | 9     | Realtime delivery feed and analytics                 | Done    |
 | 10    | Audit and receiver verification library              | Done    |
-| 11    | Testing depth: load and chaos                        | Planned |
+| 11    | Testing depth: load and chaos                        | Done    |
 | 12    | Production readiness on AWS                          | Planned |
 
 ## Acceptance criteria

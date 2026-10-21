@@ -1,0 +1,76 @@
+{
+  "environment": {
+    "measuredAt": "2026-10-21T07:47:44.780Z",
+    "commit": "efd0c92",
+    "dirty": true,
+    "node": "v24.13.0",
+    "os": "Windows_NT 10.0.19045 (x64)",
+    "cpu": "AMD Ryzen 5 2400G with Radeon Vega Graphics     x 8",
+    "memoryGiB": 13.9,
+    "topology": "Everything on one machine: the load generator, the receivers, the ingest service, the dispatcher, PostgreSQL, Redis, RabbitMQ and DynamoDB Local (the last four in Docker)."
+  },
+  "messages": 1500,
+  "endpoints": 3,
+  "rows": [
+    {
+      "concurrency": 50,
+      "poolMax": 20,
+      "workers": 1,
+      "perEndpoint": 5,
+      "deliveries": 4500,
+      "seconds": 55.9,
+      "deliveriesPerSecond": 80.5,
+      "workerCpuPercent": [45]
+    },
+    {
+      "concurrency": 50,
+      "poolMax": 20,
+      "workers": 1,
+      "perEndpoint": 5,
+      "deliveries": 4500,
+      "seconds": 49.21,
+      "deliveriesPerSecond": 91.4,
+      "workerCpuPercent": [49]
+    },
+    {
+      "concurrency": 50,
+      "poolMax": 20,
+      "workers": 1,
+      "perEndpoint": 5,
+      "deliveries": 4500,
+      "seconds": 50.75,
+      "deliveriesPerSecond": 88.7,
+      "workerCpuPercent": [47]
+    },
+    {
+      "concurrency": 50,
+      "poolMax": 20,
+      "workers": 1,
+      "perEndpoint": 5,
+      "deliveries": 4500,
+      "seconds": 50.24,
+      "deliveriesPerSecond": 89.6,
+      "workerCpuPercent": [48]
+    },
+    {
+      "concurrency": 20,
+      "poolMax": 10,
+      "workers": 1,
+      "perEndpoint": 5,
+      "deliveries": 4500,
+      "seconds": 50.53,
+      "deliveriesPerSecond": 89.1,
+      "workerCpuPercent": [46]
+    },
+    {
+      "concurrency": 20,
+      "poolMax": 10,
+      "workers": 1,
+      "perEndpoint": 5,
+      "deliveries": 4500,
+      "seconds": 49.58,
+      "deliveriesPerSecond": 90.8,
+      "workerCpuPercent": [48]
+    }
+  ]
+}

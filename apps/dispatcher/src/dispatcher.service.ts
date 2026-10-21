@@ -16,9 +16,9 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 /**
  * The worker loop (ADR-0031): claim a batch when there is capacity, process each delivery without
- * waiting for the others, sleep when nothing is due. Capacity is the number of deliveries in
- * flight; the claim asks for no more than is free, so a slow receiver cannot make the worker take
- * work it cannot start.
+ * waiting for the others, sleep only when nothing is due, and when every slot is busy wait for the
+ * first one to free up. Capacity is the number of deliveries in flight; the claim asks for no more
+ * than is free, so a slow receiver cannot make the worker take work it cannot start.
  */
 @Injectable()
 export class DispatcherService implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -54,10 +54,16 @@ export class DispatcherService implements OnApplicationBootstrap, OnApplicationS
     while (!this.stopped) {
       try {
         const free = this.config.DISPATCH_CONCURRENCY - this.inFlight.size;
-        const claimed = free > 0 ? await this.claimBatch(free) : [];
+        if (free <= 0) {
+          // Every slot is busy: wake as soon as one finishes, not after a fixed pause (a pause
+          // would cap throughput at slots per pause however fast the receivers answer).
+          await Promise.race([...this.inFlight, sleep(this.config.DISPATCH_POLL_MS)]);
+          continue;
+        }
+        const claimed = await this.claimBatch(free);
         for (const delivery of claimed) void this.start(delivery);
-        if (claimed.length === 0 || free <= claimed.length)
-          await sleep(this.config.DISPATCH_POLL_MS);
+        // Something was due, so more may be: claim again at once. Only an empty claim waits.
+        if (claimed.length === 0) await sleep(this.config.DISPATCH_POLL_MS);
       } catch (error) {
         this.logger.warn({ err: error }, 'Claiming deliveries failed; retrying');
         await sleep(ERROR_BACKOFF_MS);

@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - packages/*
+  - tests/*
 
 # Install scripts are opt-in. @scarf/scarf (usage telemetry pulled in by swagger-ui-dist) stays disabled.
 ignoredBuiltDependencies:

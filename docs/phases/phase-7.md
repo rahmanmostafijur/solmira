@@ -30,7 +30,8 @@ Branch `phase-7/failure-handling`, merged into `pivot/webhook-platform`.
 ## Decisions
 
 - Isolation by not claiming, rather than claiming and deferring (which would still fill a tenant's quota).
-- The endpoint cap across concurrent claim calls is approximate (at most workers times the cap).
+- The endpoint cap across concurrent claim calls is approximate (at most workers times the cap). Exact since
+  ADR-0037, which serializes claims.
 - Pending deliveries to an auto-disabled endpoint fail fast with `endpoint_unavailable` and can be replayed
   after the owner re-enables it.
 - In-app notifications first; e-mail and push are not planned before the realtime work (Phase 9).
