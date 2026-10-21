@@ -127,15 +127,29 @@ export class EventTypesService {
 
   /** Idempotent. An archived event type accepts no new messages and cannot be subscribed to. */
   archive(auth: TenantAuthContext, id: string): Promise<EventType> {
+    return this.setArchived(auth, id, true);
+  }
+
+  /**
+   * Idempotent: restoring a live event type changes nothing and records nothing. The name stays
+   * reserved while archived, so a restore cannot collide with another event type.
+   */
+  restore(auth: TenantAuthContext, id: string): Promise<EventType> {
+    return this.setArchived(auth, id, false);
+  }
+
+  private setArchived(auth: TenantAuthContext, id: string, archived: boolean): Promise<EventType> {
     return this.database.forTenant(auth, async (tx) => {
       const current = await findEventType(tx, auth, id);
-      if (current.archivedAt) return toEventType(current);
+      if ((current.archivedAt !== null) === archived) return toEventType(current);
       const [row] = await tx
         .update(eventTypes)
-        .set({ archivedAt: new Date(), updatedAt: new Date() })
+        .set({ archivedAt: archived ? new Date() : null, updatedAt: new Date() })
         .where(and(eq(eventTypes.organizationId, auth.organizationId), eq(eventTypes.id, id)))
         .returning();
-      await recordEvent(tx, auth, 'event_type.archived', { eventTypeId: id });
+      await recordEvent(tx, auth, archived ? 'event_type.archived' : 'event_type.restored', {
+        eventTypeId: id,
+      });
       return toEventType(row!);
     });
   }

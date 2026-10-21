@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestApp, newOrganizationId, type Actor, type TestApp } from './support/test-app.js';
 
@@ -55,5 +56,65 @@ describe('event types', () => {
 
     const hidden = await t.http().get('/api/v1/event-types').set(manager.auth).expect(200);
     expect(hidden.body.items.map((item: { id: string }) => item.id)).not.toContain(created.body.id);
+  });
+
+  it('restores idempotently, makes the type subscribable again and records it once', async () => {
+    const created = await post({ name: 'refund.issued', schema: { type: 'object' } }).expect(201);
+    const path = '/api/v1/event-types/' + created.body.id;
+    await t
+      .http()
+      .post(path + '/archive')
+      .set(manager.auth)
+      .expect(200);
+    const restore = () =>
+      t
+        .http()
+        .post(path + '/restore')
+        .set(manager.auth)
+        .expect(200);
+    const first = await restore();
+    expect(first.body).toMatchObject({
+      name: 'refund.issued',
+      schema: { type: 'object' },
+      archivedAt: null,
+    });
+    const second = await restore();
+    expect(second.body.updatedAt).toBe(first.body.updatedAt);
+
+    const listed = await t.http().get('/api/v1/event-types').set(manager.auth).expect(200);
+    expect(listed.body.items.map((item: { id: string }) => item.id)).toContain(created.body.id);
+    const { rows } = await t.db.query(
+      `select actor_id, organization_id from outbox_events
+        where type = 'event_type.restored' and payload->>'eventTypeId' = $1`,
+      [created.body.id],
+    );
+    expect(rows).toEqual([{ actor_id: manager.userId, organization_id: manager.organizationId }]);
+  });
+
+  it('lets only roles that can archive restore, and 404s an unknown id', async () => {
+    const created = await post({ name: 'restore.roles' }).expect(201);
+    const path = '/api/v1/event-types/' + created.body.id;
+    await t
+      .http()
+      .post(path + '/archive')
+      .set(manager.auth)
+      .expect(200);
+    const viewer = await t.actor(manager.organizationId, 'VIEWER');
+    await t
+      .http()
+      .post(path + '/restore')
+      .set(viewer.auth)
+      .expect(403);
+    await t
+      .http()
+      .post(path + '/restore')
+      .expect(401);
+    await t
+      .http()
+      .post('/api/v1/event-types/' + randomUUID() + '/restore')
+      .set(manager.auth)
+      .expect(404);
+    const still = await t.http().get(path).set(manager.auth).expect(200);
+    expect(still.body.archivedAt).not.toBeNull();
   });
 });
