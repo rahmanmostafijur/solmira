@@ -16,8 +16,12 @@ export class AppError extends Error {
   }
 }
 
+/** A 400 with field details. Without a message of its own it leads with the first detail. */
 export class ValidationError extends AppError {
-  constructor(details: readonly FieldIssue[], message = 'Request validation failed') {
+  constructor(
+    details: readonly FieldIssue[],
+    message = details[0]?.message ?? 'Request validation failed',
+  ) {
     super('VALIDATION_FAILED', message, 400, details);
   }
 }
