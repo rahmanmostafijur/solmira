@@ -100,12 +100,20 @@ export function toApiError(status: number, body: unknown): ApiError {
   return new ApiError(status, 'UNEXPECTED_RESPONSE', 'The server returned an unexpected response');
 }
 
-/** User-facing text for an error; server messages are already written for users. */
+/**
+ * User-facing text for an error; server messages are already written for users. For a validation
+ * error the first field detail says what to send instead, so it is shown over the short summary.
+ */
 export function describeError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'RATE_LIMITED')
       return 'Too many attempts. Wait a few minutes and try again.';
     if (error.status >= 500) return 'Something went wrong on our side. Please try again.';
+    const [first, ...others] = error.details;
+    if (error.code === 'VALIDATION_FAILED' && first)
+      return others.length === 0
+        ? first.message
+        : `${first.message} (${others.length} more problem${others.length === 1 ? '' : 's'})`;
     return error.message;
   }
   return 'Could not reach the server. Check your connection and try again.';

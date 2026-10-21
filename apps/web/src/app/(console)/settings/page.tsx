@@ -58,7 +58,7 @@ function SettingsForm({ organization }: { organization: Organization }) {
       await reload();
       notify('Settings saved');
     } catch (error) {
-      applyServerError(error, form.setError);
+      applyServerError(error, form);
     }
   });
 

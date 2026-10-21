@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
       });
       setSentTo(values.email);
     } catch (error) {
-      applyServerError(error, form.setError);
+      applyServerError(error, form);
     }
   });
 

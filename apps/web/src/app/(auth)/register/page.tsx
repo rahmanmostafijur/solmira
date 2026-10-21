@@ -34,7 +34,7 @@ function RegisterForm() {
       await createAccount(values);
       router.replace(next ? safeNextPath(next) : '/organizations');
     } catch (error) {
-      applyServerError(error, form.setError);
+      applyServerError(error, form);
     }
   });
 

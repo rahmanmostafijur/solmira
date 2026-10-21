@@ -33,7 +33,7 @@ function LoginForm() {
         next ? safeNextPath(next) : session.activeOrganization ? '/dashboard' : '/organizations',
       );
     } catch (error) {
-      applyServerError(error, form.setError);
+      applyServerError(error, form);
     }
   });
 

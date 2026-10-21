@@ -52,7 +52,7 @@ function InviteForm({ organizationId, actorRole }: { organizationId: string; act
       notify(`Invitation sent to ${values.email}`);
       form.reset({ email: '', role: values.role });
     } catch (error) {
-      applyServerError(error, form.setError);
+      applyServerError(error, form);
     }
   });
 

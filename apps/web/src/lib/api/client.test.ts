@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError, createApiClient, describeError } from './client';
+import { ApiError, createApiClient, describeError, toApiError } from './client';
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
@@ -146,5 +146,37 @@ describe('describeError', () => {
     expect(describeError(new ApiError(409, 'CONFLICT', 'Already a member'))).toBe(
       'Already a member',
     );
+  });
+
+  it('shows what to send for a validation error, not only its summary', () => {
+    const detail = {
+      path: 'Idempotency-Key',
+      rule: 'too_short',
+      message: 'Idempotency-Key must be 8 to 100 characters long; got 5. Example: order-1234',
+    };
+    const one = new ApiError(400, 'VALIDATION_FAILED', 'Idempotency-Key is too short', [detail]);
+    expect(describeError(one)).toBe(detail.message);
+    const three = new ApiError(400, 'VALIDATION_FAILED', 'Idempotency-Key is too short', [
+      detail,
+      { path: 'eventType', message: 'eventType is required.' },
+      { path: 'payload', message: 'payload is required.' },
+    ]);
+    expect(describeError(three)).toBe(`${detail.message} (2 more problems)`);
+    expect(describeError(new ApiError(400, 'VALIDATION_FAILED', 'Nothing to update'))).toBe(
+      'Nothing to update',
+    );
+  });
+
+  it('keeps the rule and example of field details from the server', () => {
+    const error = toApiError(400, {
+      error: {
+        code: 'VALIDATION_FAILED',
+        message: 'name is too long',
+        details: [{ path: 'name', message: 'Too long', rule: 'too_long', maximum: 100 }],
+      },
+    });
+    expect(error.details).toEqual([
+      { path: 'name', message: 'Too long', rule: 'too_long', maximum: 100 },
+    ]);
   });
 });
