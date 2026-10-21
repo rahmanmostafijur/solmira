@@ -24,6 +24,7 @@ import type {
   RotateSecretRequest,
   RotatedSecret,
   TestSendResult,
+  UpdateApplicationRequest,
   UpdateEndpointRequest,
 } from '@solmira/contracts';
 import { useFeedStatus } from './realtime/feed-status';
@@ -77,6 +78,18 @@ export function useCreateApplication(org: string) {
     mutationFn: (body: CreateApplicationRequest) =>
       api<Application>('/applications', { method: 'POST', body }),
     onSuccess: () => client.invalidateQueries({ queryKey: webhookKeys.applications(org) }),
+  });
+}
+
+export function useUpdateApplication(org: string, id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateApplicationRequest) =>
+      api<Application>(`/applications/${id}`, { method: 'PATCH', body }),
+    onSuccess: (application) => {
+      client.setQueryData(webhookKeys.application(org, id), application);
+      void client.invalidateQueries({ queryKey: webhookKeys.applications(org) });
+    },
   });
 }
 

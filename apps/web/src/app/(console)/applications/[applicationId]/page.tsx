@@ -15,7 +15,9 @@ import { PageHeader } from '@/components/ui/page-header';
 import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { SecretDisplay } from '@/components/ui/secret-display';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
+import { useToast } from '@/components/ui/toast';
 import { ApiKeysPanel } from '@/components/webhooks/api-keys-panel';
+import { ApplicationForm } from '@/components/webhooks/application-form';
 import { DeliveryHealthPanel } from '@/components/webhooks/delivery-health-panel';
 import { EndpointForm } from '@/components/webhooks/endpoint-form';
 import {
@@ -23,6 +25,7 @@ import {
   useCreateEndpoint,
   useEndpoints,
   useEventTypes,
+  useUpdateApplication,
 } from '@/lib/webhook-queries';
 
 function ApplicationDetail({ organizationId, id }: { organizationId: string; id: string }) {
@@ -31,6 +34,9 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
   const endpoints = useEndpoints(organizationId, id);
   const eventTypes = useEventTypes(organizationId);
   const create = useCreateEndpoint(organizationId, id);
+  const update = useUpdateApplication(organizationId, id);
+  const notify = useToast();
+  const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<CreatedEndpoint>();
 
@@ -44,14 +50,37 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
         title={application.data.name}
         description={application.data.description ?? 'Endpoints, API keys and messages.'}
         actions={
-          <Link
-            href={`/applications/${id}/messages`}
-            className="text-sm font-medium text-accent hover:underline"
-          >
-            Inspect messages
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={`/applications/${id}/messages`}
+              className="text-sm font-medium text-accent hover:underline"
+            >
+              Inspect messages
+            </Link>
+            {can('applications.update') && !application.data.archivedAt && (
+              <Button variant="secondary" onClick={() => setEditing(true)}>
+                Edit
+              </Button>
+            )}
+          </div>
         }
       />
+      <Dialog open={editing} title="Edit application" onClose={() => setEditing(false)}>
+        <ApplicationForm
+          initial={application.data}
+          submitLabel="Save"
+          onCancel={() => setEditing(false)}
+          onSubmit={async (values) => {
+            // An emptied description is cleared on the server, not left as it was.
+            await update.mutateAsync({
+              name: values.name,
+              description: values.description ?? null,
+            });
+            setEditing(false);
+            notify('Application saved');
+          }}
+        />
+      </Dialog>
       <Dialog open={creating} title="New endpoint" onClose={() => setCreating(false)}>
         <EndpointForm
           eventTypes={eventTypes.data?.items ?? []}
