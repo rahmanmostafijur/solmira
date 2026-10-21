@@ -30,7 +30,8 @@ export default defineConfig({
   workers: 1,
   timeout: 120_000,
   expect: { timeout: 15_000 },
-  reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  // In CI, `github` turns failures into annotations on the check run, readable without the logs.
+  reporter: process.env.CI ? [['list'], ['github'], ['html', { open: 'never' }]] : 'list',
   use: { baseURL: GATEWAY_URL, trace: 'retain-on-failure', screenshot: 'only-on-failure' },
   webServer: [
     {
