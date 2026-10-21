@@ -15,7 +15,13 @@
       ]
     },
     "packages/service-kit": {
-      "entry": ["src/index.ts", "src/testing/index.ts", "src/**/*.test.ts", "test/**/*.ts"],
+      "entry": [
+        "src/index.ts",
+        "src/testing/index.ts",
+        "src/messaging/dead-letters-cli.ts",
+        "src/**/*.test.ts",
+        "test/**/*.ts"
+      ],
       "ignoreDependencies": ["pino-pretty"]
     },
     "packages/contracts": {

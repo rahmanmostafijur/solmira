@@ -7,7 +7,7 @@ import {
   requeueDeadLetters,
 } from '../src/messaging/dead-letters.js';
 import { EVENTS_EXCHANGE, deadLetterQueueOf, retryQueueOf } from '../src/messaging/topology.js';
-import { openBroker, queueExists, startBackbone, uniqueName, until } from './support-backbone.js';
+import { hasConsumer, openBroker, startBackbone, uniqueName, until } from './support-backbone.js';
 
 const envelope = (type: string): EventEnvelope => ({
   eventId: randomUUID(),
@@ -53,7 +53,7 @@ describe('dead-letter tooling', () => {
       ],
       null,
     );
-    await until(() => queueExists(broker.connection, queue));
+    await until(() => hasConsumer(broker.connection, queue));
   });
 
   afterAll(async () => {

@@ -185,10 +185,11 @@ jobs:
           - { image: analytics-service, dockerfile: infra/docker/service.Dockerfile }
           - { image: audit-service, dockerfile: infra/docker/service.Dockerfile }
           - { image: web, dockerfile: infra/docker/web.Dockerfile }
+          - { image: db-bootstrap, dockerfile: infra/docker/db-bootstrap.Dockerfile }
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4
-      # Build only; pushing to ECR and deployment are added with the AWS infrastructure (phase 12).
+      # Build only: pushing to ECR and deploying are done by a person (docs/operations/deploy.md).
       - uses: docker/build-push-action@v7
         with:
           context: .
@@ -198,3 +199,22 @@ jobs:
           tags: solmira/${{ matrix.image }}:${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  terraform:
+    name: Terraform
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.8
+          terraform_wrapper: false
+      - run: terraform fmt -check -recursive
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
+      # Plans without an AWS account: placeholder credentials and a local state. Nothing is applied.
+      - run: ./offline-plan.sh

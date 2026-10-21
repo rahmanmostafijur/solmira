@@ -1,8 +1,8 @@
 # Security
 
 This document summarises the security controls of Solmira, a multi-tenant webhook delivery
-platform. Controls marked **Planned** are designed but not built yet. Built so far: identity,
-authentication, organizations, RBAC and tenant isolation. Design detail lives in:
+platform. Controls marked **Planned** are designed but not built yet. The AWS configuration is
+written and validated but has never been applied. Design detail lives in:
 
 - [Authentication](docs/architecture/authentication.md): tokens, sessions, rotation, revocation,
   passwords, lockout, recovery, CSRF, theft analysis
@@ -61,12 +61,12 @@ email; account lockout can be triggered by anyone who knows an email; no MFA yet
 
 ## Secrets handling
 
-| Aspect                  | Development                                                                                              | Deployed environments                                                                          |
-| ----------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| Signing keys            | Generated locally with `pnpm --filter @solmira/identity-service keys:generate` into the service's `.env` | Held in a secret manager (AWS Secrets Manager, phase 12); private key only in identity-service |
-| Webhook signing secrets | Encrypted with a local key from `SECRETS_ENCRYPTION_KEY`                                                 | Envelope encryption with AWS KMS; plaintext only in memory while signing                       |
-| Database roles          | `<service>_owner` and `<service>_app` share one dev password (`infra/docker/postgres/init`)              | Per-role credentials in the secret manager                                                     |
-| `.env` files            | Git-ignored; only `.env.example` files with placeholder or dev-only values are committed                 | Not used; configuration comes from the environment                                             |
+| Aspect                  | Development                                                                                              | Deployed environments                                                                    |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Signing keys            | Generated locally with `pnpm --filter @solmira/identity-service keys:generate` into the service's `.env` | Held in AWS Secrets Manager (written, not applied); private key only in identity-service |
+| Webhook signing secrets | Encrypted with a local key from `SECRETS_ENCRYPTION_KEY`                                                 | Envelope encryption with AWS KMS; plaintext only in memory while signing                 |
+| Database roles          | `<service>_owner` and `<service>_app` share one dev password (`infra/docker/postgres/init`)              | Per-role credentials in the secret manager                                               |
+| `.env` files            | Git-ignored; only `.env.example` files with placeholder or dev-only values are committed                 | Not used; configuration comes from the environment                                       |
 
 Every service validates its environment with zod at startup and fails fast, reporting the names,
 never the values, of invalid variables. identity-service refuses to start without signing keys.
@@ -130,7 +130,12 @@ JWTs), and the dispatcher's outbound requests to **untrusted, tenant-supplied UR
 Out of scope: a compromised tenant backend that holds a valid API key can send messages as that
 tenant until the key is revoked; a compromised receiver can leak what it receives.
 
-## Not yet built
+## Review and open items
 
-Everything marked **Planned** above, MFA, the audit log API and UI (phase 10), the production
-hardening checklist and secret rotation runbooks (phase 12).
+The written review, with its findings and their status, is [`docs/security-review.md`](docs/security-review.md).
+Rotation, restore and incident procedures are in [`docs/operations`](docs/operations/README.md); they have
+not been run on AWS, because nothing has been deployed there.
+
+Not built: MFA, a bulk re-encryption tool after a KMS key replacement, network-level egress filtering for
+the dispatcher, image vulnerability scanning in CI, and account-level detection (CloudTrail, GuardDuty).
+Each is a finding in the review.

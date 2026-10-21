@@ -54,7 +54,7 @@ packages/
                           health, Postgres/Redis/RabbitMQ clients, bootstrap, DB helpers
 infra/
   docker/                 Dockerfiles, Nginx gateway config, Postgres init scripts
-  terraform/              AWS infrastructure (Planned, Phase 12)
+  terraform/              AWS infrastructure (validated and planned offline, never applied)
 docs/
   architecture/  adr/  api/  phases/
 ```
@@ -279,8 +279,12 @@ fan-out consumer in ingest-service does exactly this).
 - **Observability** (Planned, Phase 12): structured logs, Prometheus-format metrics, OpenTelemetry
   traces across HTTP and RabbitMQ, dashboards and alerts as code.
 
-## 12. Deployment (Planned, Phase 12)
+## 12. Deployment (written and validated, never applied)
 
-CloudFront → ALB → ECS Fargate services in private subnets, RDS PostgreSQL (Multi-AZ), ElastiCache
-Redis, Amazon MQ for RabbitMQ, DynamoDB, KMS for secret encryption, Secrets Manager for credentials,
-CloudWatch for logs and metrics, all defined in Terraform. Nothing is applied without the owner's approval.
+WAF → ALB → ECS Fargate services in private subnets, RDS PostgreSQL (Multi-AZ is a variable),
+ElastiCache Redis, Amazon MQ for RabbitMQ, DynamoDB, KMS for secret encryption, Secrets Manager for
+credentials, CloudWatch for logs, metrics, dashboard and alarms, X-Ray through an OpenTelemetry sidecar,
+all defined in Terraform ([`infra/terraform`](infra/terraform/README.md), [ADR-0038](docs/adr/0038-aws-deployment.md),
+[ADR-0039](docs/adr/0039-observability.md)). Nothing is applied without the owner's approval.
+Runbooks are in [`docs/operations`](docs/operations/README.md) and the security review in
+[`docs/security-review.md`](docs/security-review.md); neither has been exercised on AWS.

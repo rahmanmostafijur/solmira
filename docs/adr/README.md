@@ -46,6 +46,8 @@ describe.
 | 0035 | [Realtime delivery feed and analytics](0035-realtime-feed-and-analytics.md)                                                 | Accepted           | 2026-10-21 |
 | 0036 | [Audit trail](0036-audit-trail.md)                                                                                          | Accepted           | 2026-10-21 |
 | 0037 | [Serialized claims](0037-serialized-claims.md)                                                                              | Accepted           | 2026-10-21 |
+| 0038 | [AWS deployment on ECS Fargate, written as Terraform and never applied](0038-aws-deployment.md)                             | Accepted           | 2026-10-21 |
+| 0039 | [Observability: metrics from logs, OpenTelemetry traces, alarms as code](0039-observability.md)                             | Accepted           | 2026-10-21 |
 
 ## Process
 

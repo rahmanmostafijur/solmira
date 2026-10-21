@@ -3,7 +3,7 @@ import type { EventEnvelope } from '@solmira/contracts';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { MetricsRegistry } from '../src/metrics/registry.js';
 import { EVENTS_EXCHANGE, deadLetterQueueOf, retryQueueOf } from '../src/messaging/topology.js';
-import { openBroker, queueExists, startBackbone, uniqueName, until } from './support-backbone.js';
+import { hasConsumer, openBroker, startBackbone, uniqueName, until } from './support-backbone.js';
 
 describe('queue depth metrics', () => {
   let broker: Awaited<ReturnType<typeof openBroker>>;
@@ -29,7 +29,7 @@ describe('queue depth metrics', () => {
       null,
       { enabled: true, write: (line) => lines.push(JSON.parse(line)) },
     );
-    await until(() => queueExists(broker.connection, queue));
+    await until(() => hasConsumer(broker.connection, queue));
   });
 
   afterAll(async () => {
