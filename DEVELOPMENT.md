@@ -31,6 +31,8 @@ pnpm turbo run build --filter=@solmira/identity-service... --filter=@solmira/ing
 pnpm --filter @solmira/identity-service keys:generate   # writes JWT_PRIVATE_KEY / JWT_PUBLIC_KEY into its .env
 pnpm --filter @solmira/identity-service db:migrate      # runs as identity_owner, syncs roles and permissions
 pnpm --filter @solmira/ingest-service db:migrate        # runs as ingest_owner
+pnpm --filter @solmira/notification-service db:migrate  # alerts; the realtime feed needs no tables
+pnpm --filter @solmira/analytics-service db:migrate     # delivery attempts for the statistics
 ```
 
 The dispatcher (`apps/dispatcher`) needs the same `SECRETS_ENCRYPTION_KEY` as ingest-service and
@@ -103,6 +105,8 @@ pnpm --filter @solmira/service-kit test:integration   # needs pnpm infra:up
 pnpm --filter @solmira/identity-service test:integration   # auth, RBAC and tenant isolation
 pnpm --filter @solmira/ingest-service test:integration     # ingestion, fan-out, RLS, claiming
 pnpm --filter @solmira/dispatcher test:integration         # needs DynamoDB Local on :8000
+pnpm --filter @solmira/notification-service test:integration  # alerts and the realtime feed (real WebSocket)
+pnpm --filter @solmira/analytics-service test:integration     # statistics against fixtures with known answers
 ```
 
 The ingest suite works the same way (`solmira_ingest_test`) and verifies tokens through a real JWKS

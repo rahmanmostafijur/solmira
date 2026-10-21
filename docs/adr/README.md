@@ -43,6 +43,7 @@ describe.
 | 0032 | [Delivery attempt history in DynamoDB](0032-attempt-history-dynamodb.md)                                                    | Accepted           | 2026-10-21 |
 | 0033 | [Endpoint isolation, circuit breaking, auto-disable, replay and secret rotation](0033-isolation-failure-handling-replay.md) | Accepted           | 2026-10-21 |
 | 0034 | [Message inspection and test send](0034-inspection-and-test-send.md)                                                        | Accepted           | 2026-10-21 |
+| 0035 | [Realtime delivery feed and analytics](0035-realtime-feed-and-analytics.md)                                                 | Accepted           | 2026-10-21 |
 
 ## Process
 

@@ -147,6 +147,39 @@ the organization gets one notification.
 The `solmira.` event-type prefix is reserved for the platform (ADR-0034). Stored response bodies in
 the timeline are truncated at the dispatcher's limit and marked `responseBodyTruncated`.
 
+## notification-service: realtime delivery feed (built, Phase 9)
+
+`GET /ws/v1/deliveries` upgrades to a WebSocket (ADR-0035). The client sends one frame within five
+seconds, `{ "type": "auth", "token": "<access token>" }`, and the server answers
+`{ "type": "ready", "organizationId": "..." }`. From then on it receives only events of the organization
+in the token, as `{ "type", "occurredAt", "data" }`:
+
+| `type`                   | `data`                                                                                                                                                                                                 |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `message.created`        | `messageId`, `applicationId`                                                                                                                                                                           |
+| `delivery.attempted`     | `deliveryId`, `messageId`, `endpointId`, `applicationId`, `eventType`, `attempt`, `result` (`succeeded`, `retrying`, `failed`), `statusCode`, `errorClass`, `durationMs`, `startedAt`, `nextAttemptAt` |
+| `endpoint.auto_disabled` | `endpointId`, `applicationId`, `host`                                                                                                                                                                  |
+
+Needs `messages.read`. The feed is live only: events that happened while a client was away are not
+replayed, so reload from the REST API after reconnecting. Close codes: `4400` protocol error (the first
+frame was not an auth frame, or a client sent anything after it), `4401` token invalid, revoked, expired
+or not sent in time (also sent when the token expires while connected; reconnect with a fresh one),
+`4403` no organization selected or no `messages.read`, `1013` too many connections for the organization
+(50 by default) or the client could not keep up.
+
+## analytics-service (built, Phase 9)
+
+| Call                                               | Needs            | Effect                                                                                                   |
+| -------------------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------- |
+| `GET /analytics/applications` (`from`, `to`)       | `analytics.read` | One row per application with figures for the range.                                                      |
+| `GET /analytics/applications/{app}` (`from`, `to`) | `analytics.read` | The same figures for the application as a whole (`summary`) and for each of its endpoints (`endpoints`). |
+
+The range defaults to the last 24 hours and may span at most 31 days (`from` inclusive, `to` exclusive).
+Each row has `attempts` (real sends; a refusal that sent nothing is not one), `successfulAttempts`,
+`successRate` (successful over attempts), `deliveries` (distinct deliveries with an attempt in the range),
+`attemptsPerDelivery` and `latencyMs` with `p50`, `p95` and `p99` (milliseconds, linearly interpolated
+over the duration of every attempt). With no attempts the rates and percentiles are `null`, not zero.
+
 ## What a receiver gets (built, Phase 6)
 
 An HTTP `POST` with the message payload as the body and the

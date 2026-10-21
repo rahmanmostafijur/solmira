@@ -33,8 +33,9 @@ flowchart LR
 Built: gateway, web (authentication and organization pages), identity-service, ingest-service
 (management API, ingestion, fan-out, replay, rotation), the dispatcher with endpoint isolation and its
 DynamoDB attempt history, notification-service (alerts), and the console (applications, endpoints,
-event types, API keys, message inspector with attempt timeline, replay, test send). Planned: the
-realtime feed and analytics (Phase 9) and the audit consumer (Phase 10).
+event types, API keys, message inspector with attempt timeline, replay, test send), the realtime
+delivery feed (notification-service) and delivery analytics (analytics-service, ADR-0035). Planned:
+the audit consumer (Phase 10).
 
 ## 2. Repository structure
 
