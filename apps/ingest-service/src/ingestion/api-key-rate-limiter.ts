@@ -1,5 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { AttemptCounter, RateLimitedError, REDIS, type Redis } from '@solmira/service-kit';
+import {
+  AttemptCounter,
+  MetricsRegistry,
+  RateLimitedError,
+  REDIS,
+  type Redis,
+} from '@solmira/service-kit';
 import type { IngestConfig } from '../config.js';
 import { INGEST_CONFIG } from '../ingest.tokens.js';
 
@@ -18,6 +24,7 @@ export class ApiKeyRateLimiter {
   constructor(
     @Inject(REDIS) redis: Redis,
     @Inject(INGEST_CONFIG) private readonly config: IngestConfig,
+    @Inject(MetricsRegistry) private readonly metrics: MetricsRegistry,
   ) {
     this.counter = new AttemptCounter(redis, 'ingest:ratelimit', WINDOW_SECONDS);
   }
@@ -31,6 +38,7 @@ export class ApiKeyRateLimiter {
       return;
     }
     if (attempts <= this.config.INGEST_RATE_LIMIT_PER_MINUTE) return;
+    this.metrics.count('IngestRateLimited');
     const { retryAfterSeconds } = await this.counter.status(apiKeyId).catch(() => ({
       retryAfterSeconds: WINDOW_SECONDS,
     }));

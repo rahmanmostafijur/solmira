@@ -21,6 +21,7 @@ export const uniqueName = (prefix: string) => prefix + '.' + randomUUID().slice(
 export async function startBackbone(
   definitions: readonly EventConsumerDefinition[],
   relay: { batchSize: number; pollIntervalMs: number } | null,
+  metrics?: { enabled: boolean; write: (line: string) => void },
 ): Promise<NestExpressApplication> {
   const app = await createServiceApp(
     BackboneProbeModule.register(
@@ -29,6 +30,7 @@ export async function startBackbone(
         logging: { level: 'silent', pretty: false },
         postgres: { url: env.postgres, poolMax: 4 },
         rabbitmq: { url: env.rabbitmq },
+        ...(metrics ? { metrics } : {}),
       },
       definitions,
       relay,

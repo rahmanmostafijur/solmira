@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   HealthRegistry,
+  MetricsRegistry,
   createSecretCipher,
   PG_POOL,
   REDIS,
@@ -139,6 +140,7 @@ export class DispatcherModule {
             ATTEMPT_STORE,
             SECRET_CIPHER,
             ENDPOINT_RATE_LIMITER,
+            MetricsRegistry,
           ],
           useFactory: (
             repository: DeliveryRepository,
@@ -146,6 +148,7 @@ export class DispatcherModule {
             attempts: AttemptStore,
             cipher: SecretCipher,
             limiter: EndpointRateLimiter,
+            metrics: MetricsRegistry,
           ) =>
             new DeliveryProcessor(
               repository,
@@ -161,6 +164,8 @@ export class DispatcherModule {
                 historyWriteTries: HISTORY_WRITE_TRIES,
               },
               limiter,
+              () => new Date(),
+              metrics,
             ),
         },
         DispatcherHealth,

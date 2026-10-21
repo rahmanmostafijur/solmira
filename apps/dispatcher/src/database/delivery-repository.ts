@@ -97,6 +97,14 @@ export class DeliveryRepository {
     private readonly health: HealthPolicy,
   ) {}
 
+  /** How many deliveries are due and how long the oldest has waited, across organizations. */
+  async backlog(): Promise<{ due: number; oldestDueSeconds: number }> {
+    const { rows } = await this.pool.query<{ due: string; oldest_due_seconds: number }>(
+      'select due, oldest_due_seconds from delivery_backlog()',
+    );
+    return { due: Number(rows[0]?.due ?? 0), oldestDueSeconds: rows[0]?.oldest_due_seconds ?? 0 };
+  }
+
   async claim(
     limit: number,
     perTenant: number,

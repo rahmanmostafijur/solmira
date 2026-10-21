@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { CreateMessageRequest, Message } from '@solmira/contracts';
-import { NotFoundError } from '@solmira/service-kit';
+import { MetricsRegistry, NotFoundError } from '@solmira/service-kit';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { ApiKeyPrincipal } from '../api-keys/api-key-authenticator.js';
@@ -47,6 +47,7 @@ export class MessagesService {
     @Inject(Database) private readonly database: Database,
     @Inject(PayloadValidator) private readonly validator: PayloadValidator,
     @Inject(INGEST_CONFIG) private readonly config: IngestConfig,
+    @Inject(MetricsRegistry) private readonly metrics: MetricsRegistry,
   ) {}
 
   /**
@@ -55,6 +56,26 @@ export class MessagesService {
    * the outbox event.
    */
   async ingest(
+    principal: ApiKeyPrincipal,
+    applicationId: string,
+    idempotencyKey: string,
+    input: CreateMessageRequest,
+  ): Promise<IngestResult> {
+    try {
+      const result = await this.store(principal, applicationId, idempotencyKey, input);
+      this.metrics.count(result.replayed ? 'MessagesReplayed' : 'MessagesAccepted');
+      return result;
+    } catch (error) {
+      // By the error's code (a fixed set), never by its text, so the dimension stays small.
+      const reason = (error as { code?: unknown }).code;
+      this.metrics.count('MessagesRejected', 1, {
+        Reason: typeof reason === 'string' ? reason : 'INTERNAL',
+      });
+      throw error;
+    }
+  }
+
+  private async store(
     principal: ApiKeyPrincipal,
     applicationId: string,
     idempotencyKey: string,

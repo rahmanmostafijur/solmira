@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { secretContext, type SecretCipher } from '@solmira/service-kit';
+import { MetricsRegistry, secretContext, type SecretCipher } from '@solmira/service-kit';
 import type {
   ClaimedDelivery,
   DeliveryContext,
@@ -26,6 +26,7 @@ export interface Processed {
 }
 
 const HISTORY_RETRY_DELAY_MS = 100;
+const RESULT_OF = { succeeded: 'succeeded', retry: 'retrying', failed: 'failed' } as const;
 /** How long a delivery waits when its secret cannot be decrypted right now. */
 const SECRET_RETRY_DELAY_MS = 30_000;
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -46,6 +47,10 @@ export class DeliveryProcessor {
     private readonly options: ProcessorOptions,
     private readonly limiter: EndpointRateLimiter,
     private readonly clock: () => Date = () => new Date(),
+    private readonly metrics: MetricsRegistry = new MetricsRegistry({
+      enabled: false,
+      serviceName: 'dispatcher',
+    }),
   ) {}
 
   async process(claimed: ClaimedDelivery): Promise<Processed> {
@@ -55,6 +60,8 @@ export class DeliveryProcessor {
 
     const secrets = await this.decryptSecrets(claimed, context);
     if (secrets === null) {
+      this.metrics.count('SecretDecryptFailures');
+      this.metrics.count('DeliveriesDeferred', 1, { Reason: 'secret' });
       await this.repository.defer(
         claimed,
         new Date(this.clock().getTime() + SECRET_RETRY_DELAY_MS),
@@ -66,6 +73,7 @@ export class DeliveryProcessor {
     const decision = await this.limiter.tryAcquire(claimed.endpointId, context.rateLimitPerSecond);
     if (!decision.allowed) {
       // Over the endpoint's rate limit: wait for the next window, no attempt is counted.
+      this.metrics.count('DeliveriesDeferred', 1, { Reason: 'rate_limit' });
       await this.repository.defer(
         claimed,
         new Date(this.clock().getTime() + decision.retryAfterMs),
@@ -93,6 +101,8 @@ export class DeliveryProcessor {
       startedAt,
       durationMs: result.durationMs,
     });
+    this.metrics.count('Attempts', 1, { Result: RESULT_OF[outcome.kind] });
+    this.metrics.observe('AttemptDuration', result.durationMs, 'Milliseconds');
     return { outcome: outcome.kind, sent: true, errorClass: result.errorClass };
   }
 

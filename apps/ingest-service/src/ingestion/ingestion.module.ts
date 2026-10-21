@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { WebhookResourcesModule } from '../webhook-resources.module.js';
 import { FanOutService } from '../fan-out/fan-out.service.js';
 import { MaintenanceService } from '../maintenance.service.js';
+import { OutboxMetrics } from '../outbox-metrics.service.js';
 import { PayloadValidator } from '../event-types/payload-validator.js';
 import { ApiKeyGuard } from './api-key-auth.js';
 import { ApiKeyRateLimiter } from './api-key-rate-limiter.js';
@@ -19,6 +20,7 @@ import { MessagesService } from './messages.service.js';
     PayloadValidator,
     FanOutService,
     MaintenanceService,
+    OutboxMetrics,
   ],
   exports: [FanOutService, MaintenanceService],
 })

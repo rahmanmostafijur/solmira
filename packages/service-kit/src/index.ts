@@ -43,3 +43,6 @@ export * from './crypto/aws-key-management.js';
 export * from './crypto/caching-secret-cipher.js';
 export * from './crypto/kms-secret-cipher.js';
 export * from './crypto/secret-cipher-config.js';
+export * from './metrics/emf.js';
+export * from './metrics/metrics.module.js';
+export * from './metrics/registry.js';

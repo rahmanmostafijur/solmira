@@ -10,6 +10,8 @@ export const baseEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   LOG_LEVEL: z.enum(LOG_LEVELS).default('info'),
   LOG_PRETTY: z.stringbool().default(false),
+  /** Writes CloudWatch metrics as log lines (ADR-0039). Off by default; on in AWS. */
+  METRICS_ENABLED: z.stringbool().default(false),
 });
 
 export const postgresEnvSchema = z.object({
