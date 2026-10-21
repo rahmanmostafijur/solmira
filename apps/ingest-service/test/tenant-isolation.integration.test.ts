@@ -61,13 +61,18 @@ describe('cross-tenant access over HTTP', () => {
     expect(list.body.total).toBe(0);
   });
 
-  it('event types: read, update and archive answer 404; lists stay empty', async () => {
+  it('event types: read, update, archive and restore answer 404; lists stay empty', async () => {
     const path = '/api/v1/event-types/' + eventType.id;
     await t.http().get(path).set(b.auth).expect(404);
     await t.http().patch(path).set(b.auth).send({ description: 'x' }).expect(404);
     await t
       .http()
       .post(path + '/archive')
+      .set(b.auth)
+      .expect(404);
+    await t
+      .http()
+      .post(path + '/restore')
       .set(b.auth)
       .expect(404);
     const list = await t
@@ -97,6 +102,11 @@ describe('cross-tenant access over HTTP', () => {
     await t.http().get(endpointPath()).set(b.auth).expect(404);
     await t.http().patch(endpointPath()).set(b.auth).send({ enabled: false }).expect(404);
     await t.http().delete(endpointPath()).set(b.auth).expect(404);
+    await t
+      .http()
+      .post(endpointPath() + '/restore')
+      .set(b.auth)
+      .expect(404);
     const intact = await t.http().get(endpointPath()).set(a.auth).expect(200);
     expect(intact.body).toMatchObject({ enabled: true, archivedAt: null });
   });
@@ -121,7 +131,41 @@ describe('cross-tenant access over HTTP', () => {
     expect(response.body.error.details[0].path).toBe('eventTypeIds.0');
   });
 
-  it('API keys: listing, creating and revoking across organizations answers 404', async () => {
+  it('archived resources of another organization cannot be restored', async () => {
+    const archivedType = await createEventType(t, a, 'alpha.archived');
+    const archivedEndpoint = await createEndpoint(t, a, app.id);
+    const typePath = '/api/v1/event-types/' + archivedType.id;
+    const archivedPath = appPath() + '/endpoints/' + archivedEndpoint.id;
+    await t
+      .http()
+      .post(typePath + '/archive')
+      .set(a.auth)
+      .expect(200);
+    await t.http().delete(archivedPath).set(a.auth).expect(204);
+
+    await t
+      .http()
+      .post(typePath + '/restore')
+      .set(b.auth)
+      .expect(404);
+    await t
+      .http()
+      .post(archivedPath + '/restore')
+      .set(b.auth)
+      .expect(404);
+    const bApp = await createApplication(t, b, 'Bravo restore');
+    await t
+      .http()
+      .post('/api/v1/applications/' + bApp.id + '/endpoints/' + archivedEndpoint.id + '/restore')
+      .set(b.auth)
+      .expect(404);
+    expect((await t.http().get(typePath).set(a.auth).expect(200)).body.archivedAt).not.toBeNull();
+    expect(
+      (await t.http().get(archivedPath).set(a.auth).expect(200)).body.archivedAt,
+    ).not.toBeNull();
+  });
+
+  it('API keys: listing, creating, renaming and revoking across organizations answers 404', async () => {
     await t
       .http()
       .get(appPath() + '/api-keys')
@@ -135,6 +179,12 @@ describe('cross-tenant access over HTTP', () => {
       .expect(404);
     await t
       .http()
+      .patch(appPath() + '/api-keys/' + apiKey.id)
+      .set(b.auth)
+      .send({ name: 'Hijacked' })
+      .expect(404);
+    await t
+      .http()
       .delete(appPath() + '/api-keys/' + apiKey.id)
       .set(b.auth)
       .expect(404);
@@ -143,7 +193,7 @@ describe('cross-tenant access over HTTP', () => {
       .get(appPath() + '/api-keys')
       .set(a.auth)
       .expect(200);
-    expect(keys.body.items[0].revokedAt).toBeNull();
+    expect(keys.body.items[0]).toMatchObject({ name: 'ci', revokedAt: null });
   });
 
   it('an application of one organization is not found by another through any path', async () => {
