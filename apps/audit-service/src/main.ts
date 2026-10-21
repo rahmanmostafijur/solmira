@@ -11,7 +11,7 @@ await runService(async () => {
     nodeEnv: config.NODE_ENV,
     docs: {
       title: 'Solmira Audit API',
-      description: 'Audit trail search and entity history.',
+      description: 'Append-only audit trail of administrative actions.',
     },
   });
 });

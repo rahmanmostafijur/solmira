@@ -3,16 +3,26 @@ import {
   portSchema,
   postgresEnvSchema,
   rabbitmqEnvSchema,
+  redisEnvSchema,
 } from '@solmira/service-kit';
-import type { z } from 'zod';
+import { z } from 'zod';
 
 export const SERVICE_NAME = 'audit-service';
 
-// No Redis: the audit service is a write-heavy event consumer with no cache or realtime needs.
 export const envSchema = baseEnvSchema.extend({
   PORT: portSchema(4005),
   ...postgresEnvSchema.shape,
+  ...redisEnvSchema.shape,
   ...rabbitmqEnvSchema.shape,
+
+  // Access tokens are verified with the key identity-service publishes.
+  IDENTITY_JWKS_URL: z.url().default('http://localhost:4001/api/v1/auth/.well-known/jwks.json'),
+  JWT_ISSUER: z.string().min(1).default('solmira-identity'),
+  JWT_AUDIENCE: z.string().min(1).default('solmira-api'),
+  ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().min(60).max(3600).default(900),
+
+  /** Audit records older than this are removed by the maintenance job. */
+  AUDIT_RETENTION_DAYS: z.coerce.number().int().min(30).max(3650).default(400),
 });
 
 export type AuditConfig = z.infer<typeof envSchema>;

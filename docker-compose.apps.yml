@@ -137,13 +137,29 @@ services:
       IDENTITY_JWKS_URL: http://identity-service:4001/api/v1/auth/.well-known/jwks.json
       DATABASE_URL: postgres://analytics_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_analytics
 
-  audit-service:
-    <<: *service-defaults
+  audit-migrate:
+    image: solmira-audit-service
     build:
       { context: ., dockerfile: infra/docker/service.Dockerfile, args: { SERVICE: audit-service } }
+    command: ['node', 'dist/database/migrate.js']
+    restart: 'no'
+    depends_on:
+      postgres: { condition: service_healthy }
+    environment:
+      MIGRATION_DATABASE_URL: postgres://audit_owner:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_audit
+
+  audit-service:
+    <<: *service-defaults
+    image: solmira-audit-service
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      audit-migrate: { condition: service_completed_successfully }
     environment:
       <<: *common-env
       PORT: 4005
+      IDENTITY_JWKS_URL: http://identity-service:4001/api/v1/auth/.well-known/jwks.json
       DATABASE_URL: postgres://audit_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_audit
 
   # The delivery worker (ADR-0031). It uses the ingest database as its own, narrower role and has

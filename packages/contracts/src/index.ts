@@ -2,6 +2,7 @@ export * from './access.js';
 export * from './analytics.js';
 export * from './api-keys.js';
 export * from './applications.js';
+export * from './audit.js';
 export * from './auth.js';
 export * from './endpoints.js';
 export * from './events.js';

@@ -11,6 +11,7 @@ const config = loadConfig(envSchema, {
   NODE_ENV: 'test',
   LOG_LEVEL: 'silent',
   DATABASE_URL: 'postgres://test:test@127.0.0.1:1/test',
+  REDIS_URL: 'redis://127.0.0.1:1',
   RABBITMQ_URL: 'amqp://test:test@127.0.0.1:1',
 });
 
@@ -33,13 +34,15 @@ describe(SERVICE_NAME, () => {
     await request(app.getHttpServer()).get('/health/live').expect(200, { status: 'ok' });
   });
 
-  it('reports every infrastructure dependency it declares, and only those', async () => {
+  it('reports every infrastructure dependency it declares', async () => {
     const response = await request(app.getHttpServer()).get('/health/ready').expect(503);
 
     expect(response.body.service).toBe(SERVICE_NAME);
     expect(response.body.checks.map((check: { name: string }) => check.name).sort()).toEqual([
       'postgres',
       'rabbitmq',
+      'redis',
+      'row-level-security',
     ]);
   });
 });
