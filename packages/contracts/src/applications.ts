@@ -6,6 +6,7 @@ import {
   includeArchivedSchema,
   nameSchema,
   timestampSchema,
+  whenSent,
 } from './resource-fields.js';
 
 /** Applications and event types (ADR-0025). Both are archived, never hard deleted. */
@@ -46,14 +47,18 @@ export const eventTypeNameSchema = z
   .string()
   .regex(
     EVENT_TYPE_NAME_PATTERN,
-    'Use lowercase letters, digits, dots, dashes and underscores, for example invoice.paid',
-  );
+    'Event type names have 1 to 128 lowercase letters, digits, dots, dashes and underscores, ' +
+      'starting with a letter or digit, for example invoice.paid',
+  )
+  .meta({ examples: ['invoice.paid'] });
 
 const jsonSchemaDocument = z
-  .record(z.string(), z.unknown())
+  .record(z.string(), z.unknown(), {
+    error: whenSent('The schema must be a JSON Schema object, for example {"type": "object"}'),
+  })
   .refine(
     (value) => JSON.stringify(value).length <= MAX_EVENT_TYPE_SCHEMA_BYTES,
-    `The schema must be at most ${MAX_EVENT_TYPE_SCHEMA_BYTES / 1024} KiB`,
+    `The schema can be at most ${MAX_EVENT_TYPE_SCHEMA_BYTES / 1024} KiB of JSON; remove unused parts`,
   );
 
 export const eventTypeSchema = z.object({
@@ -70,7 +75,7 @@ export type EventType = z.infer<typeof eventTypeSchema>;
 export const createEventTypeRequestSchema = z.object({
   name: eventTypeNameSchema.refine(
     (name) => !name.startsWith('solmira.'),
-    'Names starting with solmira. are reserved for the platform',
+    'Names starting with solmira. are reserved for the platform; choose another prefix',
   ),
   description: descriptionSchema.optional(),
   schema: jsonSchemaDocument.optional(),

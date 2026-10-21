@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { eventTypeNameSchema } from './applications.js';
+import { paginationQuerySchema } from './pagination.js';
 import { timestampSchema } from './resource-fields.js';
 
 /** Message ingestion (ADR-0030). */
@@ -32,9 +33,7 @@ export type DeliveryStatus = z.infer<typeof deliveryStatusSchema>;
 export const RESERVED_EVENT_TYPE_PREFIX = 'solmira.';
 export const TEST_EVENT_TYPE = 'solmira.test';
 
-export const messageListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).max(10_000).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+export const messageListQuerySchema = paginationQuerySchema.extend({
   eventType: eventTypeNameSchema.optional(),
   from: timestampSchema.optional(),
   to: timestampSchema.optional(),
@@ -93,9 +92,7 @@ export const messageDetailSchema = messageSummarySchema.omit({ deliveries: true 
 });
 export type MessageDetail = z.infer<typeof messageDetailSchema>;
 
-export const deliveryListQuerySchema = z.object({
-  page: z.coerce.number().int().min(1).max(10_000).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(25),
+export const deliveryListQuerySchema = paginationQuerySchema.extend({
   status: deliveryStatusSchema.optional(),
 });
 export type DeliveryListQuery = z.infer<typeof deliveryListQuerySchema>;
