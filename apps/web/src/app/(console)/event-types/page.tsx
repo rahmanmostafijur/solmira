@@ -1,5 +1,6 @@
 'use client';
 
+import type { EventType } from '@solmira/contracts';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
 import { usePermissions } from '@/components/auth/can';
@@ -15,16 +16,23 @@ import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import { EventTypeForm } from '@/components/webhooks/event-type-form';
 import { describeError } from '@/lib/api/client';
-import { useArchiveEventType, useCreateEventType, useEventTypes } from '@/lib/webhook-queries';
+import {
+  useArchiveEventType,
+  useCreateEventType,
+  useEventTypes,
+  useUpdateEventType,
+} from '@/lib/webhook-queries';
 
 function EventTypes({ organizationId }: { organizationId: string }) {
   const { can } = usePermissions();
   const notify = useToast();
   const [showArchived, setShowArchived] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<EventType | null>(null);
   const [archiving, setArchiving] = useState<{ id: string; name: string } | null>(null);
   const eventTypes = useEventTypes(organizationId, showArchived);
   const create = useCreateEventType(organizationId);
+  const update = useUpdateEventType(organizationId);
   const archive = useArchiveEventType(organizationId);
 
   return (
@@ -51,6 +59,24 @@ function EventTypes({ organizationId }: { organizationId: string }) {
           }}
         />
       </Dialog>
+      <Dialog open={editing !== null} title="Edit event type" onClose={() => setEditing(null)}>
+        {editing && (
+          <EventTypeForm
+            initial={editing}
+            submitLabel="Save"
+            onCancel={() => setEditing(null)}
+            onSubmit={async (values) => {
+              // Emptied fields are cleared: no description, no payload validation.
+              await update.mutateAsync({
+                id: editing.id,
+                change: { description: values.description ?? null, schema: values.schema ?? null },
+              });
+              setEditing(null);
+              notify('Event type saved');
+            }}
+          />
+        )}
+      </Dialog>
       <ConfirmDialog
         open={archiving !== null}
         title={`Archive ${archiving?.name ?? ''}?`}
@@ -60,13 +86,16 @@ function EventTypes({ organizationId }: { organizationId: string }) {
         onCancel={() => setArchiving(null)}
         onConfirm={() =>
           archiving &&
-          archive.mutate(archiving.id, {
-            onSuccess: () => {
-              setArchiving(null);
-              notify('Event type archived');
+          archive.mutate(
+            { id: archiving.id },
+            {
+              onSuccess: () => {
+                setArchiving(null);
+                notify('Event type archived');
+              },
+              onError: (error) => notify(describeError(error), 'error'),
             },
-            onError: (error) => notify(describeError(error), 'error'),
-          })
+          )
         }
       />
       <Panel
@@ -113,13 +142,43 @@ function EventTypes({ organizationId }: { organizationId: string }) {
                   </Td>
                   <Td className="text-ink-muted">{eventType.schema ? 'Validated' : 'None'}</Td>
                   <Td className="text-right">
+                    {can('event_types.update') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Edit ${eventType.name}`}
+                        onClick={() => setEditing(eventType)}
+                      >
+                        Edit
+                      </Button>
+                    )}
                     {can('event_types.delete') && !eventType.archivedAt && (
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label={`Archive ${eventType.name}`}
                         onClick={() => setArchiving({ id: eventType.id, name: eventType.name })}
                       >
                         Archive
+                      </Button>
+                    )}
+                    {can('event_types.delete') && eventType.archivedAt && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Restore ${eventType.name}`}
+                        loading={archive.isPending && archive.variables?.id === eventType.id}
+                        onClick={() =>
+                          archive.mutate(
+                            { id: eventType.id, restore: true },
+                            {
+                              onSuccess: () => notify('Event type restored'),
+                              onError: (error) => notify(describeError(error), 'error'),
+                            },
+                          )
+                        }
+                      >
+                        Restore
                       </Button>
                     )}
                   </Td>

@@ -26,6 +26,7 @@ import type {
   TestSendResult,
   UpdateApplicationRequest,
   UpdateEndpointRequest,
+  UpdateEventTypeRequest,
 } from '@solmira/contracts';
 import { useFeedStatus } from './realtime/feed-status';
 import type { FeedStatus } from './realtime/delivery-feed';
@@ -122,10 +123,20 @@ export function useCreateEventType(org: string) {
   });
 }
 
+export function useUpdateEventType(org: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, change }: { id: string; change: UpdateEventTypeRequest }) =>
+      api<EventType>(`/event-types/${id}`, { method: 'PATCH', body: change }),
+    onSuccess: () => client.invalidateQueries({ queryKey: webhookKeys.eventTypes(org) }),
+  });
+}
+
 export function useArchiveEventType(org: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api<EventType>(`/event-types/${id}/archive`, { method: 'POST' }),
+    mutationFn: ({ id, restore }: { id: string; restore?: boolean }) =>
+      api<EventType>(`/event-types/${id}/${restore ? 'restore' : 'archive'}`, { method: 'POST' }),
     onSuccess: () => client.invalidateQueries({ queryKey: webhookKeys.eventTypes(org) }),
   });
 }
