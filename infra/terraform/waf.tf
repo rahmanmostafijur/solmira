@@ -23,7 +23,7 @@ resource "aws_wafv2_web_acl" "main" {
         aggregate_key_type = "IP"
         scope_down_statement {
           regex_match_statement {
-            regex_string = "^/api/v1/auth/(login|register|forgot-password|reset-password)$"
+            regex_string = "^/api/v1/(auth/(login|register|forgot-password|reset-password)|me/password)$"
             field_to_match {
               uri_path {}
             }

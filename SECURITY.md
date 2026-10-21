@@ -33,6 +33,8 @@ vulnerabilities.
   unknown emails, identical error for unknown email and wrong password.
 - Password reset and email verification: single-use, hashed, expiring tokens (30 min / 24 h);
   `forgot-password` always answers `202`; a reset revokes every session.
+- Password change (`POST /me/password`): needs the current password, counted against the login
+  lockout; revokes every other session of the user.
 - CSRF: `SameSite=Strict` refresh cookie plus a required `x-solmira-client` header on
   cookie-authenticated endpoints; no CORS is configured, so cross-site pages cannot send it.
 
@@ -83,12 +85,12 @@ never the values, of invalid variables. identity-service refuses to start withou
 
 ## Rate limits
 
-| Layer                 | Scope                                                             | Limit                                                    |
-| --------------------- | ----------------------------------------------------------------- | -------------------------------------------------------- |
-| Gateway `auth_per_ip` | `/api/v1/auth/(login\|register\|forgot-password\|reset-password)` | 10 requests/min per IP, burst 5, `429`                   |
-| Gateway `api_per_ip`  | all other API routes                                              | 30 requests/s per IP, burst 60, `429`                    |
-| identity-service      | failed logins per email                                           | 5 per 15-minute fixed window, then `429` + `Retry-After` |
-| identity-service      | password reset emails per address                                 | 3 per hour, extra requests silently dropped              |
+| Layer                 | Scope                                                                                    | Limit                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Gateway `auth_per_ip` | `/api/v1/auth/(login\|register\|forgot-password\|reset-password)`, `/api/v1/me/password` | 10 requests/min per IP, burst 5, `429`                   |
+| Gateway `api_per_ip`  | all other API routes                                                                     | 30 requests/s per IP, burst 60, `429`                    |
+| identity-service      | failed logins per email                                                                  | 5 per 15-minute fixed window, then `429` + `Retry-After` |
+| identity-service      | password reset emails per address                                                        | 3 per hour, extra requests silently dropped              |
 
 JSON request bodies are size-limited by the platform bootstrap.
 

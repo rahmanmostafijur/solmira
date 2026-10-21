@@ -35,11 +35,20 @@ export interface IdentityEventPayloads {
   'user.logged_out': { userId: string; sessionId: string };
   'user.password_reset': { userId: string };
   'user.email_verified': { userId: string };
+  /** Names the changed fields, never their values. */
+  'user.profile_updated': { userId: string; fields: string[] };
+  /** `sessionId` is the session the change was made from; every other session is revoked. */
+  'user.password_changed': { userId: string; sessionId: string };
   'session.revoked': {
     userId: string;
     sessionId: string;
     reason:
-      'logout' | 'user_request' | 'refresh_token_reuse' | 'password_reset' | 'account_disabled';
+      | 'logout'
+      | 'user_request'
+      | 'refresh_token_reuse'
+      | 'password_reset'
+      | 'password_changed'
+      | 'account_disabled';
   };
   'organization.created': { organizationId: string; name: string; ownerUserId: string };
   'organization.updated': { organizationId: string; fields: string[] };

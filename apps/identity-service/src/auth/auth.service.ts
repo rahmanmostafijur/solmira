@@ -1,7 +1,13 @@
 import { Inject, Injectable } from '@nestjs/common';
-import type { AuthSession, LoginRequest, RegisterRequest } from '@solmira/contracts';
+import type {
+  AuthSession,
+  ChangePasswordRequest,
+  LoginRequest,
+  RegisterRequest,
+} from '@solmira/contracts';
 import {
   AccountDisabledError,
+  AppError,
   AttemptCounter,
   ConflictError,
   InvalidCredentialsError,
@@ -11,7 +17,7 @@ import {
   UnauthenticatedError,
   type AuthContext,
 } from '@solmira/service-kit';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Redis } from 'ioredis';
 import { v7 as uuidv7 } from 'uuid';
 import type { IdentityConfig } from '../config.js';
@@ -34,6 +40,15 @@ import {
 export interface AuthResult {
   readonly session: AuthSession;
   readonly refresh: IssuedRefreshToken;
+}
+
+/** Not a 401: the caller is signed in, and a client would take a 401 as "refresh the session". */
+export class InvalidCurrentPasswordError extends AppError {
+  constructor() {
+    super('INVALID_CURRENT_PASSWORD', 'Your current password is incorrect', 400, [
+      { path: 'currentPassword', message: 'Your current password is incorrect' },
+    ]);
+  }
 }
 
 @Injectable()
@@ -80,12 +95,8 @@ export class AuthService {
   }
 
   async login(input: LoginRequest, client: ClientMetadata): Promise<AuthResult> {
-    // Keyed by a hash so raw emails never land in Redis.
-    const throttleKey = `email:${hashToken(input.email)}`;
-    const throttle = await this.loginFailures.status(throttleKey);
-    if (throttle.attempts >= this.config.LOGIN_MAX_FAILURES) {
-      throw new RateLimitedError(throttle.retryAfterSeconds);
-    }
+    const throttleKey = loginThrottleKey(input.email);
+    await this.assertNotLockedOut(throttleKey);
 
     const [user] = await this.database.unscoped((tx) =>
       tx.select().from(users).where(eq(users.email, input.email)),
@@ -155,6 +166,53 @@ export class AuthService {
   }
 
   /**
+   * Changes the password of a signed-in user. Wrong current passwords count towards the same
+   * per-account lockout as login, so a stolen access token gives no extra guesses. Every other
+   * session is revoked; the one the change was made from keeps working.
+   */
+  async changePassword(auth: AuthContext, input: ChangePasswordRequest): Promise<void> {
+    const [user] = await this.database.unscoped((tx) =>
+      tx.select().from(users).where(eq(users.id, auth.userId)),
+    );
+    if (!user) throw new UnauthenticatedError();
+    const throttleKey = loginThrottleKey(user.email);
+    await this.assertNotLockedOut(throttleKey);
+
+    if (!(await this.hasher.verify(user.passwordHash, input.currentPassword))) {
+      await this.loginFailures.record(throttleKey);
+      throw new InvalidCurrentPasswordError();
+    }
+    if (user.status !== 'active') throw new AccountDisabledError();
+    await this.loginFailures.reset(throttleKey);
+
+    const passwordHash = await this.hasher.hash(input.newPassword);
+    const revoked = await this.database.unscoped(async (tx) => {
+      // Conditional on the hash that was verified: a reset or another change that committed in
+      // between wins, and this request is answered as if the current password were wrong.
+      const [changed] = await tx
+        .update(users)
+        .set({ passwordHash, updatedAt: new Date() })
+        .where(and(eq(users.id, user.id), eq(users.passwordHash, user.passwordHash)))
+        .returning({ id: users.id });
+      if (!changed) throw new InvalidCurrentPasswordError();
+      const sessionIds = await this.sessions.revokeAllForUser(
+        tx,
+        user.id,
+        'password_changed',
+        auth.sessionId,
+      );
+      await recordEvent(
+        tx,
+        'user.password_changed',
+        { userId: user.id, sessionId: auth.sessionId },
+        { actorId: user.id },
+      );
+      return sessionIds;
+    });
+    await this.sessions.denylist(revoked);
+  }
+
+  /**
    * The organization id comes from the client, so it is only a request: the new token is issued
    * only if the database confirms an active membership. Otherwise the organization "does not exist".
    */
@@ -189,4 +247,16 @@ export class AuthService {
         : null,
     };
   }
+
+  private async assertNotLockedOut(throttleKey: string): Promise<void> {
+    const throttle = await this.loginFailures.status(throttleKey);
+    if (throttle.attempts >= this.config.LOGIN_MAX_FAILURES) {
+      throw new RateLimitedError(throttle.retryAfterSeconds);
+    }
+  }
+}
+
+/** Keyed by a hash so raw emails never land in Redis. */
+function loginThrottleKey(email: string): string {
+  return `email:${hashToken(email)}`;
 }

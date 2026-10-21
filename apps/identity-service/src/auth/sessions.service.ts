@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type { IdentityEventPayloads, SessionSummary } from '@solmira/contracts';
 import { REVOCATION_STORE, type RevocationStore } from '@solmira/service-kit';
-import { and, desc, eq, gt, isNull } from 'drizzle-orm';
+import { and, desc, eq, gt, isNull, ne } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import type { IdentityConfig } from '../config.js';
 import { Database, type IdentityTransaction } from '../database/database.module.js';
@@ -138,10 +138,12 @@ export class SessionsService {
     await this.revocations.revokeSession(session.id);
   }
 
+  /** Revokes every open session of the user, or every one but `except` (the caller's own). */
   async revokeAllForUser(
     tx: IdentityTransaction,
     userId: string,
     reason: RevokeReason,
+    except?: string,
   ): Promise<string[]> {
     const active = await tx
       .select({
@@ -150,7 +152,13 @@ export class SessionsService {
         activeOrganizationId: sessions.activeOrganizationId,
       })
       .from(sessions)
-      .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)));
+      .where(
+        and(
+          eq(sessions.userId, userId),
+          isNull(sessions.revokedAt),
+          except ? ne(sessions.id, except) : undefined,
+        ),
+      );
     for (const session of active) await this.revokeInTransaction(tx, session, reason);
     return active.map((session) => session.id);
   }
