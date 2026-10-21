@@ -75,7 +75,7 @@ A **session** is one sign-in on one device: a row in `sessions` plus a chain of 
 - `sessions.active_organization_id` remembers which organization the next refresh should issue
   a token for.
 - `revoked_at` and `revoke_reason` (`logout`, `user_request`, `refresh_token_reuse`,
-  `password_reset`, `account_disabled`) record why it ended; each revocation writes a
+  `password_reset`, `password_changed`, `account_disabled`) record why it ended; each revocation writes a
   `session.revoked` outbox event.
 - `GET /api/v1/auth/sessions` lists the caller's active sessions; `DELETE /api/v1/auth/sessions/:id`
   signs out one device. Another user's session id is answered with 404.
@@ -180,10 +180,10 @@ Access tokens are stateless, so revocation needs shared state. `RedisRevocationS
 kinds of marker. Both expire after `ACCESS_TOKEN_TTL_SECONDS + 60`, because by then every token
 they could affect has expired on its own.
 
-| Marker                                 | Value             | Written by                                               | Effect                                                           |
-| -------------------------------------- | ----------------- | -------------------------------------------------------- | ---------------------------------------------------------------- |
-| `auth:revoked:sid:<sessionId>`         | `1`               | logout, device sign-out, reuse detection, password reset | Every access token of that session is rejected                   |
-| `auth:revoked:member:<orgId>:<userId>` | change time in ms | member role change, suspension, removal                  | Tokens for that org and user with `iat_ms <= value` are rejected |
+| Marker                                 | Value             | Written by                                                         | Effect                                                           |
+| -------------------------------------- | ----------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `auth:revoked:sid:<sessionId>`         | `1`               | logout, device sign-out, reuse detection, password reset or change | Every access token of that session is rejected                   |
+| `auth:revoked:member:<orgId>:<userId>` | change time in ms | member role change, suspension, removal                            | Tokens for that org and user with `iat_ms <= value` are rejected |
 
 `AuthGuard` checks both keys with one `MGET` on every authenticated request, after signature
 verification. Tokens minted after a membership change carry the new state and pass.
@@ -226,7 +226,8 @@ Two independent layers:
    guesses. A successful login resets the counter. Failures for unknown emails are counted too, so
    the counter does not reveal which emails exist.
 2. **Per IP, at the gateway.** Nginx zone `auth_per_ip` allows 10 requests per minute per client IP
-   (burst 5) on `/api/v1/auth/(login|register|forgot-password|reset-password)`, answering `429`.
+   (burst 5) on `/api/v1/auth/(login|register|forgot-password|reset-password)` and
+   `/api/v1/me/password`, answering `429`.
    All other API routes share `api_per_ip` (30 r/s, burst 60).
 
 The per-email counter stops targeted guessing spread across many IPs; the per-IP limit stops
@@ -255,6 +256,35 @@ properties as refresh tokens: 256-bit random secret, only `sha256` stored, looke
   identical for every failure cause.
 - Links point at `APP_URL` (`/verify-email?token=...`, `/reset-password?token=...`). Email delivery
   is best-effort after commit; failures are logged, not surfaced.
+
+## Changing the password and the profile
+
+`POST /api/v1/me/password { currentPassword, newPassword }` is for a signed-in user who knows the
+current password.
+
+- The current password is verified with the same Argon2id hasher as login, after the same
+  per-account lockout check, and a wrong one counts towards that **same** counter
+  (`auth:login-failures`, `email:sha256(email)`): a stolen access token adds no guesses, and a
+  locked account answers `429` here as on login. Success resets the counter.
+- A wrong current password answers `400 INVALID_CURRENT_PASSWORD` (with a `currentPassword` field
+  issue), not `401`: the caller is signed in, and the web client treats a `401` as "refresh and
+  retry". A disabled account answers `403 ACCOUNT_DISABLED`, again only to someone who knows the
+  password.
+- The new password must meet `passwordSchema` and differ from the current one (`400 VALIDATION_FAILED`
+  on `newPassword`). Like login, the current password gets no policy check.
+- In one transaction: the new hash is written only if the stored hash is still the one that was
+  verified (a concurrent reset or change wins), every **other** session is revoked with reason
+  `password_changed`, and `user.password_changed { userId, sessionId }` is recorded. After commit the
+  revoked sessions are denylisted. The calling session and its refresh token keep working.
+- Neither the password nor the hash is logged or put in an event; request logging redacts
+  `currentPassword` and `newPassword`.
+
+`PATCH /api/v1/me { fullName }` changes the name (same bounds as registration) and answers like
+`GET /me`; it records `user.profile_updated { userId, fields }`. The email cannot be changed here,
+because a new address needs its own verification.
+
+Both events belong to a person, not to an organization, so the audit policy excludes them like the
+other authentication events (ADR-0036).
 
 ## CSRF
 

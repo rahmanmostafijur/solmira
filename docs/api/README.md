@@ -39,6 +39,7 @@ Every error uses one envelope:
 | `BAD_REQUEST`, `VALIDATION_FAILED`        | 400     | Malformed request or invalid fields (`details`).                              |
 | `UNAUTHENTICATED`, `TOKEN_EXPIRED`        | 401     | Missing, invalid or expired credentials.                                      |
 | `INVALID_CREDENTIALS`, `ACCOUNT_DISABLED` | 401/403 | Login failed or the account is disabled.                                      |
+| `INVALID_CURRENT_PASSWORD`                | 400     | A password change gave the wrong current password.                            |
 | `FORBIDDEN`                               | 403     | Authenticated but missing the permission.                                     |
 | `NOT_FOUND`                               | 404     | Missing, or belongs to another tenant.                                        |
 | `CONFLICT`                                | 409     | State conflict, for example a duplicate.                                      |
@@ -56,7 +57,13 @@ Authentication (`/auth`): `POST /auth/register`, `/auth/login`, `/auth/refresh` 
 `/auth/reset-password`; `GET /auth/.well-known/jwks.json`; sessions: `GET /auth/sessions`,
 `DELETE /auth/sessions/{sessionId}`.
 
-Account: `GET /me`, `POST /invitations/accept`, `GET /roles`, `GET /permissions`.
+Account: `GET|PATCH /me`, `POST /me/password`, `POST /invitations/accept`, `GET /roles`,
+`GET /permissions`.
+
+| Endpoint            | Body                               | Answer and rules                                                                                                                                                                                                                                                                   |
+| ------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PATCH /me`         | `{ fullName }` (1-120, trimmed)    | `200` with the same body as `GET /me`. Any access token, no organization or permission needed. The email cannot be changed here.                                                                                                                                                   |
+| `POST /me/password` | `{ currentPassword, newPassword }` | `204`. Any access token. `newPassword` follows the registration policy and must differ from the current one (`400 VALIDATION_FAILED`). A wrong current password is `400 INVALID_CURRENT_PASSWORD` and counts towards the login lockout (`429`). Every other session is signed out. |
 
 Organizations: `POST /organizations`, `GET /organizations`, `GET|PATCH /organizations/{id}`;
 members: `GET /organizations/{id}/members`, `GET|PATCH|DELETE /organizations/{id}/members/{memberId}`;
