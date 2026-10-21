@@ -26,7 +26,9 @@ const feedUrl = () =>
 /**
  * Keeps one realtime feed open for the active organization (when the role may see deliveries) and
  * turns its events into a refresh of the views that show them. Renders nothing. While the feed is
- * live the views stop polling; after every reconnect they reload, since the feed is live only.
+ * live the views stop polling. Every time it becomes live, the first time included, they reload:
+ * the feed is live only, so an event sent before this connection joined (for example a delivery
+ * that finished while the page was loading) is never replayed, and the view would stay stale.
  */
 export function LiveFeedBridge() {
   const queryClient = useQueryClient();
@@ -37,7 +39,6 @@ export function LiveFeedBridge() {
   useEffect(() => {
     if (!organizationId || !allowed) return;
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
-    let wasOffline = false;
     let firstToken = true;
     const refresh = () => {
       clearTimeout(refreshTimer);
@@ -65,8 +66,7 @@ export function LiveFeedBridge() {
       onEvent: refresh,
       onStatus: (status) => {
         feedStatusStore.set(status);
-        if (status === 'offline') wasOffline = true;
-        if (status === 'live' && wasOffline) refresh();
+        if (status === 'live') refresh();
       },
     });
     feed.start();
