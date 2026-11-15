@@ -45,7 +45,11 @@ one session; mark each work package done in the session log as it lands.
 - **Non-obvious decisions** get an ADR in `docs/adr/` (the next number is `0041`).
 - **Dependencies:** none are added without a stated reason. Section 4.2 lists the ones that need
   approval.
-- **Git:** one branch per phase (naming fixed in Phase 0). Conventional commit messages. No
+- **Git:** one branch per phase, cut from `main` as `product/pN-<slug>` (for example
+  `product/p1-backend-reliability`) and merged back into `main` with a merge commit, never squashed or
+  rebased. `main` is the integration branch; `pivot/webhook-platform` is kept as an alias that is
+  fast-forwarded to `main` after each merge (or retired when the owner says so). Conventional commit
+  messages. No
   destructive Git operation (force push, reset, branch or worktree deletion, history rewrite)
   without the owner's approval. No AI or assistant attribution anywhere: code, comments, docs,
   commit messages, PR text.
@@ -154,8 +158,8 @@ Reference products for quality, not templates: Linear, Vercel, Stripe, Supabase,
 
 | Phase | Theme                                 | Status      | Branch     | Work packages              |
 | ----- | ------------------------------------- | ----------- | ---------- | -------------------------- |
-| P0    | Git and repository preparation        | In progress | (existing) |                            |
-| P1    | Backend reliability                   | Not started | (Phase 0)  | 1A, 1B, 1C, 1D, 1E         |
+| P0    | Git and repository preparation        | Done        | (existing) |                            |
+| P1    | Backend reliability                   | Not started | (Phase 0)  | 1A, 1B, 1C, 1D, 1E, 1F     |
 | P2    | Design system and application shell   | Not started | (Phase 0)  |                            |
 | P3    | Dashboard and onboarding              | Not started | (Phase 0)  |                            |
 | P4    | Core developer workflows              | Not started | (Phase 0)  | 4A resources, 4B debugging |
@@ -263,30 +267,42 @@ Completed:
   Org") now exists in the local database.
 - **P0-8.** `PROGRESS.md`: Phase 14 and 15 lists marked superseded by this roadmap.
 
-Awaiting the owner (nothing below has been done):
+Done after the owner's approval (2026-11-16):
 
-- **P0-6.** Fast-forward `pivot/webhook-platform` (`58f876f`) and `main` (`cf9372f`) to the
-  `phase-13/product-gaps` tip and push the three branches. Needs the owner's approval of the exact
-  commands before they run, and a commit of the P0 changes first. The branch convention (Q-01:
-  `product/pN-<slug>` from `main`, merged back with a merge commit) is to be recorded here after.
-- **P0-7.** Inventory (read-only):
-  - Worktree `agent-a81db53fa26e1b37d` (`phase-13/console-gaps`) holds **uncommitted work**:
-    modified `navigation.ts`, `navigation.test.ts`, `top-bar.tsx`, `packages/contracts/src/notifications.ts`;
-    untracked `(console)/notifications/`, `components/notifications/`, `notification-bell.tsx`,
-    `notification-bell.test.tsx`, `lib/notification-queries.ts`. It is on no branch and no remote. It
-    must not be removed without the owner's decision (commit it, save a patch, or discard).
-  - Worktrees `validation-errors`, `account-api` and `lifecycle-api`: clean, no stash, every commit
-    is contained in `phase-13/product-gaps`. Their branches have no remote; the commits are safe once
-    `product-gaps` is pushed.
-  - The four `worktree-agent-*` branches point at `cf9372f` (`main`): no unique commits.
-  - Phase 3 to 12 branches are merged and exist on the remote.
+- **Attribution check before pushing.** The 7 unpushed commits and every commit reachable from the
+  remote branches were searched for Claude, Anthropic, "generated with", `Co-Authored-By`, "AI" and
+  similar in messages: none found, no `Co-Authored-By` trailer on any ref, no tracked `.claude/`
+  files on `HEAD`, `main`, `pivot/webhook-platform` or `phase-13/product-gaps`, and no commit ever
+  touched `.claude`, `CLAUDE.md` or `AGENTS.md`. Nothing was rewritten. Standing rule from the owner:
+  no AI attribution in commit messages, from now on.
+- **P0-6.** `phase-13/product-gaps` pushed (`615500c..9215923`); `pivot/webhook-platform` (`58f876f`)
+  and `main` (`cf9372f`) fast-forwarded to `9215923` with `git fetch . <branch>:<branch>` (refuses
+  anything but a fast-forward) and pushed. All three local branches and their remotes are at
+  `9215923`. Branch convention recorded in section 1.2. Pushing `main` starts CI there; its result
+  was not observed (`gh` is not logged in).
+- **P0-7.** Option (a) chosen by the owner. The uncommitted notifications work in the
+  `console-gaps` worktree (9 files) was checked for AI references (none), formatted with Prettier
+  (three files failed `format:check`), committed as `4afcbc0` on `phase-13/console-gaps` and pushed
+  with `-u`. That commit was **not** built, linted or tested here, and sits on the old base without
+  the P0 merge; it is a starting point for P5-3, not finished work. Removed with plain
+  `git worktree remove` after re-checking each was clean, had no stash and was merged into `main`:
+  `validation-errors`, `account-api`, `lifecycle-api`. On Windows `git worktree remove` deregistered
+  each one but could not delete its folder ("Directory not empty", about 25,000 files each, mostly
+  `node_modules`), so each leftover folder was deleted by path. Deleted with `git branch -d`:
+  `phase-13/validation-errors`, `phase-13/account-api`, `phase-13/lifecycle-api` and the four
+  `worktree-agent-*` branches (all at `cf9372f`, no unique commits). Kept: the `console-gaps`
+  worktree (`agent-a81db53fa26e1b37d`) and branch, `phase-13/product-gaps`, and every remote branch.
+  `phase-13/console-gaps` can be removed when P5-3 has taken what it needs.
+- **Audit follow-up.** The 2 critical and 4 high findings were not assigned to any phase (this log's
+  first draft wrongly said P7-7). They are now P1 work package **1F**, to be done first in P1:
+  `next` (2 critical, 1 high), `zod`, `body-parser` and `multer` (1 high each).
 
 Decisions: ingest and the dispatcher run with `NODE_ENV=development` in the local container overlay
 (see P0-4). No ADR: it changes no production behaviour.
 
 Not verified: the container stack was not exercised beyond health checks and one sign-in (no send,
 no delivery). Terraform was not run. `gh` is not logged in, so no CI run was observed. Dependency
-audit fails with 12 findings (2 critical, 4 high); not touched in P0, tracked in P7-7.
+audit fails with 12 findings (2 critical, 4 high); not touched in P0, assigned to P1 work package 1F.
 
 Also noticed, outside P0: the README "Limitations" section still says the webhook features are not
 built (P6-7 covers the docs).
@@ -352,9 +368,26 @@ own policy.
 | 1E-1 | Close realtime sockets when a member is removed, suspended or downgraded (react to member events) and re-check on a short interval. | SEC-02 | `apps/notification-service/src/realtime/realtime.gateway.ts`, `apps/notification-service/src/realtime/realtime.hub.ts` |
 | 1E-2 | Tenant regular expressions cannot block ingestion. Spike first; ask the owner before adding `re2` (Q-04).                           | SEC-05 | `apps/ingest-service/src/event-types/json-schema.ts`                                                                   |
 
-**Acceptance:** every task has a regression test that failed before the fix; the chaos suite still
-passes; ADRs exist for held deliveries and for the messaging recovery design; `docs/api/README.md`
-documents the new routes and the held status.
+#### 1F: Dependency vulnerabilities
+
+Added after P0 (2026-11-16). `pnpm audit --prod --audit-level=high` fails today with 12 findings
+(2 critical, 4 high, 6 moderate), so CI's dependency audit job is red. Do this package **first** in
+P1: the critical findings are in the console's own framework.
+
+| Task | Work                                                                                                                                                                                                                                                                                                  | Audit | Likely files                                                                                      |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------------------------------------------------------------------------------- |
+| 1F-1 | `next` to 16.4.1 or later (critical GHSA-2464-fhr4-w9xw and GHSA-673q-mjm6-r5xr, high GHSA-p3m5-59mp-jv5r; affects 16.0.0 to 16.4.0). Read the Next.js guide in `node_modules/next/dist/docs/` first (see `apps/web/AGENTS.md`), then run the web tests, a build and a browser pass.                | BE-27 | `apps/web/package.json`, `pnpm-lock.yaml`                                                         |
+| 1F-2 | `zod` to 4.6.6 or later in analytics-service (high GHSA-mrhx-c7xc-m3w5). Check whether the other workspaces use the same range and keep one version across the workspace.                                                                                                                             | BE-27 | `apps/analytics-service/package.json`, `packages/contracts/package.json`, `pnpm-lock.yaml`        |
+| 1F-3 | `body-parser` 2.4.0 or later (high GHSA-27r3-jxmh-p828) and `multer` 2.5.0 or later (high GHSA-q7qp-rjg7-q26m), both pulled in by `@nestjs/platform-express`. Prefer bumping `@nestjs/platform-express`; use a `pnpm.overrides` entry only if no release carries the fix, and say so in the commit. | BE-27 | `apps/*/package.json` (every service that uses `@nestjs/platform-express`), `pnpm-workspace.yaml` |
+| 1F-4 | Review the 6 moderate findings and fix those that need no behaviour change; list the rest in the session log with the reason. Re-run `pnpm audit --prod --audit-level=high` and confirm the CI audit job passes.                                                                                       | BE-27 | `pnpm-lock.yaml`                                                                                  |
+
+No new packages are added; these are version bumps with the stated reason of a published advisory.
+If a bump needs code changes (a breaking release), stop and record the change in the session log.
+
+**Acceptance:** every task has a regression test that failed before the fix (1F excepted: its check is
+`pnpm audit --prod --audit-level=high` exiting 0, with the existing tests staying green); the chaos
+suite still passes; ADRs exist for held deliveries and for the messaging recovery design;
+`docs/api/README.md` documents the new routes and the held status.
 
 **Session log:** (empty)
 
@@ -556,7 +589,7 @@ Every audit finding has a home: a phase, or section 6.
 | Phase | Findings                                                                                                                                                                                                                                                                   |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | P0    | GIT-01, GIT-02, GIT-03, GIT-04, BE-26, MF-03 (merge)                                                                                                                                                                                                                       |
-| P1    | BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-07, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-15, BE-17, BE-18, BE-21 (auto-disable), BE-23 (processed events, feed signal), SEC-01, SEC-02, SEC-04, SEC-05, SEC-06 (rank, lockout), MF-08 (verification), MF-09 (backend) |
+| P1    | BE-01, BE-02, BE-03, BE-04, BE-05, BE-06, BE-07, BE-08, BE-09, BE-10, BE-11, BE-12, BE-13, BE-15, BE-17, BE-18, BE-21 (auto-disable), BE-23 (processed events, feed signal), BE-27 (dependency audit, 1F), SEC-01, SEC-02, SEC-04, SEC-05, SEC-06 (rank, lockout), MF-08 (verification), MF-09 (backend) |
 | P2    | FE-02, FE-03, FE-10, FE-11, FE-12, FE-13, FE-16, FE-17, FE-20, FE-22, FE-24, FE-25, FE-26, FE-27, FE-28, FE-29                                                                                                                                                             |
 | P3    | FE-01, FE-21, BE-19, BE-22, BE-23 (cap, 404), MF-05, MF-06, MF-07 (organization failures)                                                                                                                                                                                  |
 | P4    | FE-04, FE-05, FE-06, FE-07, FE-13, FE-15, FE-18, FE-23, BE-18 (UI), BE-20 (index), BE-21 (scope, 409), MF-03 (UI), MF-04 (messages), MF-07, MF-09 (UI), MF-10                                                                                                              |

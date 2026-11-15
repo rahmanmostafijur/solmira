@@ -29,7 +29,7 @@ comparison of the services with the console. Ticked when done; each item names i
       and the Terraform offline plan fail on the integration branch. Still open on 2026-11-15:
       `pnpm audit --prod --audit-level=high` reports 12 findings (2 critical, 4 high, 6 moderate),
       among them `multer` under `@nestjs/platform-express`. Terraform is not installed locally, so the
-      plan was not re-run. Tracked in P7-7.
+      plan was not re-run. The audit findings are product roadmap P1 work package 1F.
 - [x] Applications: edit name and description in the console (the API exists). Merged from
       `phase-13/console-gaps` on 2026-11-15.
 - [x] Event types: edit description and schema in the console; restore an archived event type (API and
@@ -89,9 +89,10 @@ comparison of the services with the console. Ticked when done; each item names i
 Decisions that need the owner, or actions that must not be taken without them. Work continued
 around each one.
 
-- **`main` is still at the pre-pivot commit `cf9372f`.** Every phase merged into
-  `pivot/webhook-platform`, which descends from `main`, so `main` can be fast-forwarded with no history
-  rewrite. Moving the default branch is left to the owner.
+- **`main` was moved on 2026-11-16** from the pre-pivot commit `cf9372f` to `9215923`, with the
+  owner's approval, by a fast-forward with no history rewrite. `pivot/webhook-platform` and
+  `phase-13/product-gaps` are at the same commit. See `docs/product-roadmap.md` section 1.2 for the
+  branch convention.
 - **Deleting an organization** is not offered: it spans six services' data and needs a retention
   decision (keep the audit trail? for how long?). Members can still be removed and resources archived.
 - **Multi-factor authentication** (security review F9) is a product and security decision; not built.
