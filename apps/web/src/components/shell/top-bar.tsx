@@ -4,6 +4,7 @@ import { Menu, X } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { findNavItem } from './navigation';
+import { NotificationBell } from './notification-bell';
 import { OrganizationSwitcher } from './organization-switcher';
 import { NavLinks, Wordmark } from './sidebar';
 import { UserMenu } from './user-menu';
@@ -99,6 +100,7 @@ export function TopBar() {
             {ENVIRONMENT_LABEL}
           </span>
         )}
+        <NotificationBell />
         <UserMenu />
       </div>
     </header>

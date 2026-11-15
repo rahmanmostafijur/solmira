@@ -2,6 +2,7 @@ import type { Permission } from '@solmira/contracts';
 import {
   Activity,
   AppWindow,
+  Bell,
   Building2,
   LayoutDashboard,
   ScrollText,
@@ -32,6 +33,13 @@ export const NAVIGATION: readonly NavSection[] = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/organizations', label: 'Organizations', icon: Building2 },
+      {
+        href: '/notifications',
+        label: 'Notifications',
+        icon: Bell,
+        permission: 'notifications.read',
+        requiresOrganization: true,
+      },
     ],
   },
   {

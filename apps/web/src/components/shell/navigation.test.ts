@@ -38,6 +38,17 @@ describe('navigation', () => {
     expect(labels).not.toContain('Applications');
   });
 
+  it('shows notifications only with notifications.read and an organization', () => {
+    const labelsFor = (granted: string, hasOrganization = true) =>
+      visibleSections((permission) => permission === granted, hasOrganization).flatMap((section) =>
+        section.items.map((item) => item.label),
+      );
+    expect(labelsFor('notifications.read')).toContain('Notifications');
+    expect(labelsFor('messages.read')).not.toContain('Notifications');
+    expect(labelsFor('notifications.read', false)).not.toContain('Notifications');
+    expect(findNavItem('/notifications')?.item.label).toBe('Notifications');
+  });
+
   it('shows the audit log only with audit_logs.read', () => {
     const labelsFor = (granted: string) =>
       visibleSections((permission) => permission === granted, true).flatMap((section) =>
