@@ -92,11 +92,15 @@ Requires Node.js 24, pnpm 10 and Docker. If you used Solmira before the pivot, r
 pnpm install
 pnpm infra:up                    # Postgres, Redis, RabbitMQ, Mailpit, gateway
 for s in identity ingest notification analytics audit; do cp apps/$s-service/.env.example apps/$s-service/.env; done
+cp apps/dispatcher/.env.example apps/dispatcher/.env
 cp apps/web/.env.example apps/web/.env
-pnpm turbo run build --filter=@solmira/identity-service... --filter=@solmira/ingest-service...
+pnpm turbo run build --filter='./apps/*-service...' --filter=@solmira/dispatcher...
 pnpm --filter @solmira/identity-service keys:generate   # dev signing keys
 pnpm --filter @solmira/identity-service db:migrate      # schema, RLS policies, roles
 pnpm --filter @solmira/ingest-service db:migrate
+pnpm --filter @solmira/notification-service db:migrate
+pnpm --filter @solmira/analytics-service db:migrate
+pnpm --filter @solmira/audit-service db:migrate
 pnpm dev                         # all services and the web app, in watch mode
 ```
 

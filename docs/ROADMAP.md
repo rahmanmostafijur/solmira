@@ -12,6 +12,8 @@ Every phase has acceptance criteria that a test or a measurement can verify. A p
 when all of them pass and CI is green. Progress is logged in
 [`docs/phases/PROGRESS.md`](phases/PROGRESS.md).
 
+The product and console transformation plan is in [`product-roadmap.md`](product-roadmap.md).
+
 | Phase | Theme                                                | Status |
 | ----- | ---------------------------------------------------- | ------ |
 | 1     | Foundation                                           | Done   |

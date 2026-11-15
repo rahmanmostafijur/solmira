@@ -22,25 +22,42 @@ comparison of the services with the console. Ticked when done; each item names i
 
 ### Phase 13: product gaps (`phase-13/product-gaps`)
 
-- [ ] CI runs on phase branches (it ran only on `main`, so no pivot phase had been checked by CI).
+- [x] CI runs on phase branches (it ran only on `main`, so no pivot phase had been checked by CI).
+      The workflow triggers on `phase-*/**`; checked in `ci.yml` on 2026-11-15, no run observed (`gh` is
+      not logged in).
 - [ ] CI green from a clean checkout: dependency audit (Next.js 16.3.7 and `source-map-js` advisories)
-      and the Terraform offline plan fail on the integration branch.
-- [ ] Applications: edit name and description in the console (the API exists).
-- [ ] Event types: edit description and schema in the console; restore an archived event type (API and
-      console).
-- [ ] Endpoints: restore an archived endpoint (API and console).
-- [ ] API keys: rename (API and console); show revoked keys on request.
+      and the Terraform offline plan fail on the integration branch. Still open on 2026-11-15:
+      `pnpm audit --prod --audit-level=high` reports 12 findings (2 critical, 4 high, 6 moderate),
+      among them `multer` under `@nestjs/platform-express`. Terraform is not installed locally, so the
+      plan was not re-run. Tracked in P7-7.
+- [x] Applications: edit name and description in the console (the API exists). Merged from
+      `phase-13/console-gaps` on 2026-11-15.
+- [x] Event types: edit description and schema in the console; restore an archived event type (API and
+      console). Merged from `phase-13/console-gaps` on 2026-11-15.
+- [x] Endpoints: restore an archived endpoint (API and console). Merged from `phase-13/console-gaps`
+      on 2026-11-15.
+- [x] API keys: rename (API and console); show revoked keys on request. Merged from
+      `phase-13/console-gaps` on 2026-11-15.
 - [ ] Notifications: the API exists, the console has no screen; add a list with mark-read and
       mark-all-read.
 - [ ] Profile: change your name and your password while signed in (only the reset-by-email flow exists).
-- [ ] Stale delivery status in the message list (root cause, fix, regression tests).
-- [ ] Dev-mode restarts: compare with production images; graceful console behaviour while a service
-      restarts; document in DEVELOPMENT.md.
-- [ ] Validation errors name the field, the rule and an example; all limits in the API reference.
+- [x] Stale delivery status in the message list (root cause, fix, regression tests). The live bridge
+      refreshes the live queries when the feed connects, because the feed is live only and never
+      replays (`live-feed-bridge.tsx`, with `live-feed-bridge.test.ts`). Checked in code on
+      2026-11-15; not observed in a browser yet (P0-5).
+- [x] Dev-mode restarts: graceful console behaviour while a service restarts (retry policy merged from
+      `phase-13/console-gaps`) and documented in DEVELOPMENT.md (P0-4). The comparison with the
+      production images was not done.
+- [x] Validation errors name the field, the rule and an example; all limits in the API reference.
+      Merged earlier (`phase-13/validation-errors`).
 - [ ] Each edit, restore and rename is permission-guarded, audited and covered by role and cross-tenant
-      tests.
+      tests. Not re-checked in P0; the lifecycle routes were merged earlier (`phase-13/lifecycle-api`).
 
 ### Phase 14: console redesign (`phase-14/console-redesign`)
+
+> **Superseded by [`docs/product-roadmap.md`](../product-roadmap.md)** (2026-11-15). The items below
+> map onto product phases P2 to P7 (see its section 7). The shadcn/ui and Radix item is replaced by
+> decision D-01 (keep the hand-written primitives). Do not work from this list.
 
 - [ ] shadcn/ui on Tailwind CSS 4 with Radix primitives and lucide icons; obsolete components removed.
 - [ ] Shell: collapsible sidebar, top bar with organization switcher, global search by ID, user menu,
@@ -58,6 +75,9 @@ comparison of the services with the console. Ticked when done; each item names i
       edit/disable, replay, API key create/revoke, application edit/archive.
 
 ### Phase 15: documentation and release hardening (`phase-15/docs-release`)
+
+> **Superseded by [`docs/product-roadmap.md`](../product-roadmap.md)** (2026-11-15): documentation is
+> P6-7, image scanning is P7-6 and the final summary is P7-8. Do not work from this list.
 
 - [ ] README and docs match the product: console screenshots (light and dark) and the architecture
       diagram.

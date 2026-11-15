@@ -73,6 +73,9 @@ services:
       ingest-migrate: { condition: service_completed_successfully }
     environment:
       <<: *common-env
+      # This overlay is for local use with the development key below, which production refuses
+      # (secret-cipher-config.ts). Deployed environments run NODE_ENV=production with KMS.
+      NODE_ENV: development
       PORT: 4002
       DATABASE_URL: postgres://ingest_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_ingest
       IDENTITY_JWKS_URL: http://identity-service:4001/api/v1/auth/.well-known/jwks.json
@@ -173,7 +176,8 @@ services:
       dynamodb: { condition: service_started }
       ingest-migrate: { condition: service_completed_successfully }
     environment:
-      NODE_ENV: production
+      # Local overlay with the development key, which production refuses; see ingest-service.
+      NODE_ENV: development
       LOG_LEVEL: info
       PORT: 4006
       DATABASE_URL: postgres://dispatcher_app:${SERVICE_DB_PASSWORD:-solmira_service_dev_password}@postgres:5432/solmira_ingest

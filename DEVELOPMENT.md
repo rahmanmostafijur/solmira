@@ -21,13 +21,14 @@ Then create each service's `.env` from its example (values already match the com
 for s in identity ingest notification analytics audit; do
   cp apps/$s-service/.env.example apps/$s-service/.env
 done
+cp apps/dispatcher/.env.example apps/dispatcher/.env
 cp apps/web/.env.example apps/web/.env
 ```
 
 Generate the access-token signing key pair and apply the identity database migrations:
 
 ```bash
-pnpm turbo run build --filter=@solmira/identity-service... --filter=@solmira/ingest-service...
+pnpm turbo run build --filter='./apps/*-service...' --filter=@solmira/dispatcher...
 pnpm --filter @solmira/identity-service keys:generate   # writes JWT_PRIVATE_KEY / JWT_PUBLIC_KEY into its .env
 pnpm --filter @solmira/identity-service db:migrate      # runs as identity_owner, syncs roles and permissions
 pnpm --filter @solmira/ingest-service db:migrate        # runs as ingest_owner
@@ -61,6 +62,22 @@ pnpm dev
 `pnpm dev` builds the shared packages, then runs every service in watch mode (`tsc --watch` plus
 `node --watch`) and `next dev` for the web app. Open the console at **http://localhost:8080**
 (not :3000): the browser must use the gateway origin so API calls and auth cookies work.
+
+### Restarts in dev mode
+
+In watch mode each service restarts whenever `tsc --watch` rewrites its `dist/`, so the API is briefly
+unreachable after every edit. The console waits it out: a failed query is retried up to four times
+over about 15 seconds (1, 2, 4 and 8 seconds apart) and the page says it is reconnecting. Mutations
+are never retried automatically, so a save that lands during a restart fails and is sent again by
+hand. The production images do not restart on their own, so this only happens in `pnpm dev`.
+
+### Running the services in containers
+
+`pnpm stack:up` starts the same stack from the production Dockerfiles: the infrastructure from
+`docker-compose.yml` plus the application tier from `docker-compose.apps.yml` (one migration job per
+service, the services, the dispatcher and the web app). It needs `apps/identity-service/.env` for the
+signing keys. `pnpm stack:down` stops it. Only the gateway is published to the host (port 8080); the services talk
+to each other inside the Compose network.
 
 ## Local endpoints
 

@@ -19,7 +19,8 @@
     "format:check": "prettier --check .",
     "infra:up": "docker compose up -d postgres redis rabbitmq dynamodb mailpit gateway",
     "infra:down": "docker compose down",
-    "stack:up": "docker compose --profile apps up -d --build",
+    "stack:up": "docker compose -f docker-compose.yml -f docker-compose.apps.yml up -d --build",
+    "stack:down": "docker compose -f docker-compose.yml -f docker-compose.apps.yml down",
     "clean": "turbo run clean"
   },
   "devDependencies": {
