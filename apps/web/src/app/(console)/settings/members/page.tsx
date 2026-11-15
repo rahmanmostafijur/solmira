@@ -17,8 +17,9 @@ import { useAuth } from '@/components/auth/auth-provider';
 import { Can, usePermissions } from '@/components/auth/can';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { Alert, EmptyState, Panel } from '@/components/ui/feedback';
 import { SelectField, TextField } from '@/components/ui/field';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { RoleBadge } from '@/components/ui/role-badge';
 import { useToast } from '@/components/ui/toast';
 import { describeError } from '@/lib/api/client';
@@ -137,8 +138,8 @@ function MembersTable({
     }
   };
 
-  if (members.isPending) return <LoadingRows label="Loading members" />;
-  if (members.isError) return <Alert tone="error">{describeError(members.error)}</Alert>;
+  if (members.isPending) return <QueryLoading query={members} label="Loading members" />;
+  if (members.isError) return <QueryError query={members} />;
 
   return (
     <>
@@ -273,8 +274,9 @@ function PendingInvitations({ organizationId }: { organizationId: string }) {
   const revoke = useRevokeInvitation(organizationId);
   const notify = useToast();
 
-  if (invitations.isPending) return <LoadingRows rows={1} label="Loading invitations" />;
-  if (invitations.isError) return <Alert tone="error">{describeError(invitations.error)}</Alert>;
+  if (invitations.isPending)
+    return <QueryLoading query={invitations} rows={1} label="Loading invitations" />;
+  if (invitations.isError) return <QueryError query={invitations} />;
   if (invitations.data.length === 0) return <EmptyState title="No pending invitations" />;
 
   return (

@@ -7,8 +7,9 @@ import { useAuth } from '@/components/auth/auth-provider';
 import { usePermissions } from '@/components/auth/can';
 import { permissionGroups } from '@/components/access/permission-groups';
 import { Button } from '@/components/ui/button';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { Alert, EmptyState, Panel } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/page-header';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { RoleBadge } from '@/components/ui/role-badge';
 import { useToast } from '@/components/ui/toast';
 import { describeError } from '@/lib/api/client';
@@ -58,10 +59,10 @@ function SessionsPanel() {
   return (
     <Panel title="Signed-in devices" description="Sign out devices you no longer use.">
       {sessions.isPending ? (
-        <LoadingRows rows={2} label="Loading sessions" />
+        <QueryLoading query={sessions} rows={2} label="Loading sessions" />
       ) : sessions.isError ? (
         <div className="p-5">
-          <Alert tone="error">{describeError(sessions.error)}</Alert>
+          <QueryError query={sessions} />
         </div>
       ) : (
         <ul className="divide-y divide-line">

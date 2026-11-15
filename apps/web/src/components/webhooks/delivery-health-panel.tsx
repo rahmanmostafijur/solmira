@@ -2,9 +2,9 @@
 
 import type { DeliveryStats } from '@solmira/contracts';
 import Link from 'next/link';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { EmptyState, Panel } from '@/components/ui/feedback';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
-import { describeError } from '@/lib/api/client';
 import { useApplicationAnalytics, useEndpoints } from '@/lib/webhook-queries';
 import { formatAttemptsPerDelivery, formatLatency, formatRate } from './delivery-stats';
 
@@ -52,10 +52,10 @@ export function DeliveryHealthPanel({
   return (
     <Panel title="Delivery health" description="The last 24 hours, from every real send.">
       {report.isPending ? (
-        <LoadingRows label="Loading delivery health" />
+        <QueryLoading query={report} label="Loading delivery health" />
       ) : report.isError ? (
         <div className="p-5">
-          <Alert tone="error">{describeError(report.error)}</Alert>
+          <QueryError query={report} />
         </div>
       ) : report.data.summary.attempts === 0 ? (
         <EmptyState title="No deliveries in the last 24 hours" />

@@ -9,10 +9,10 @@ import {
   describeDetails,
   targetLabel,
 } from '@/components/audit/audit-format';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { EmptyState, Panel } from '@/components/ui/feedback';
 import { Pagination } from '@/components/ui/pagination';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
-import { describeError } from '@/lib/api/client';
 import { useAuditLog } from '@/lib/audit-queries';
 
 function AuditLog({ organizationId }: { organizationId: string }) {
@@ -44,10 +44,10 @@ function AuditLog({ organizationId }: { organizationId: string }) {
       }
     >
       {log.isPending ? (
-        <LoadingRows label="Loading the audit log" />
+        <QueryLoading query={log} label="Loading the audit log" />
       ) : log.isError ? (
         <div className="p-5">
-          <Alert tone="error">{describeError(log.error)}</Alert>
+          <QueryError query={log} />
         </div>
       ) : log.data.items.length === 0 ? (
         <EmptyState title="Nothing recorded" description="Administrative actions appear here." />

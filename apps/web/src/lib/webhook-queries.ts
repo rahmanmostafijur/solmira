@@ -24,7 +24,10 @@ import type {
   RotateSecretRequest,
   RotatedSecret,
   TestSendResult,
+  UpdateApiKeyRequest,
+  UpdateApplicationRequest,
   UpdateEndpointRequest,
+  UpdateEventTypeRequest,
 } from '@solmira/contracts';
 import { useFeedStatus } from './realtime/feed-status';
 import type { FeedStatus } from './realtime/delivery-feed';
@@ -80,6 +83,18 @@ export function useCreateApplication(org: string) {
   });
 }
 
+export function useUpdateApplication(org: string, id: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateApplicationRequest) =>
+      api<Application>(`/applications/${id}`, { method: 'PATCH', body }),
+    onSuccess: (application) => {
+      client.setQueryData(webhookKeys.application(org, id), application);
+      void client.invalidateQueries({ queryKey: webhookKeys.applications(org) });
+    },
+  });
+}
+
 export function useArchiveApplication(org: string) {
   const client = useQueryClient();
   return useMutation({
@@ -109,10 +124,20 @@ export function useCreateEventType(org: string) {
   });
 }
 
+export function useUpdateEventType(org: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, change }: { id: string; change: UpdateEventTypeRequest }) =>
+      api<EventType>(`/event-types/${id}`, { method: 'PATCH', body: change }),
+    onSuccess: () => client.invalidateQueries({ queryKey: webhookKeys.eventTypes(org) }),
+  });
+}
+
 export function useArchiveEventType(org: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api<EventType>(`/event-types/${id}/archive`, { method: 'POST' }),
+    mutationFn: ({ id, restore }: { id: string; restore?: boolean }) =>
+      api<EventType>(`/event-types/${id}/${restore ? 'restore' : 'archive'}`, { method: 'POST' }),
     onSuccess: () => client.invalidateQueries({ queryKey: webhookKeys.eventTypes(org) }),
   });
 }
@@ -161,6 +186,18 @@ export function useArchiveEndpoint(org: string, app: string) {
   });
 }
 
+export function useRestoreEndpoint(org: string, app: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api<Endpoint>(`/applications/${app}/endpoints/${id}/restore`, { method: 'POST' }),
+    onSuccess: (endpoint) => {
+      client.setQueryData(webhookKeys.endpoint(org, app, endpoint.id), endpoint);
+      void client.invalidateQueries({ queryKey: webhookKeys.endpoints(org, app) });
+    },
+  });
+}
+
 export function useRevealSecret(app: string, id: string) {
   return useMutation({
     mutationFn: () =>
@@ -192,12 +229,24 @@ export function useTestSend(org: string, app: string, id: string) {
 
 // ---- API keys -----------------------------------------------------------------------------------
 
-export const useApiKeys = (org: string, app: string, enabled = true) =>
+export const useApiKeys = (org: string, app: string, enabled = true, includeRevoked = false) =>
   useQuery({
-    queryKey: webhookKeys.apiKeys(org, app),
-    queryFn: () => api<Page<ApiKey>>(`/applications/${app}/api-keys` + search({ pageSize: 100 })),
+    queryKey: [...webhookKeys.apiKeys(org, app), { includeRevoked }],
+    queryFn: () =>
+      api<Page<ApiKey>>(
+        `/applications/${app}/api-keys` + search({ pageSize: 100, includeRevoked }),
+      ),
     enabled,
   });
+
+export function useRenameApiKey(org: string, app: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, change }: { id: string; change: UpdateApiKeyRequest }) =>
+      api<ApiKey>(`/applications/${app}/api-keys/${id}`, { method: 'PATCH', body: change }),
+    onSuccess: () => client.invalidateQueries({ queryKey: webhookKeys.apiKeys(org, app) }),
+  });
+}
 
 export function useCreateApiKey(org: string, app: string) {
   const client = useQueryClient();

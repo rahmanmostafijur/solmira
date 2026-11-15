@@ -6,8 +6,9 @@ import { usePermissions } from '@/components/auth/can';
 import { RequireOrganization } from '@/components/auth/require-organization';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Alert, LoadingRows, Panel } from '@/components/ui/feedback';
+import { Alert, Panel } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/page-header';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { useToast } from '@/components/ui/toast';
 import { AttemptTimeline } from '@/components/webhooks/attempt-timeline';
 import { STATUS_LABELS, STATUS_TONES } from '@/components/webhooks/delivery-status';
@@ -29,8 +30,8 @@ function MessageInspector({
   const message = useMessage(organizationId, applicationId, messageId);
   const replay = useReplayMessage(organizationId, applicationId, messageId);
 
-  if (message.isPending) return <LoadingRows label="Loading message" />;
-  if (message.isError) return <Alert tone="error">{describeError(message.error)}</Alert>;
+  if (message.isPending) return <QueryLoading query={message} label="Loading message" />;
+  if (message.isError) return <QueryError query={message} />;
   const { data } = message;
 
   const replayDelivery = (endpointId?: string) =>

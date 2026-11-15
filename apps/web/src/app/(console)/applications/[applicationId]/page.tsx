@@ -10,32 +10,41 @@ import { RequireOrganization } from '@/components/auth/require-organization';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { Alert, EmptyState, Panel } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/page-header';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { SecretDisplay } from '@/components/ui/secret-display';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
+import { useToast } from '@/components/ui/toast';
 import { ApiKeysPanel } from '@/components/webhooks/api-keys-panel';
+import { ApplicationForm } from '@/components/webhooks/application-form';
 import { DeliveryHealthPanel } from '@/components/webhooks/delivery-health-panel';
 import { EndpointForm } from '@/components/webhooks/endpoint-form';
-import { describeError } from '@/lib/api/client';
+import { RestoreEndpointButton } from '@/components/webhooks/restore-endpoint-button';
 import {
   useApplication,
   useCreateEndpoint,
   useEndpoints,
   useEventTypes,
+  useUpdateApplication,
 } from '@/lib/webhook-queries';
 
 function ApplicationDetail({ organizationId, id }: { organizationId: string; id: string }) {
   const { can } = usePermissions();
   const application = useApplication(organizationId, id);
-  const endpoints = useEndpoints(organizationId, id);
+  const [showArchived, setShowArchived] = useState(false);
+  const endpoints = useEndpoints(organizationId, id, showArchived);
   const eventTypes = useEventTypes(organizationId);
   const create = useCreateEndpoint(organizationId, id);
+  const update = useUpdateApplication(organizationId, id);
+  const notify = useToast();
+  const [editing, setEditing] = useState(false);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<CreatedEndpoint>();
 
-  if (application.isPending) return <LoadingRows label="Loading application" />;
-  if (application.isError) return <Alert tone="error">{describeError(application.error)}</Alert>;
+  if (application.isPending)
+    return <QueryLoading query={application} label="Loading application" />;
+  if (application.isError) return <QueryError query={application} />;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -43,14 +52,37 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
         title={application.data.name}
         description={application.data.description ?? 'Endpoints, API keys and messages.'}
         actions={
-          <Link
-            href={`/applications/${id}/messages`}
-            className="text-sm font-medium text-accent hover:underline"
-          >
-            Inspect messages
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href={`/applications/${id}/messages`}
+              className="text-sm font-medium text-accent hover:underline"
+            >
+              Inspect messages
+            </Link>
+            {can('applications.update') && !application.data.archivedAt && (
+              <Button variant="secondary" onClick={() => setEditing(true)}>
+                Edit
+              </Button>
+            )}
+          </div>
         }
       />
+      <Dialog open={editing} title="Edit application" onClose={() => setEditing(false)}>
+        <ApplicationForm
+          initial={application.data}
+          submitLabel="Save"
+          onCancel={() => setEditing(false)}
+          onSubmit={async (values) => {
+            // An emptied description is cleared on the server, not left as it was.
+            await update.mutateAsync({
+              name: values.name,
+              description: values.description ?? null,
+            });
+            setEditing(false);
+            notify('Application saved');
+          }}
+        />
+      </Dialog>
       <Dialog open={creating} title="New endpoint" onClose={() => setCreating(false)}>
         <EndpointForm
           eventTypes={eventTypes.data?.items ?? []}
@@ -83,19 +115,29 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
         title="Endpoints"
         description="Where messages are delivered."
         actions={
-          can('endpoints.create') && (
-            <Button size="sm" onClick={() => setCreating(true)}>
-              <Plus aria-hidden className="size-4" />
-              New endpoint
-            </Button>
-          )
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-ink-muted">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(event) => setShowArchived(event.target.checked)}
+              />
+              Show archived
+            </label>
+            {can('endpoints.create') && (
+              <Button size="sm" onClick={() => setCreating(true)}>
+                <Plus aria-hidden className="size-4" />
+                New endpoint
+              </Button>
+            )}
+          </div>
         }
       >
         {endpoints.isPending ? (
-          <LoadingRows label="Loading endpoints" />
+          <QueryLoading query={endpoints} label="Loading endpoints" />
         ) : endpoints.isError ? (
           <div className="p-5">
-            <Alert tone="error">{describeError(endpoints.error)}</Alert>
+            <QueryError query={endpoints} />
           </div>
         ) : endpoints.data.items.length === 0 ? (
           <EmptyState
@@ -109,6 +151,7 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
                 <Th>URL</Th>
                 <Th>Status</Th>
                 <Th>Events</Th>
+                {showArchived && <Th className="text-right">Actions</Th>}
               </Tr>
             </THead>
             <TBody>
@@ -123,7 +166,9 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
                     </Link>
                   </Td>
                   <Td>
-                    {endpoint.enabled ? (
+                    {endpoint.archivedAt ? (
+                      <Badge tone="neutral">Archived</Badge>
+                    ) : endpoint.enabled ? (
                       <Badge tone="success">Enabled</Badge>
                     ) : (
                       <Badge tone="warning">Disabled</Badge>
@@ -134,6 +179,18 @@ function ApplicationDetail({ organizationId, id }: { organizationId: string; id:
                       ? 'All'
                       : `${endpoint.eventTypeIds.length} selected`}
                   </Td>
+                  {showArchived && (
+                    <Td className="text-right">
+                      {endpoint.archivedAt && can('endpoints.delete') && (
+                        <RestoreEndpointButton
+                          organizationId={organizationId}
+                          applicationId={id}
+                          endpointId={endpoint.id}
+                          label={`Restore ${endpoint.url}`}
+                        />
+                      )}
+                    </Td>
+                  )}
                 </Tr>
               ))}
             </TBody>

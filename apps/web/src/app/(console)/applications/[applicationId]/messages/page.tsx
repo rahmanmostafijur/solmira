@@ -5,12 +5,12 @@ import { useParams } from 'next/navigation';
 import { useState } from 'react';
 import { RequireOrganization } from '@/components/auth/require-organization';
 import { Badge } from '@/components/ui/badge';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { EmptyState, Panel } from '@/components/ui/feedback';
 import { PageHeader } from '@/components/ui/page-header';
 import { Pagination } from '@/components/ui/pagination';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { TBody, Table, THead, Td, Th, Tr } from '@/components/ui/table';
 import { summarizeDeliveries } from '@/components/webhooks/delivery-status';
-import { describeError } from '@/lib/api/client';
 import { useFeedStatus } from '@/lib/realtime/feed-status';
 import { useMessages } from '@/lib/webhook-queries';
 
@@ -50,10 +50,10 @@ function Messages({ organizationId, id }: { organizationId: string; id: string }
         }
       >
         {messages.isPending ? (
-          <LoadingRows label="Loading messages" />
+          <QueryLoading query={messages} label="Loading messages" />
         ) : messages.isError ? (
           <div className="p-5">
-            <Alert tone="error">{describeError(messages.error)}</Alert>
+            <QueryError query={messages} />
           </div>
         ) : messages.data.items.length === 0 ? (
           <EmptyState

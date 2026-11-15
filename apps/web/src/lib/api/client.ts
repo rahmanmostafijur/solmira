@@ -16,6 +16,8 @@ export class ApiError extends Error {
     message: string,
     readonly details: readonly FieldIssue[] = [],
     readonly requestId?: string,
+    /** Seconds the server asked to wait (Retry-After), when it said. */
+    readonly retryAfterSeconds?: number,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -87,17 +89,54 @@ async function parseResponse<T>(response: Response): Promise<T> {
   if (response.status === 204) return undefined as T;
   const body: unknown = await response.json().catch(() => undefined);
   if (response.ok) return body as T;
-  throw toApiError(response.status, body);
+  throw toApiError(response.status, body, response.headers.get('Retry-After'));
+}
+
+/** Retry-After in whole seconds; the HTTP-date form is not used by Solmira and is ignored. */
+function parseRetryAfter(value: string | null | undefined): number | undefined {
+  if (!value || !/^\d+$/.test(value.trim())) return undefined;
+  return Number(value.trim());
 }
 
 /** The error for a failed response body, whichever transport (fetch or XHR) produced it. */
-export function toApiError(status: number, body: unknown): ApiError {
+export function toApiError(status: number, body: unknown, retryAfter?: string | null): ApiError {
   const envelope = apiErrorSchema.safeParse(body);
+  const retryAfterSeconds = parseRetryAfter(retryAfter);
   if (envelope.success) {
     const { code, message, details, requestId } = envelope.data.error;
-    return new ApiError(status, code, message, details ?? [], requestId);
+    return new ApiError(status, code, message, details ?? [], requestId, retryAfterSeconds);
   }
-  return new ApiError(status, 'UNEXPECTED_RESPONSE', 'The server returned an unexpected response');
+  return new ApiError(
+    status,
+    'UNEXPECTED_RESPONSE',
+    'The server returned an unexpected response',
+    [],
+    undefined,
+    retryAfterSeconds,
+  );
+}
+
+/** Statuses the gateway answers while an upstream service restarts or is being replaced. */
+const RESTARTING_STATUSES: ReadonlySet<number> = new Set([502, 503, 504]);
+
+/**
+ * True for failures that go away by themselves within seconds: a service restarting behind the
+ * gateway, or a request that never reached it (fetch rejects with a TypeError). Such a failure
+ * says nothing about the request, so a query may repeat it.
+ */
+export function isTransientError(error: unknown): boolean {
+  if (error instanceof ApiError)
+    return error.code === 'SERVICE_UNAVAILABLE' || RESTARTING_STATUSES.has(error.status);
+  return error instanceof TypeError;
+}
+
+const RESTARTING_MESSAGE = 'A Solmira service is restarting. Try again in a few seconds.';
+const SECONDS_PER_MINUTE = 60;
+
+function waitText(seconds: number): string {
+  if (seconds < SECONDS_PER_MINUTE) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+  const minutes = Math.ceil(seconds / SECONDS_PER_MINUTE);
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
 }
 
 /**
@@ -107,7 +146,10 @@ export function toApiError(status: number, body: unknown): ApiError {
 export function describeError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.code === 'RATE_LIMITED')
-      return 'Too many attempts. Wait a few minutes and try again.';
+      return error.retryAfterSeconds
+        ? `Too many attempts. Try again in ${waitText(error.retryAfterSeconds)}.`
+        : 'Too many attempts. Wait a few minutes and try again.';
+    if (isTransientError(error)) return RESTARTING_MESSAGE;
     if (error.status >= 500) return 'Something went wrong on our side. Please try again.';
     const [first, ...others] = error.details;
     if (error.code === 'VALIDATION_FAILED' && first)
@@ -116,5 +158,8 @@ export function describeError(error: unknown): string {
         : `${first.message} (${others.length} more problem${others.length === 1 ? '' : 's'})`;
     return error.message;
   }
-  return 'Could not reach the server. Check your connection and try again.';
+  return (
+    'Could not reach the server. A Solmira service may be restarting, or your connection ' +
+    'dropped. Try again in a few seconds.'
+  );
 }

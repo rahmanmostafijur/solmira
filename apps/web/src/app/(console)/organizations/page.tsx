@@ -11,9 +11,10 @@ import { useForm } from 'react-hook-form';
 import type { z } from 'zod';
 import { useAuth } from '@/components/auth/auth-provider';
 import { Button } from '@/components/ui/button';
-import { Alert, EmptyState, LoadingRows, Panel } from '@/components/ui/feedback';
+import { Alert, EmptyState, Panel } from '@/components/ui/feedback';
 import { TextField } from '@/components/ui/field';
 import { PageHeader } from '@/components/ui/page-header';
+import { QueryError, QueryLoading } from '@/components/ui/query-feedback';
 import { RoleBadge } from '@/components/ui/role-badge';
 import { useToast } from '@/components/ui/toast';
 import { describeError } from '@/lib/api/client';
@@ -114,10 +115,10 @@ export default function OrganizationsPage() {
 
       <Panel title="Your organizations">
         {organizations.isPending ? (
-          <LoadingRows label="Loading organizations" />
+          <QueryLoading query={organizations} label="Loading organizations" />
         ) : organizations.isError ? (
           <div className="p-5">
-            <Alert tone="error">{describeError(organizations.error)}</Alert>
+            <QueryError query={organizations} />
           </div>
         ) : organizations.data.length === 0 ? (
           <EmptyState
